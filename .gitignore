@@ -24,3 +24,8 @@ Thumbs.db
 
 # Vom iCloud-Sync ausgenommene Arbeitsordner (siehe README → iCloud)
 *.nosync
+node_modules
+.next
+.env
+.env.local
+.DS_Store

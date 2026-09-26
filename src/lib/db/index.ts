@@ -1,26 +1,29 @@
 import "server-only";
-import type { Store } from "./store";
-import { memoryStore } from "./memory";
+import type { Db } from "./table";
+import { memoryDb } from "./memory";
 
-let cached: Store | null = null;
+let cached: Db | null = null;
 
-/** Waehlt den Store anhand von LIEFERDANK_DB (memory | supabase). */
-export function getStore(): Store {
+/** Wählt den Speicher über LIEFERDANK_DB (memory | supabase). */
+export function getDb(): Db {
   if (cached) return cached;
-  const backend = (process.env.LIEFERDANK_DB ?? "memory").toLowerCase();
-  if (backend === "supabase") {
-    // Lazy require, damit der Demo-Modus ohne Supabase-Konfiguration laeuft.
-    const { supabaseStore } = require("./supabase") as typeof import("./supabase");
-    cached = supabaseStore;
+  if (backend() === "supabase") {
+    // Lazy, damit der Testmodus ohne Supabase-Konfiguration startet.
+    const { supabaseDb } = require("./supabase") as typeof import("./supabase");
+    cached = supabaseDb;
   } else {
-    cached = memoryStore;
+    cached = memoryDb;
   }
   return cached;
 }
 
-export function isDemoDatabase(): boolean {
-  return (process.env.LIEFERDANK_DB ?? "memory").toLowerCase() !== "supabase";
+function backend(): string {
+  return (process.env.LIEFERDANK_DB ?? "memory").toLowerCase();
 }
 
-export type { Store };
+export function isDemoDatabase(): boolean {
+  return backend() !== "supabase";
+}
+
+export type { Db, Table } from "./table";
 export * from "./types";

@@ -37,6 +37,11 @@ export function currentWeekKeys(now: Date = new Date()): string[] {
   return keys;
 }
 
+/** Monatsschlüssel "YYYY-MM" in deutscher Ortszeit. */
+export function monthKey(date: Date | string = new Date()): string {
+  return dayKey(date).slice(0, 7);
+}
+
 export function previousDayKey(key: string, steps = 1): string {
   return utcToKey(keyToUtc(key) - steps * 86_400_000);
 }

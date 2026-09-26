@@ -1,0 +1,124 @@
+import "server-only";
+import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
+import { cookies } from "next/headers";
+import { SignJWT, jwtVerify } from "jose";
+import { getDb } from "@/lib/db";
+import type { CustomerProfile, DriverProfile, User } from "@/lib/db/types";
+
+/**
+ * Sessions für Web (HttpOnly-Cookie) und App (Bearer-Token).
+ * Beide nutzen dasselbe signierte JWT, gebunden an die Token-Version des Nutzers:
+ * Nach einem Passwortwechsel sind alle älteren Sessions sofort ungültig.
+ */
+
+const scrypt = promisify(scryptCb) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
+
+export const SESSION_COOKIE = "ld_session";
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+
+function secret(): Uint8Array {
+  const value = process.env.AUTH_SECRET;
+  if (!value || value.length < 32) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("AUTH_SECRET fehlt oder ist zu kurz (mind. 32 Zeichen).");
+    }
+    return new TextEncoder().encode("lieferdank-dev-secret-nur-lokal-nicht-produktiv");
+  }
+  return new TextEncoder().encode(value);
+}
+
+/* ---------- Passwörter ---------- */
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16);
+  const key = await scrypt(password, salt, 64);
+  return `scrypt$${salt.toString("hex")}$${key.toString("hex")}`;
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [scheme, saltHex, keyHex] = stored.split("$");
+  if (scheme !== "scrypt" || !saltHex || !keyHex) return false;
+  const key = await scrypt(password, Buffer.from(saltHex, "hex"), 64);
+  const expected = Buffer.from(keyHex, "hex");
+  return expected.length === key.length && timingSafeEqual(key, expected);
+}
+
+/* ---------- Tokens ---------- */
+
+export async function signSessionToken(user: Pick<User, "id" | "tokenVersion">): Promise<string> {
+  return new SignJWT({ sub: user.id, v: user.tokenVersion ?? 0 })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${SESSION_MAX_AGE_SECONDS}s`)
+    .sign(secret());
+}
+
+async function userFromToken(token: string): Promise<User | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    if (typeof payload.sub !== "string") return null;
+    const user = await getDb().users.get(payload.sub);
+    if (!user || user.blockedAt) return null;
+    const version = typeof payload.v === "number" ? payload.v : 0;
+    if (version !== (user.tokenVersion ?? 0)) return null;
+    return user;
+  } catch {
+    return null;
+  }
+}
+
+/* ---------- Web-Session (Cookie) ---------- */
+
+export async function createSession(user: Pick<User, "id" | "tokenVersion">): Promise<void> {
+  const jar = await cookies();
+  jar.set(SESSION_COOKIE, await signSessionToken(user), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  });
+}
+
+export async function destroySession(): Promise<void> {
+  (await cookies()).delete(SESSION_COOKIE);
+}
+
+export type Session = {
+  user: User;
+  driver: DriverProfile | null;
+  customer: CustomerProfile | null;
+};
+
+async function sessionFor(user: User | null): Promise<Session | null> {
+  if (!user) return null;
+  const db = getDb();
+  const [driver, customer] = await Promise.all([
+    user.role === "driver" ? db.driverProfiles.findOne({ userId: user.id }) : Promise.resolve(null),
+    user.role === "customer" ? db.customerProfiles.findOne({ userId: user.id }) : Promise.resolve(null),
+  ]);
+  return { user, driver, customer };
+}
+
+export async function getSession(): Promise<Session | null> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  return sessionFor(token ? await userFromToken(token) : null);
+}
+
+export async function getAdminSession(): Promise<Session | null> {
+  const session = await getSession();
+  return session?.user.role === "admin" ? session : null;
+}
+
+/* ---------- App-Session (Bearer) ---------- */
+
+/**
+ * Für die API: nur Bearer-Tokens. Cookies werden hier bewusst ignoriert,
+ * damit schreibende API-Endpunkte nicht per CSRF missbraucht werden können.
+ */
+export async function getBearerSession(request: Request): Promise<Session | null> {
+  const header = request.headers.get("authorization") ?? "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return sessionFor(match ? await userFromToken(match[1].trim()) : null);
+}

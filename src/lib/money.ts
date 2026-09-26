@@ -1,12 +1,11 @@
 /**
  * Geldlogik von Lieferdank.
  *
- * Grundregeln (Master-Prompt §70–§77):
- *  - Der Kunde zahlt EXAKT den gewaehlten Betrag. Keine Aufschlaege im Checkout.
- *  - Pro Trinkgeldzahlung behaelt die Plattform brutto 0,50 EUR ein.
- *  - Diese 0,50 EUR sind NICHT der Gewinn. Davon gehen Payment-Kosten ab.
+ *  - Der Kunde zahlt EXAKT den gewählten Betrag. Keine Aufschläge im Checkout.
+ *  - Pro Trinkgeld behält die Plattform brutto 0,50 € ein.
+ *  - Die 0,50 € sind NICHT der Gewinn: Payment- und Auszahlungskosten gehen ab.
  *
- * Alle Betraege sind Integer in Cent. Niemals Floats fuer Geld.
+ * Alle Beträge sind Integer in Cent. Niemals Floats für Geld.
  */
 
 export const CURRENCY = "EUR";
@@ -15,70 +14,74 @@ export const CURRENCY = "EUR";
 export const TIP_OPTIONS_CENTS = [200, 300, 500] as const;
 
 /**
- * Untergrenze fuer frei gewaehlte Betraege.
- *
- * Bewusst 2 EUR: Bei 1 EUR waere die feste Plattformgebuehr von 0,50 EUR
- * die Haelfte des Trinkgelds. Das widerspricht der Markenaussage, dass der
- * Zusteller im Mittelpunkt steht -- also gibt es diesen Betrag gar nicht erst.
+ * Untergrenze für frei gewählte Beträge. Bei 1 € wäre die feste Gebühr die
+ * Hälfte des Trinkgelds – diesen Betrag gibt es deshalb bewusst nicht.
  */
 export const MIN_TIP_CENTS = 200;
 export const MAX_TIP_CENTS = 5000;
 
-/** Brutto-Plattformgebuehr pro Zahlung (§71). */
 export const PLATFORM_GROSS_FEE_CENTS = 50;
 
-/**
- * Geschaetzte Kosten des Payment-Providers.
- * Default = Stripe DE Karten (1,5 % + 0,25 EUR). Ueber ENV anpassbar,
- * damit ein Providerwechsel keine Codeaenderung braucht (§74).
- */
-export const PROVIDER_FEE_PERCENT = Number(process.env.PAYMENT_FEE_PERCENT ?? "1.5");
-export const PROVIDER_FEE_FIXED_CENTS = Number(process.env.PAYMENT_FEE_FIXED_CENTS ?? "25");
+function envNumber(name: string, fallback: number): number {
+  const raw = typeof process !== "undefined" ? process.env?.[name] : undefined;
+  const value = raw === undefined || raw === "" ? NaN : Number(raw);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+/** Kalkulierte Payment-Kosten. Default: Stripe DE Karten (1,5 % + 0,25 €). */
+export const PROVIDER_FEE_PERCENT = envNumber("PAYMENT_FEE_PERCENT", 1.5);
+export const PROVIDER_FEE_FIXED_CENTS = envNumber("PAYMENT_FEE_FIXED_CENTS", 25);
+
+/** Kalkulierte Auszahlungskosten. Default: Stripe Connect (0,25 % + 0,10 €). */
+export const PAYOUT_FEE_PERCENT = envNumber("PAYOUT_FEE_PERCENT", 0.25);
+export const PAYOUT_FEE_FIXED_CENTS = envNumber("PAYOUT_FEE_FIXED_CENTS", 10);
 
 export type TipSplit = {
-  /** Was der Kunde zahlt. */
   grossCents: number;
-  /** Was dem Zusteller gutgeschrieben wird. */
   driverCents: number;
-  /** Brutto-Plattformgebuehr (vor Payment-Kosten). */
   platformGrossFeeCents: number;
-  /** Geschaetzte Payment-Provider-Kosten. */
   paymentProviderFeeCents: number;
-  /** Geschaetzte tatsaechliche Lieferdank-Marge (§72). */
+  /** Zum Zahlungszeitpunkt 0 – wird erst bei der Auszahlung verteilt. */
+  payoutFeeCents: number;
   platformNetRevenueCents: number;
 };
 
-/** Rundet kaufmaennisch auf ganze Cent. */
-function roundCents(value: number): number {
-  return Math.round(value);
-}
-
 export function estimateProviderFeeCents(grossCents: number): number {
-  return roundCents((grossCents * PROVIDER_FEE_PERCENT) / 100 + PROVIDER_FEE_FIXED_CENTS);
+  return Math.round((grossCents * PROVIDER_FEE_PERCENT) / 100 + PROVIDER_FEE_FIXED_CENTS);
 }
 
-/**
- * Teilt eine Trinkgeldzahlung auf.
- * Sicherheitsnetz: bei Kleinstbetraegen darf der Zusteller nie negativ werden.
- */
+export function estimatePayoutFeeCents(amountCents: number): number {
+  if (amountCents <= 0) return 0;
+  return Math.round((amountCents * PAYOUT_FEE_PERCENT) / 100 + PAYOUT_FEE_FIXED_CENTS);
+}
+
 export function splitTip(grossCents: number): TipSplit {
   if (!Number.isInteger(grossCents) || grossCents <= 0) {
     throw new Error("splitTip: grossCents muss ein positiver Integer sein");
   }
   const platformGrossFeeCents = Math.min(PLATFORM_GROSS_FEE_CENTS, grossCents);
-  const driverCents = grossCents - platformGrossFeeCents;
   const paymentProviderFeeCents = estimateProviderFeeCents(grossCents);
   return {
     grossCents,
-    driverCents,
+    driverCents: grossCents - platformGrossFeeCents,
     platformGrossFeeCents,
     paymentProviderFeeCents,
+    payoutFeeCents: 0,
     platformNetRevenueCents: platformGrossFeeCents - paymentProviderFeeCents,
   };
 }
 
 export function isAllowedTipAmount(grossCents: number): boolean {
-  return (
-    Number.isInteger(grossCents) && grossCents >= MIN_TIP_CENTS && grossCents <= MAX_TIP_CENTS
-  );
+  return Number.isInteger(grossCents) && grossCents >= MIN_TIP_CENTS && grossCents <= MAX_TIP_CENTS;
+}
+
+/**
+ * Verteilt eine Auszahlungsgebühr cent-genau auf mehrere Trinkgelder.
+ * Die Summe der Anteile ergibt immer exakt die Gebühr.
+ */
+export function allocateFee(feeCents: number, count: number): number[] {
+  if (count <= 0) return [];
+  const base = Math.floor(feeCents / count);
+  const remainder = feeCents - base * count;
+  return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
 }

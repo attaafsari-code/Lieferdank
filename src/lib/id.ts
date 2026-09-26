@@ -1,28 +1,30 @@
-import { randomBytes, randomUUID } from "node:crypto";
-
 /**
- * Alphabet ohne verwechselbare Zeichen (kein I, O, 0, 1).
- * Der Code wird auf gedruckten Karten getragen und muss vorlesbar sein.
+ * IDs und Lieferdank-Codes. Nutzt Web Crypto – läuft in Node, im Browser und
+ * in React Native (mit Polyfill) gleichermaßen.
  */
+
+/** Ohne verwechselbare Zeichen (kein I, O, 0, 1): Der Code steht auf gedruckten Karten. */
 const ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 
-/** Erzeugt einen Lieferdank-Code wie "LD-84K2P" (§56). */
 export function generateLieferdankCode(length = 5): string {
-  const bytes = randomBytes(length);
+  const bytes = new Uint8Array(length);
+  globalThis.crypto.getRandomValues(bytes);
   let out = "";
-  for (let i = 0; i < length; i++) {
-    out += ALPHABET[bytes[i] % ALPHABET.length];
-  }
+  for (let i = 0; i < length; i++) out += ALPHABET[bytes[i] % ALPHABET.length];
   return `LD-${out}`;
 }
 
 export function newId(): string {
-  return randomUUID();
+  return globalThis.crypto.randomUUID();
 }
 
-/** Normalisiert Nutzereingaben ("ld 84k2p" -> "LD-84K2P"). */
+/** "ld 84k2p" → "LD-84K2P". */
 export function normalizeCode(input: string): string {
   const cleaned = input.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
   const body = cleaned.startsWith("LD") ? cleaned.slice(2) : cleaned;
   return `LD-${body}`;
+}
+
+export function isValidCode(code: string): boolean {
+  return /^LD-[23456789A-HJ-NP-Z]{5,6}$/.test(code) || /^LD-DEMO\d{2}$/.test(code);
 }

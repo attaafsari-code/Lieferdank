@@ -4,15 +4,14 @@ import type { PaymentProvider } from "./types";
 
 let cached: PaymentProvider | null = null;
 
-/** Waehlt den Provider ueber PAYMENT_PROVIDER (demo | stripe). */
+/** Wählt den Anbieter über PAYMENT_PROVIDER (demo | stripe). */
 export function getPaymentProvider(): PaymentProvider {
   if (cached) return cached;
-  const id = (process.env.PAYMENT_PROVIDER ?? "demo").toLowerCase();
-  if (id === "stripe") {
+  if (isDemoPayment()) {
+    cached = demoPaymentProvider;
+  } else {
     const { stripePaymentProvider } = require("./stripe") as typeof import("./stripe");
     cached = stripePaymentProvider;
-  } else {
-    cached = demoPaymentProvider;
   }
   return cached;
 }

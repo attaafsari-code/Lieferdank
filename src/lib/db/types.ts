@@ -1,75 +1,140 @@
-export type Role = "driver" | "admin";
+/**
+ * Datenmodell von Lieferdank.
+ *
+ * Alle Geldbeträge sind Integer in Cent. Alle Zeitpunkte sind ISO-Strings (UTC).
+ * Die Tabellennamen in Postgres sind die snake_case-Pluralformen, siehe DATABASE.md.
+ */
 
-export type VerificationStatus = "unverified" | "pending" | "verified" | "rejected";
+export type Role = "driver" | "customer" | "admin";
 
 export type User = {
   id: string;
-  name: string;
+  /** Immer kleingeschrieben gespeichert. */
   email: string;
+  firstName: string;
+  lastName: string;
   phone: string | null;
   role: Role;
   passwordHash: string;
+  /** Wird bei jedem Passwortwechsel erhöht und macht ältere Sessions ungültig. */
+  tokenVersion: number;
   createdAt: string;
   blockedAt: string | null;
   blockedReason: string | null;
-  /**
-   * Wird bei jedem Passwortwechsel erhoeht. Sessions mit einer aelteren
-   * Version gelten sofort als ungueltig -- damit fliegt ein Angreifer nach
-   * einem Passwort-Reset zuverlaessig raus.
-   */
-  tokenVersion: number;
 };
 
-export type PasswordReset = {
-  id: string;
-  userId: string;
-  /** Nur der Hash wird gespeichert, nie das Token selbst. */
-  tokenHash: string;
-  expiresAt: string;
-  usedAt: string | null;
-  createdAt: string;
-};
+/** Welcher Name öffentlich auf Karte und Kundenseite steht. */
+export type NameDisplay = "first" | "last" | "first_initial" | "full" | "custom";
+
+export type VerificationStatus = "unverified" | "pending" | "verified" | "rejected";
 
 export type DriverProfile = {
   id: string;
   userId: string;
-  /** Anzeigename auf der Kundenseite, z. B. "Max". */
-  displayName: string;
-  /** Lieferdank-Code, z. B. LD-84K2P. Global eindeutig. */
+  /** Dauerhafter Lieferdank-Code, z. B. LD-84K2P. Ändert sich nie durch Profiländerungen. */
   code: string;
+  nameDisplay: NameDisplay;
+  customName: string | null;
+  /** Schlüssel im Dateispeicher, nie eine öffentliche URL. */
+  photoKey: string | null;
+  /** false = Foto nur im Dashboard sichtbar. */
+  photoPublic: boolean;
   providerId: string | null;
-  /** Wurde die Anbieterangabe geprueft? Nur dann darf sie prominent erscheinen (§19). */
-  providerVerified: boolean;
-  verification: VerificationStatus;
-  active: boolean;
+  providerPublic: boolean;
+  /** Kurzer persönlicher Text für Karte und Kundenseite. */
+  tagline: string | null;
+  /** Längere Beschreibung, nur auf der Kundenseite. */
+  bio: string | null;
+  /** Intern, wird nie öffentlich angezeigt. */
   city: string | null;
-  /** Konto beim Payment-Provider (z. B. Stripe Connect Account-ID). */
+  /** Freiwilliges Vertrauensabzeichen – keine Voraussetzung für irgendetwas. */
+  verification: VerificationStatus;
+  providerVerified: boolean;
+  active: boolean;
   payoutAccountId: string | null;
-  /** Ist das Auszahlungskonto einsatzbereit? */
   payoutReady: boolean;
+  notifyOnTip: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CustomerProfile = {
+  id: string;
+  userId: string;
   createdAt: string;
 };
 
+export type CardLayout = "classic" | "brand" | "personal";
+
+export type CardDesign = {
+  id: string;
+  driverId: string;
+  layout: CardLayout;
+  headline: string;
+  showPhoto: boolean;
+  showProvider: boolean;
+  updatedAt: string;
+};
+
+/** Eingefrorener Stand einer Karte zum Bestellzeitpunkt. */
+export type CardSnapshot = {
+  layout: CardLayout;
+  headline: string;
+  showPhoto: boolean;
+  showProvider: boolean;
+  publicName: string;
+  providerLabel: string | null;
+  code: string;
+  qrUrl: string;
+};
+
+export type PaymentPurpose = "tip" | "card_order";
 export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded";
+
+/** Eine Transaktion beim Zahlungsdienstleister. Quelle der Wahrheit für den Zahlungsstatus. */
+export type Payment = {
+  id: string;
+  purpose: PaymentPurpose;
+  /** ID des Trinkgelds bzw. der Kartenbestellung. */
+  referenceId: string;
+  provider: string;
+  /** Checkout-Session o. ä. */
+  providerPaymentId: string | null;
+  /** PaymentIntent o. ä. – wird für Rückerstattungen gebraucht. */
+  providerIntentId: string | null;
+  amountCents: number;
+  currency: string;
+  status: PaymentStatus;
+  /** card, apple_pay, google_pay, paypal … sofern der Provider es meldet. */
+  method: string | null;
+  failureReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PayoutStatus = "pending" | "in_balance" | "paid_out";
 
 export type Tip = {
   id: string;
   driverId: string;
+  paymentId: string;
+  /** Nur gesetzt, wenn ein eingeloggter Kunde gegeben hat. Für den Zusteller nie sichtbar. */
+  customerId: string | null;
   grossCents: number;
   driverCents: number;
   platformGrossFeeCents: number;
   paymentProviderFeeCents: number;
+  /** Anteil der Auszahlungsgebühr, wird bei der Auszahlung verteilt. */
+  payoutFeeCents: number;
   platformNetRevenueCents: number;
   currency: string;
+  /** Spiegel von Payment.status für schnelle Auswertungen. */
   paymentStatus: PaymentStatus;
   payoutStatus: PayoutStatus;
-  provider: string;
-  providerPaymentId: string | null;
+  payoutId: string | null;
   /**
-   * Konto des Zustellers beim Zahlungsdienstleister, falls der Anteil direkt
-   * dorthin geflossen ist. Ist es null, haelt die Plattform das Geld noch und
-   * muss es beim Auszahlen aktiv ueberweisen.
+   * Konto des Zustellers, falls der Anteil direkt dorthin floss (Destination Charge).
+   * null = die Plattform hält das Geld und überweist bei der Auszahlung.
    */
   destinationAccountId: string | null;
   createdAt: string;
@@ -78,13 +143,70 @@ export type Tip = {
 export type ThankYou = {
   id: string;
   driverId: string;
-  /** id aus PRESET_MESSAGES oder null. */
-  presetId: string | null;
-  /** Optionaler kurzer Freitext. */
-  message: string | null;
-  /** Verknuepfte Trinkgeldzahlung, falls vorhanden. */
   tipId: string | null;
+  customerId: string | null;
+  presetId: string | null;
+  message: string | null;
   createdAt: string;
+};
+
+export type Payout = {
+  id: string;
+  driverId: string;
+  amountCents: number;
+  /** Tatsächlich überwiesener Teil (der Rest lag schon beim Zusteller). */
+  transferredCents: number;
+  feeCents: number;
+  status: "pending" | "paid" | "failed";
+  provider: string;
+  providerTransferId: string | null;
+  tipIds: string[];
+  failureReason: string | null;
+  createdAt: string;
+  completedAt: string | null;
+};
+
+export type DriverFavorite = {
+  id: string;
+  /** users.id des Kunden. */
+  customerId: string;
+  driverId: string;
+  nickname: string | null;
+  createdAt: string;
+};
+
+export type CardProduct = "standard" | "personalized";
+export type CardOrderStatus =
+  | "requested"
+  | "confirmed"
+  | "in_production"
+  | "shipped"
+  | "delivered"
+  | "cancelled";
+
+export type CardOrder = {
+  id: string;
+  driverId: string;
+  product: CardProduct;
+  quantity: number;
+  unitPriceCents: number;
+  totalCents: number;
+  currency: string;
+  paymentStatus: "not_required" | "pending" | "paid";
+  paymentId: string | null;
+  design: CardSnapshot;
+  shippingName: string;
+  shippingStreet: string;
+  shippingPostalCode: string;
+  shippingCity: string;
+  shippingCountry: string;
+  status: CardOrderStatus;
+  carrier: string | null;
+  trackingNumber: string | null;
+  reorderOf: string | null;
+  createdAt: string;
+  updatedAt: string;
+  shippedAt: string | null;
 };
 
 export type Verification = {
@@ -92,7 +214,6 @@ export type Verification = {
   userId: string;
   identityStatus: VerificationStatus;
   driverStatus: VerificationStatus;
-  /** Beschreibung des eingereichten Nachweises. Dokumente liegen im MVP nicht oeffentlich. */
   documentNote: string | null;
   reviewNote: string | null;
   updatedAt: string;
@@ -115,35 +236,75 @@ export type AdminAction = {
   createdAt: string;
 };
 
-/** Ein Scan der Kundenseite. Basis fuer die Scan-to-Payment Conversion (§80). */
 export type Scan = {
   id: string;
   driverId: string;
   createdAt: string;
 };
 
-export type Database = {
-  users: User[];
-  passwordResets: PasswordReset[];
-  driverProfiles: DriverProfile[];
-  tips: Tip[];
-  thankYous: ThankYou[];
-  verifications: Verification[];
-  milestones: Milestone[];
-  adminActions: AdminAction[];
-  scans: Scan[];
+export type PasswordReset = {
+  id: string;
+  userId: string;
+  /** Nur der SHA-256-Hash, nie das Token selbst. */
+  tokenHash: string;
+  expiresAt: string;
+  usedAt: string | null;
+  createdAt: string;
 };
 
+/** Technische Ereignisse für den Adminbereich: fehlgeschlagene Zahlungen, Mails, Webhooks. */
+export type SystemEvent = {
+  id: string;
+  level: "info" | "warning" | "error";
+  source: string;
+  message: string;
+  context: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+/** Alle Tabellen mit ihrem Zeilentyp. Der Schlüssel ist der Name im Code. */
+export type Tables = {
+  users: User;
+  driverProfiles: DriverProfile;
+  customerProfiles: CustomerProfile;
+  cardDesigns: CardDesign;
+  cardOrders: CardOrder;
+  payments: Payment;
+  tips: Tip;
+  thankYous: ThankYou;
+  payouts: Payout;
+  driverFavorites: DriverFavorite;
+  verifications: Verification;
+  milestones: Milestone;
+  adminActions: AdminAction;
+  scans: Scan;
+  passwordResets: PasswordReset;
+  systemEvents: SystemEvent;
+};
+
+export type TableName = keyof Tables;
+
+export type Database = { [K in TableName]: Tables[K][] };
+
+export const TABLE_NAMES: TableName[] = [
+  "users",
+  "driverProfiles",
+  "customerProfiles",
+  "cardDesigns",
+  "cardOrders",
+  "payments",
+  "tips",
+  "thankYous",
+  "payouts",
+  "driverFavorites",
+  "verifications",
+  "milestones",
+  "adminActions",
+  "scans",
+  "passwordResets",
+  "systemEvents",
+];
+
 export function emptyDatabase(): Database {
-  return {
-    users: [],
-    passwordResets: [],
-    driverProfiles: [],
-    tips: [],
-    thankYous: [],
-    verifications: [],
-    milestones: [],
-    adminActions: [],
-    scans: [],
-  };
+  return Object.fromEntries(TABLE_NAMES.map((name) => [name, []])) as unknown as Database;
 }
