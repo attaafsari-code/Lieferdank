@@ -6,9 +6,9 @@ import { formatEuro } from "@/lib/format";
 import { PLATFORM_GROSS_FEE_CENTS } from "@/lib/money";
 
 export const metadata: Metadata = {
-  title: "Für Zusteller",
+  title: "Für Lieferanten",
   description:
-    "Dein Einsatz verdient ein Danke. Hol dir deinen persönlichen Lieferdank-Code – kostenlos, ohne Verifizierungshürde.",
+    "Für Paketzusteller, Essenslieferanten und Kuriere: dein persönlicher Lieferdank-Code – kostenlos und sofort einsatzbereit.",
   alternates: { canonical: "/fahrer" },
 };
 
@@ -20,6 +20,14 @@ const BENEFITS = [
   {
     title: "Sofort einsatzbereit",
     text: "Nach der Registrierung hast du deinen QR-Code. Kein Arbeitgebernachweis, keine Wartezeit, keine Freischaltung.",
+  },
+  {
+    title: "Du bestimmst, was man sieht",
+    text: "Nur Vorname, „Herr Müller“ oder voller Name. Foto ja oder nein. Lieferdienst anzeigen oder nicht. Jederzeit änderbar.",
+  },
+  {
+    title: "Deine eigene Karte",
+    text: "Gestalte deine Karte mit eigenem Text. Als Bild fürs Handy, zum Ausdrucken oder als echte Plastikkarte.",
   },
   {
     title: "Der Code gehört dir",
@@ -43,7 +51,7 @@ export default function DriversPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Für Zusteller"
+        eyebrow="Für Paket-, Essens- und Kurierfahrer"
         title="Dein Einsatz verdient ein Danke."
         lead="Hol dir deinen persönlichen Lieferdank-Code und gib deinen Kunden eine einfache Möglichkeit, Danke zu sagen."
       />
@@ -51,7 +59,7 @@ export default function DriversPage() {
       <div className="container-page max-w-5xl pb-24">
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link href="/register" className="btn btn-primary btn-lg w-full sm:w-auto">
-            Kostenlos starten
+            Als Lieferant starten
             <ArrowRight className="h-[1.05rem] w-[1.05rem]" />
           </Link>
           <Link href="/so-funktionierts" className="btn btn-ghost btn-lg w-full sm:w-auto">
@@ -92,7 +100,7 @@ export default function DriversPage() {
 
         <div className="mt-16 text-center">
           <Link href="/register" className="btn btn-primary btn-lg">
-            Danke-Code erstellen
+            Als Lieferant starten
             <ArrowRight className="h-[1.05rem] w-[1.05rem]" />
           </Link>
         </div>

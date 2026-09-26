@@ -1,22 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getStore } from "@/lib/db";
-import { newId, normalizeCode } from "@/lib/id";
-import { providerLabel } from "@/lib/providers";
+import { findDriverByCode, toPublicDriver } from "@/server/services/drivers";
+import { recordScan } from "@/server/services/thanks";
+import { getPaymentProvider } from "@/server/payments";
 import { PLATFORM_GROSS_FEE_CENTS } from "@/lib/money";
 import { LogoMark } from "@/components/logo";
 import { ThankYouScreen } from "./thank-you-screen";
 
 export const dynamic = "force-dynamic";
 
-type Params = { params: Promise<{ code: string }>; searchParams: Promise<Record<string, string | undefined>> };
+type Params = {
+  params: Promise<{ code: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
+};
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { code } = await params;
-  const driver = await getStore().getDriverByCode(normalizeCode(code));
+  const found = await findDriverByCode(code);
+  const name = found?.user ? toPublicDriver(found.driver, found.user).name : null;
   return {
-    title: driver ? `Danke an ${driver.displayName}` : "Danke sagen",
-    description: "Sag deinem Zusteller Danke – kostenlos, ohne App.",
+    title: name ? `Sag ${name} Danke` : "Danke sagen",
+    description: "Sag deinem Zusteller Danke – kostenlos, ohne App, in wenigen Sekunden.",
     robots: { index: false, follow: false },
   };
 }
@@ -24,28 +28,20 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function ThankYouPage({ params, searchParams }: Params) {
   const { code } = await params;
   const query = await searchParams;
-  const store = getStore();
-  const driver = await store.getDriverByCode(normalizeCode(code));
+  const found = await findDriverByCode(code);
 
-  if (!driver) return <UnknownCode />;
-
-  const user = await store.getUserById(driver.userId);
+  if (!found) return <UnknownCode />;
+  const { driver, user } = found;
   if (!driver.active || !user || user.blockedAt) return <InactiveCode />;
 
-  // Scan zaehlen -- Basis fuer die Scan-to-Payment Conversion (§80).
-  // Die Eigenvorschau des Zustellers zaehlt nicht mit.
-  if (query.vorschau !== "1") {
-    await store.createScan(driver.id, newId(), new Date().toISOString());
-  }
+  // Scan zählen – Basis der Scan-to-Payment-Conversion. Die Eigenvorschau zählt nicht.
+  if (query.vorschau !== "1") await recordScan(driver.id);
 
   return (
     <ThankYouScreen
-      code={driver.code}
-      displayName={driver.displayName}
-      verified={driver.verification === "verified"}
-      providerLabel={providerLabel(driver.providerId)}
-      providerVerified={driver.providerVerified}
+      driver={toPublicDriver(driver, user)}
       platformFeeCents={PLATFORM_GROSS_FEE_CENTS}
+      paymentMethods={getPaymentProvider().methodsLabel}
       cancelled={query.abgebrochen === "1"}
     />
   );
@@ -68,7 +64,7 @@ function UnknownCode() {
   return (
     <Shell
       title="Diesen Danke-Code gibt es nicht"
-      text="Bitte prüfe, ob der QR-Code vollständig gescannt wurde. Falls der Code auf einer Karte steht, kann er auch abgelaufen sein."
+      text="Bitte prüfe, ob der QR-Code vollständig gescannt wurde. Steht der Code auf einer Karte, kann er auch ersetzt worden sein."
     />
   );
 }
@@ -77,7 +73,7 @@ function InactiveCode() {
   return (
     <Shell
       title="Dieser Danke-Code ist gerade pausiert"
-      text="Der Zusteller kann aktuell kein Danke empfangen. Vielleicht später noch einmal versuchen."
+      text="Der Lieferant kann aktuell kein Danke empfangen. Vielleicht später noch einmal versuchen."
     />
   );
 }

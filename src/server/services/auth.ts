@@ -41,7 +41,7 @@ export const loginSchema = z.object({
 });
 
 /** Übersetzt Zod-Fehler in einen ServiceError mit Feldzuordnung. */
-export function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
+export function parseInput<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, input: unknown): T {
   const parsed = schema.safeParse(input);
   if (parsed.success) return parsed.data;
   const issue = parsed.error.issues[0];

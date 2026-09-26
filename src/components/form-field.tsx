@@ -8,6 +8,8 @@ type Props = {
   error?: string;
   hint?: string;
   required?: boolean;
+  maxLength?: number;
+  onChange?: (value: string) => void;
 };
 
 /** Einheitliches Formularfeld inklusive Fehler- und Hinweistext. */
@@ -21,6 +23,8 @@ export function FormField({
   error,
   hint,
   required,
+  maxLength,
+  onChange,
 }: Props) {
   const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
 
@@ -37,6 +41,8 @@ export function FormField({
         defaultValue={defaultValue}
         placeholder={placeholder}
         required={required}
+        maxLength={maxLength}
+        onChange={onChange ? (event) => onChange(event.target.value) : undefined}
         aria-invalid={error ? "true" : undefined}
         aria-describedby={describedBy}
         className="field"

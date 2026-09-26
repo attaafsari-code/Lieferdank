@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteAccount, setActive } from "@/lib/actions/driver-actions";
+import { deleteDriverAccountAction, setActiveAction } from "@/server/actions/driver";
 
 export function ActiveToggle({ active }: { active: boolean }) {
   const [pending, startTransition] = useTransition();
@@ -21,7 +21,7 @@ export function ActiveToggle({ active }: { active: boolean }) {
       <button
         type="button"
         disabled={pending}
-        onClick={() => startTransition(() => setActive(!active))}
+        onClick={() => startTransition(() => setActiveAction(!active))}
         className="btn btn-ghost btn-sm shrink-0"
       >
         {active ? "Pausieren" : "Aktivieren"}
@@ -59,7 +59,7 @@ export function DeleteAccount() {
         <button
           type="button"
           disabled={pending}
-          onClick={() => startTransition(() => deleteAccount())}
+          onClick={() => startTransition(() => deleteDriverAccountAction())}
           className="btn btn-coral btn-sm"
         >
           {pending ? "Wird gelöscht …" : "Endgültig löschen"}

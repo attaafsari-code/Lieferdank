@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { canonicalBase } from "@/lib/site";
+import { canonicalBase } from "@/server/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
@@ -8,7 +8,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/so-funktionierts",
     "/faq",
     "/register",
-    "/login",
     "/legal/impressum",
     "/legal/datenschutz",
     "/legal/agb",

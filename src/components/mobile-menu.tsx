@@ -7,7 +7,17 @@ import { usePathname } from "next/navigation";
 
 type NavLink = { href: string; label: string };
 
-export function MobileMenu({ links, loggedIn }: { links: NavLink[]; loggedIn: boolean }) {
+export function MobileMenu({
+  links,
+  loggedIn,
+  home = "/dashboard",
+  homeLabel = "Dashboard",
+}: {
+  links: NavLink[];
+  loggedIn: boolean;
+  home?: string;
+  homeLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
@@ -69,13 +79,13 @@ export function MobileMenu({ links, loggedIn }: { links: NavLink[]; loggedIn: bo
 
         <div className="mt-8 space-y-2.5 border-t border-line pt-8">
           {loggedIn ? (
-            <NextLink href="/dashboard" className="btn btn-primary w-full">
-              Zum Dashboard
+            <NextLink href={home} className="btn btn-primary w-full">
+              {homeLabel}
             </NextLink>
           ) : (
             <>
               <NextLink href="/register" className="btn btn-primary w-full">
-                Kostenlos Danke-Code holen
+                Als Lieferant starten
               </NextLink>
               <NextLink href="/login" className="btn btn-ghost w-full">
                 Anmelden

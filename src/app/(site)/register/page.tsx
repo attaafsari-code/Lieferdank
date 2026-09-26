@@ -1,31 +1,32 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getSession } from "@/server/session";
+import { homePathFor } from "@/server/services/auth";
 import { AuthShell } from "@/components/auth-shell";
 import { Check } from "@/components/icons";
 import { RegisterForm } from "./register-form";
 
 export const metadata: Metadata = {
-  title: "Danke-Code erstellen",
-  description:
-    "Erstelle kostenlos dein Lieferdank-Profil und erhalte sofort deinen persönlichen Danke-Code.",
+  title: "Als Lieferant starten",
+  description: "Erstelle kostenlos dein Lieferdank-Profil und erhalte sofort deinen persönlichen Danke-Code.",
   alternates: { canonical: "/register" },
 };
 
 const POINTS = [
   "Sofort einsatzbereit – ohne Freischaltung",
-  "Danke sagen ist für Kunden kostenlos",
+  "Du entscheidest, was Kunden von dir sehen",
   "Dein Code bleibt deiner, auch beim Jobwechsel",
 ];
 
 export default async function RegisterPage() {
-  if (await getSession()) redirect("/dashboard");
+  const session = await getSession();
+  if (session) redirect(homePathFor(session.user));
 
   return (
     <AuthShell
-      title="Hol dir deinen Danke-Code"
-      lead="Kostenlos für Zusteller. In unter zwei Minuten eingerichtet."
+      title="Als Lieferant starten"
+      lead="Kostenlos. In unter zwei Minuten hast du deinen persönlichen Danke-Code."
       footer={
         <>
           Schon registriert?{" "}
@@ -45,7 +46,6 @@ export default async function RegisterPage() {
           </li>
         ))}
       </ul>
-
       <RegisterForm />
     </AuthShell>
   );

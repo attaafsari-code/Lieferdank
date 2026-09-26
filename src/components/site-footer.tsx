@@ -5,7 +5,7 @@ const COLUMNS = [
   {
     title: "Produkt",
     links: [
-      { href: "/fahrer", label: "Für Zusteller" },
+      { href: "/fahrer", label: "Für Lieferanten" },
       { href: "/so-funktionierts", label: "So funktioniert's" },
       { href: "/faq", label: "FAQ" },
     ],
@@ -13,9 +13,9 @@ const COLUMNS = [
   {
     title: "Konto",
     links: [
-      { href: "/register", label: "Registrieren" },
+      { href: "/register", label: "Als Lieferant starten" },
+      { href: "/konto/registrieren", label: "Kundenkonto" },
       { href: "/login", label: "Anmelden" },
-      { href: "/dashboard", label: "Dashboard" },
     ],
   },
   {

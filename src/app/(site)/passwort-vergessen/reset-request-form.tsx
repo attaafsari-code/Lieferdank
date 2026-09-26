@@ -3,14 +3,15 @@
 import { useActionState } from "react";
 import { FormAlert, FormField } from "@/components/form-field";
 import { Check } from "@/components/icons";
-import { requestPasswordReset, type ResetRequestState } from "@/lib/actions/auth-actions";
+import { requestResetAction } from "@/server/actions/auth";
+import type { FormState } from "@/server/actions/form-state";
 
-const initial: ResetRequestState = {};
+const initial: FormState = {};
 
 export function ResetRequestForm() {
-  const [state, action, pending] = useActionState(requestPasswordReset, initial);
+  const [state, action, pending] = useActionState(requestResetAction, initial);
 
-  if (state.sent) {
+  if (state.saved) {
     return (
       <div className="text-center">
         <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-brand-50">

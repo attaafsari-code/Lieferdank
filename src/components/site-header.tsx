@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Logo } from "./logo";
 import { MobileMenu } from "./mobile-menu";
-import { getSession } from "@/lib/auth";
+import { getSession } from "@/server/session";
 
 export const NAV_LINKS = [
-  { href: "/fahrer", label: "Für Zusteller" },
+  { href: "/fahrer", label: "Für Lieferanten" },
   { href: "/so-funktionierts", label: "So funktioniert's" },
   { href: "/faq", label: "FAQ" },
 ];
@@ -12,6 +12,9 @@ export const NAV_LINKS = [
 export async function SiteHeader() {
   const session = await getSession();
   const loggedIn = Boolean(session);
+  const home =
+    session?.user.role === "admin" ? "/admin" : session?.user.role === "customer" ? "/konto" : "/dashboard";
+  const homeLabel = session?.user.role === "customer" ? "Meine Lieferanten" : session?.user.role === "admin" ? "Admin" : "Dashboard";
 
   return (
     <header className="no-print sticky top-0 z-50 border-b border-line/70 bg-white/80 backdrop-blur-xl">
@@ -34,8 +37,8 @@ export async function SiteHeader() {
 
         <div className="flex items-center gap-2">
           {loggedIn ? (
-            <Link href="/dashboard" className="btn btn-primary btn-sm">
-              Dashboard
+            <Link href={home} className="btn btn-primary btn-sm">
+              {homeLabel}
             </Link>
           ) : (
             <>
@@ -43,11 +46,11 @@ export async function SiteHeader() {
                 Anmelden
               </Link>
               <Link href="/register" className="btn btn-primary btn-sm">
-                Danke-Code holen
+                Als Lieferant starten
               </Link>
             </>
           )}
-          <MobileMenu links={NAV_LINKS} loggedIn={loggedIn} />
+          <MobileMenu links={NAV_LINKS} loggedIn={loggedIn} home={home} homeLabel={homeLabel} />
         </div>
       </div>
     </header>

@@ -1,6 +1,6 @@
 import "server-only";
 import { networkInterfaces } from "node:os";
-import { classifyUrl, PRODUCTION_URL, resolveBaseUrl, type BaseUrlKind } from "./base-url";
+import { classifyUrl, PRODUCTION_URL, resolveBaseUrl, type BaseUrlKind } from "@/lib/base-url";
 
 export { PRODUCTION_URL, type BaseUrlKind };
 

@@ -2,13 +2,13 @@
 
 import { useActionState } from "react";
 import { Check } from "@/components/icons";
-import { submitVerification } from "@/lib/actions/driver-actions";
-import type { FormState } from "@/lib/actions/auth-actions";
+import { requestBadgeAction } from "@/server/actions/driver";
+import type { FormState } from "@/server/actions/form-state";
 
 const initial: FormState = {};
 
 export function VerificationForm({ existingNote }: { existingNote: string | null }) {
-  const [state, action, pending] = useActionState(submitVerification, initial);
+  const [state, action, pending] = useActionState(requestBadgeAction, initial);
   const error = state.fieldErrors?.documentNote;
 
   if (state.saved) {

@@ -14,11 +14,15 @@ export const metadata: Metadata = {
 const DRIVER_STEPS = [
   {
     title: "Registrieren",
-    text: "Du erstellst kostenlos dein Profil. Wir fragen nur, was wir wirklich brauchen.",
+    text: "Du erstellst kostenlos dein Profil und bekommst sofort deinen dauerhaften Lieferdank-Code.",
   },
   {
-    title: "Danke-Code erhalten",
-    text: "Sofort nach der Registrierung: dein persönlicher QR-Code, digital und als druckbare Karte.",
+    title: "Profil personalisieren",
+    text: "Welcher Name öffentlich erscheint, ob mit Foto, ob mit Lieferdienst – das entscheidest du.",
+  },
+  {
+    title: "Karte gestalten",
+    text: "Eigener Text, drei Designs. Herunterladen, ausdrucken oder als Plastikkarte bestellen.",
   },
   {
     title: "Sichtbar tragen",
@@ -45,11 +49,15 @@ const CUSTOMER_STEPS = [
   },
   {
     title: "Optional Trinkgeld",
-    text: "2 €, 3 €, 5 € oder ein eigener Betrag. Freiwillig, nie eine Bedingung.",
+    text: "2 €, 3 €, 5 € oder ein eigener Betrag – mit Apple Pay, Google Pay, PayPal oder Karte. Freiwillig.",
   },
   {
     title: "Kurze Nachricht",
     text: "Danach kannst du noch etwas Nettes schreiben. Auch das ist optional.",
+  },
+  {
+    title: "Lieferant speichern",
+    text: "Wer mag, speichert seine Lieblingslieferanten in einem kostenlosen Konto. Nötig ist das nie.",
   },
 ];
 
@@ -63,7 +71,7 @@ export default function HowItWorksPage() {
       />
 
       <div className="container-page max-w-3xl pb-24">
-        <Section title="Für Zusteller" steps={DRIVER_STEPS} />
+        <Section title="Für Lieferanten" steps={DRIVER_STEPS} />
         <Section title="Für Kunden" steps={CUSTOMER_STEPS} />
 
         <section className="mt-16">
@@ -85,7 +93,7 @@ export default function HowItWorksPage() {
                     Kunde zahlt
                   </th>
                   <th className="px-5 py-3.5 text-xs font-bold tracking-wide text-ink-faint uppercase">
-                    Zusteller erhält
+                    Lieferant erhält
                   </th>
                   <th className="px-5 py-3.5 text-xs font-bold tracking-wide text-ink-faint uppercase">
                     Abwicklung
@@ -118,7 +126,7 @@ export default function HowItWorksPage() {
 
         <div className="mt-16 text-center">
           <Link href="/register" className="btn btn-primary btn-lg">
-            Kostenlos Danke-Code erstellen
+            Als Lieferant starten
             <ArrowRight className="h-[1.05rem] w-[1.05rem]" />
           </Link>
         </div>

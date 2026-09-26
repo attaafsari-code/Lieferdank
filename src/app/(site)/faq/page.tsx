@@ -27,6 +27,18 @@ const FAQ_DRIVERS = [
     a: "Nein. Du kannst dich registrieren und sofort loslegen – Danke-Code und Danke-Funktion sind ohne Prüfung nutzbar. Nur für die Auszahlung prüft unser Zahlungsdienstleister deine Identität, so wie es bei jedem Konto gesetzlich vorgeschrieben ist.",
   },
   {
+    q: "Welcher Name steht auf meiner Karte?",
+    a: "Das entscheidest du: nur Vorname, Vorname mit Initial, voller Name, nur Nachname oder ein eigener Anzeigename wie „Herr Müller“. Du kannst das jederzeit ändern – dein QR-Code bleibt dabei derselbe.",
+  },
+  {
+    q: "Muss ich ein Foto hochladen?",
+    a: "Nein. Ohne Foto zeigen wir einen Avatar mit deinen Initialen. Wenn du eins hochlädst, kannst du es öffentlich zeigen oder nur im Dashboard behalten. Standortdaten werden beim Hochladen entfernt.",
+  },
+  {
+    q: "Kann ich eine echte Karte bekommen?",
+    a: "Ja. Du kannst deine gestaltete Karte als Plastikkarte bestellen – oder sie selbst ausdrucken bzw. am Handy zeigen.",
+  },
+  {
     q: "Was bringt mir das Verifiziert-Abzeichen?",
     a: "Es ist freiwillig. Wenn wir deine Zustellertätigkeit bestätigt haben, sehen Kunden auf deiner Seite „✓ Verifizierter Zusteller“. Das schafft Vertrauen, ist aber keine Voraussetzung für irgendetwas.",
   },
@@ -58,6 +70,14 @@ const FAQ_CUSTOMERS = [
     a: "Nein. Weder für ein Danke noch für ein Trinkgeld brauchst du ein Konto.",
   },
   {
+    q: "Wie kann ich bezahlen?",
+    a: "Mit Apple Pay, Google Pay, PayPal oder Karte – abgewickelt von einem regulierten Zahlungsdienstleister. Lieferdank sieht deine Kartendaten nie.",
+  },
+  {
+    q: "Kann ich Lieferanten speichern?",
+    a: "Ja, mit einem kostenlosen Kundenkonto. Dann findest du deine Lieblingslieferanten jederzeit wieder. Der Lieferant sieht nicht, wer ihn gespeichert hat.",
+  },
+  {
     q: "Kostet Danke sagen etwas?",
     a: "Nein, ein Danke ist immer kostenlos. Trinkgeld ist freiwillig und nie Voraussetzung.",
   },
@@ -81,10 +101,10 @@ export default function FaqPage() {
       <PageHeader
         eyebrow="Hilfe"
         title="Häufige Fragen"
-        lead="Alles, was Zusteller und Kunden vor dem ersten Danke wissen wollen."
+        lead="Alles, was Lieferanten und Kunden vor dem ersten Danke wissen wollen."
       />
       <div className="container-page max-w-3xl pb-24">
-        <Group title="Für Zusteller" items={FAQ_DRIVERS} />
+        <Group title="Für Lieferanten" items={FAQ_DRIVERS} />
         <Group title="Für Kunden" items={FAQ_CUSTOMERS} />
 
         <p className="mt-16 text-center text-ink-soft">

@@ -1,18 +1,12 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
-import { getDriverStats } from "@/lib/stats";
-import { getStore } from "@/lib/db";
-import { formatEuro } from "@/lib/format";
-import { providerLabel } from "@/lib/providers";
+import { requireDriver } from "@/server/guards";
+import { getDriverStats } from "@/server/services/stats";
+import { cardContext } from "@/server/services/cards";
+import { formatDateTime, formatEuro } from "@/lib/format";
+import { dativeName } from "@/lib/names";
 import { ArrowRight, Check, Euro, Heart } from "@/components/icons";
-import {
-  EmptyState,
-  MilestoneList,
-  SectionTitle,
-  StatTile,
-  ThankYouList,
-} from "@/components/dashboard-ui";
+import { CardPreview } from "@/components/card-preview";
+import { EmptyState, MilestoneList, SectionTitle, StatTile, ThankYouList } from "@/components/dashboard-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -21,145 +15,125 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const session = await getSession();
-  if (!session?.driver) redirect("/login");
-
+  const { user, driver } = await requireDriver();
   const query = await searchParams;
-  const driver = session.driver;
-  const [stats, verification] = await Promise.all([
-    getDriverStats(driver.id),
-    getStore().getVerificationByUserId(session.user.id),
-  ]);
-
+  const [stats, card] = await Promise.all([getDriverStats(driver.id), cardContext(driver, user)]);
   const welcome = query.willkommen === "1";
 
   const steps = [
-    { done: true, label: "Profil erstellt", href: "/dashboard/profil" },
-    { done: true, label: "Danke-Code erhalten", href: "/dashboard/code" },
+    { done: true, label: "Danke-Code erhalten", href: "/dashboard/karte" },
     {
-      done: Boolean(driver.providerId),
-      label: "Zustelldienst angeben",
-      optional: true,
+      done: Boolean(driver.tagline || driver.photoKey || driver.providerId || driver.nameDisplay !== "first"),
+      label: "Profil personalisieren",
       href: "/dashboard/profil",
     },
-    {
-      done: driver.payoutReady,
-      label: "Auszahlungskonto einrichten",
-      href: "/dashboard/einnahmen",
-    },
+    { done: card.design.updatedAt !== driver.createdAt, label: "Karte gestalten", href: "/dashboard/karte" },
+    { done: driver.payoutReady, label: "Auszahlungskonto einrichten", href: "/dashboard/einnahmen" },
   ];
-  const openSteps = steps.filter((step) => !step.done);
+  const openSteps = steps.filter((step) => !step.done).length;
 
   return (
     <div className="space-y-12">
       <header>
         <h1 className="text-[1.75rem] font-extrabold tracking-tight text-brand-900">
-          {welcome ? `Willkommen bei Lieferdank, ${driver.displayName}!` : `Schön, dass du da bist, ${driver.displayName}`}{" "}
-          <span aria-hidden>👋</span>
+          {welcome ? `Willkommen, ${user.firstName}!` : `Hallo ${user.firstName}`} <span aria-hidden>👋</span>
         </h1>
         <p className="mt-1.5 text-ink-soft">
-          Dein Code{" "}
-          <span className="font-mono font-bold text-ink">{driver.code}</span>
-          {driver.providerId && ` · unterwegs für ${providerLabel(driver.providerId)}`}
+          Kunden sehen dich als <span className="font-semibold text-ink">„{card.publicName}“</span> ·{" "}
+          <span className="font-mono">{driver.code}</span>
         </p>
       </header>
 
-      {welcome && (
-        <section className="rounded-2xl border border-brand-100 bg-brand-50 p-6">
-          <p className="font-bold text-brand-900">Dein Danke-Code ist fertig.</p>
-          <p className="mt-1.5 leading-relaxed text-brand-900/80">
-            Zeig ihn deinen Kunden – als Karte, am Handy oder am Schlüsselband. Danke sagen
-            ist für Kunden kostenlos.
-          </p>
-          <Link href="/dashboard/code" className="btn btn-primary btn-sm mt-5">
-            Meinen QR-Code ansehen
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </section>
-      )}
-
-      {driver.verification === "rejected" && verification?.reviewNote && (
-        <section className="rounded-2xl border border-coral-100 bg-coral-50 p-6">
-          <p className="font-bold text-coral-600">Abzeichen nicht bestätigt</p>
-          <p className="mt-1.5 leading-relaxed text-ink">{verification.reviewNote}</p>
-          <p className="mt-2 text-sm text-ink-soft">
-            Dein Danke-Code funktioniert weiterhin ganz normal.
-          </p>
-          <Link href="/dashboard/profil#abzeichen" className="btn btn-ghost btn-sm mt-5">
-            Erneut einreichen
-          </Link>
-        </section>
+      {!driver.active && (
+        <p className="rounded-2xl border border-coral-100 bg-coral-50 px-5 py-4 text-sm font-semibold text-coral-600">
+          Dein Code ist pausiert – Kunden können dir gerade nicht Danke sagen.{" "}
+          <Link href="/dashboard/profil" className="underline">Aktivieren</Link>
+        </p>
       )}
 
       <section>
         <SectionTitle>Heute</SectionTitle>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <StatTile
-            tone="coral"
-            icon={<Heart className="h-5 w-5" />}
-            value={String(stats.today.thanks)}
-            label="Danke"
-          />
-          <StatTile
-            icon={<Euro className="h-5 w-5" />}
-            value={formatEuro(stats.today.driverCents)}
-            label="verdient"
-          />
+        <div className="grid gap-3 sm:grid-cols-3">
+          <StatTile tone="coral" icon={<Heart className="h-5 w-5" />} value={String(stats.today.thanks)} label="Danke" />
+          <StatTile icon={<Euro className="h-5 w-5" />} value={formatEuro(stats.today.driverCents)} label="Trinkgeld" />
+          <StatTile icon={<Check className="h-5 w-5" />} value={formatEuro(stats.balanceCents)} label="Guthaben" />
         </div>
       </section>
 
-      <section>
-        <SectionTitle>Diese Woche</SectionTitle>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <StatTile
-            tone="coral"
-            icon={<Heart className="h-5 w-5" />}
-            value={String(stats.week.thanks)}
-            label="Danke"
-          />
-          <StatTile
-            icon={<Euro className="h-5 w-5" />}
-            value={formatEuro(stats.week.driverCents)}
-            label="verdient"
-          />
+      <section className="grid gap-8 sm:grid-cols-2">
+        <div>
+          <SectionTitle>Diese Woche</SectionTitle>
+          <div className="grid grid-cols-2 gap-3">
+            <MiniStat value={String(stats.week.thanks)} label="Danke" />
+            <MiniStat value={formatEuro(stats.week.driverCents)} label="Einnahmen" />
+          </div>
         </div>
-        {stats.streakDays >= 2 && (
-          <p className="mt-3 rounded-2xl bg-brand-50 px-4 py-3.5 text-sm font-semibold text-brand-900">
-            🔥 {stats.streakDays} Tage hintereinander ein Danke erhalten.
+        <div>
+          <SectionTitle>Diesen Monat</SectionTitle>
+          <div className="grid grid-cols-2 gap-3">
+            <MiniStat value={String(stats.month.thanks)} label="Danke" />
+            <MiniStat value={formatEuro(stats.month.driverCents)} label="Einnahmen" />
+          </div>
+        </div>
+      </section>
+
+      {stats.streakDays >= 2 && (
+        <p className="-mt-6 rounded-2xl bg-brand-50 px-4 py-3.5 text-sm font-semibold text-brand-900">
+          🔥 {stats.streakDays} Tage hintereinander ein Danke erhalten.
+        </p>
+      )}
+
+      <section className="grid items-start gap-6 rounded-3xl border border-line bg-white p-5 shadow-xs sm:grid-cols-[1.1fr_1fr] sm:p-6">
+        <CardPreview
+          className="overflow-hidden rounded-xl shadow-md"
+          layout={card.design.layout}
+          headline={card.design.headline}
+          publicName={card.publicName}
+          providerLabel={card.design.showProvider ? card.providerLabel : null}
+          code={card.code}
+          qrSvg={card.qr}
+          avatar={
+            card.design.showPhoto || card.design.layout === "personal"
+              ? { href: card.design.showPhoto ? card.photoUrl : null, initials: card.initials }
+              : null
+          }
+          idPrefix="dash"
+        />
+        <div>
+          <h2 className="text-lg font-extrabold text-brand-900">Deine Lieferdank-Karte</h2>
+          <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink-soft">
+            Zeig den QR-Code am Handy, trag die Karte sichtbar oder bestell eine echte Plastikkarte.
           </p>
-        )}
+          <div className="mt-5 flex flex-col gap-2.5">
+            <Link href="/dashboard/karte" className="btn btn-primary btn-sm">
+              Karte gestalten & herunterladen
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link href="/dashboard/karte/bestellen" className="btn btn-ghost btn-sm">
+              Plastikkarte bestellen
+            </Link>
+          </div>
+        </div>
       </section>
 
-      {openSteps.length > 0 && (
+      {openSteps > 0 && (
         <section>
           <SectionTitle>Nächste Schritte</SectionTitle>
           <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-xs">
             {steps.map((step) => (
               <li key={step.label}>
-                <Link
-                  href={step.href}
-                  className="flex items-center gap-3.5 px-5 py-4 transition hover:bg-canvas"
-                >
+                <Link href={step.href} className="flex items-center gap-3.5 px-5 py-4 transition hover:bg-canvas">
                   <span
                     aria-hidden
                     className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${
-                      step.done
-                        ? "bg-brand-50 text-brand"
-                        : "border-[1.5px] border-line bg-white"
+                      step.done ? "bg-brand-50 text-brand" : "border-[1.5px] border-line bg-white"
                     }`}
                   >
                     {step.done && <Check className="h-3.5 w-3.5" />}
                   </span>
                   <span className="sr-only">{step.done ? "Erledigt: " : "Offen: "}</span>
-                  <span
-                    className={`flex-1 font-semibold ${
-                      step.done ? "text-ink-faint line-through" : "text-ink"
-                    }`}
-                  >
+                  <span className={`flex-1 font-semibold ${step.done ? "text-ink-faint line-through" : "text-ink"}`}>
                     {step.label}
-                    {step.optional && !step.done && (
-                      <span className="ml-2 font-medium text-ink-faint">optional</span>
-                    )}
                   </span>
                   {!step.done && <ArrowRight className="h-4 w-4 shrink-0 text-ink-faint" />}
                 </Link>
@@ -170,23 +144,45 @@ export default async function DashboardPage({
       )}
 
       <section>
-        <SectionTitle action={{ href: "/dashboard/danke", label: "Alle ansehen" }}>
-          Letzte Nachrichten
-        </SectionTitle>
-        <ThankYouList items={stats.recentThankYous.slice(0, 5)} />
+        <SectionTitle action={{ href: "/dashboard/danke", label: "Alle ansehen" }}>Letzte Nachrichten</SectionTitle>
+        <ThankYouList items={stats.recentThankYous.slice(0, 4)} />
       </section>
 
       <section>
-        <SectionTitle>Meilensteine</SectionTitle>
-        {stats.milestones.length === 0 ? (
+        <SectionTitle action={{ href: "/dashboard/einnahmen", label: "Alle ansehen" }}>Letzte Zahlungen</SectionTitle>
+        {stats.recentTips.length === 0 ? (
           <EmptyState>
-            Dein erster Meilenstein wartet: Sobald dir jemand das erste Mal Danke sagt,
-            findest du ihn hier.
+            Noch kein Trinkgeld. Danke sagen ist für Kunden kostenlos – Trinkgeld kommt oft später dazu.
           </EmptyState>
         ) : (
-          <MilestoneList items={stats.milestones.slice(0, 4)} />
+          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-xs">
+            {stats.recentTips.slice(0, 4).map((tip) => (
+              <li key={tip.id} className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <span className="text-sm text-ink-soft">{formatDateTime(tip.createdAt)}</span>
+                <span className="font-bold text-ink">+ {formatEuro(tip.driverCents)}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
+
+      <section>
+        <SectionTitle action={{ href: "/dashboard/danke", label: "Alle" }}>Meilensteine</SectionTitle>
+        <MilestoneList items={stats.milestones.slice(0, 4)} />
+      </section>
+
+      <p className="text-center text-xs text-ink-faint">
+        Tipp: Kunden sehen „Sag {dativeName(card.publicName)} Danke“ – ändern kannst du das im Profil.
+      </p>
+    </div>
+  );
+}
+
+function MiniStat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="rounded-2xl border border-line bg-white px-4 py-3.5 shadow-xs">
+      <p className="text-xl font-extrabold tracking-tight text-brand-900">{value}</p>
+      <p className="text-xs text-ink-soft">{label}</p>
     </div>
   );
 }

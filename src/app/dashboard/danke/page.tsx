@@ -1,16 +1,13 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
-import { getDriverStats } from "@/lib/stats";
+import { requireDriver } from "@/server/guards";
+import { getDriverStats } from "@/server/services/stats";
 import { MilestoneList, PageTitle, SectionTitle, ThankYouList } from "@/components/dashboard-ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Deine Danke" };
 
 export default async function ThankYousPage() {
-  const session = await getSession();
-  if (!session?.driver) redirect("/login");
-
-  const stats = await getDriverStats(session.driver.id);
+  const { driver } = await requireDriver();
+  const stats = await getDriverStats(driver.id);
 
   return (
     <div className="space-y-12">

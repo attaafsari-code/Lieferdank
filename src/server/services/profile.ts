@@ -33,7 +33,6 @@ export const profileSchema = z
     bio: optionalText(280),
     city: optionalText(60),
     phone: optionalText(40),
-    photoPublic: z.boolean(),
     notifyOnTip: z.boolean(),
   })
   .refine((data) => data.nameDisplay !== "custom" || Boolean(data.customName), {
@@ -63,7 +62,6 @@ export async function updateDriverProfile(user: User, driver: DriverProfile, inp
     tagline: input.tagline,
     bio: input.bio,
     city: input.city,
-    photoPublic: input.photoPublic,
     notifyOnTip: input.notifyOnTip,
     updatedAt: now,
   });
@@ -80,6 +78,11 @@ export async function uploadDriverPhoto(driver: DriverProfile, bytes: Uint8Array
   const previous = driver.photoKey;
   await getDb().driverProfiles.update(driver.id, { photoKey: key, updatedAt: new Date().toISOString() });
   if (previous) await removeFile(previous).catch(() => undefined);
+}
+
+/** Foto öffentlich oder nur im eigenen Dashboard sichtbar. */
+export async function setPhotoPublic(driver: DriverProfile, photoPublic: boolean): Promise<void> {
+  await getDb().driverProfiles.update(driver.id, { photoPublic, updatedAt: new Date().toISOString() });
 }
 
 export async function removeDriverPhoto(driver: DriverProfile): Promise<void> {

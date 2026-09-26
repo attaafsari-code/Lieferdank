@@ -2,12 +2,13 @@
 
 import { useActionState } from "react";
 import { FormAlert, FormField } from "@/components/form-field";
-import { completePasswordReset, type FormState } from "@/lib/actions/auth-actions";
+import { completeResetAction } from "@/server/actions/auth";
+import type { FormState } from "@/server/actions/form-state";
 
 const initial: FormState = {};
 
 export function NewPasswordForm({ token }: { token: string }) {
-  const [state, action, pending] = useActionState(completePasswordReset, initial);
+  const [state, action, pending] = useActionState(completeResetAction, initial);
   const errors = state.fieldErrors ?? {};
 
   return (

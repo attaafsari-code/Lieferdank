@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
-import { getDriverStats } from "@/lib/stats";
+import { requireDriver } from "@/server/guards";
+import { getDb } from "@/lib/db";
+import { getDriverStats } from "@/server/services/stats";
+import { isDemoPayment } from "@/server/payments";
 import { formatDateTime, formatEuro } from "@/lib/format";
 import { PLATFORM_GROSS_FEE_CENTS } from "@/lib/money";
 import { nextPayoutDateLabel } from "@/lib/time";
-import { isDemoPayment } from "@/lib/payments";
 import { EmptyState, PageTitle, SectionTitle } from "@/components/dashboard-ui";
 import { Check } from "@/components/icons";
 import { PayoutSetup } from "./payout-setup";
@@ -18,39 +18,32 @@ export default async function EarningsPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const session = await getSession();
-  if (!session?.driver) redirect("/login");
-
+  const { driver } = await requireDriver();
   const query = await searchParams;
-  const driver = session.driver;
-  const stats = await getDriverStats(driver.id);
+  const [stats, payouts] = await Promise.all([
+    getDriverStats(driver.id),
+    getDb().payouts.findMany({ where: { driverId: driver.id }, orderBy: "createdAt", desc: true, limit: 20 }),
+  ]);
 
   return (
     <div className="space-y-12">
-      <PageTitle
-        title="Einnahmen"
-        lead="Dein Trinkgeld sammelt sich als Guthaben und wird gebündelt ausgezahlt."
-      />
+      <PageTitle title="Einnahmen" lead="Dein Trinkgeld sammelt sich als Guthaben und wird gebündelt ausgezahlt." />
 
       <section className="relative overflow-hidden rounded-3xl bg-brand-900 p-7 text-white shadow-md">
-        <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-16 -right-10 h-52 w-52 rounded-full bg-brand/40 blur-3xl" />
-        </div>
+        <div aria-hidden className="pointer-events-none absolute -top-16 -right-10 h-52 w-52 rounded-full bg-brand/40 blur-3xl" />
         <div className="relative">
           <p className="text-sm font-semibold text-white/60">Lieferdank-Guthaben</p>
-          <p className="mt-1.5 text-[2.75rem] leading-none font-extrabold tracking-tight">
-            {formatEuro(stats.balanceCents)}
-          </p>
+          <p className="mt-1.5 text-[2.75rem] leading-none font-extrabold tracking-tight">{formatEuro(stats.balanceCents)}</p>
           <p className="mt-4 text-[0.9375rem] text-white/75">
             {driver.payoutReady
               ? `Nächste Auszahlung: ${nextPayoutDateLabel()}`
               : "Richte dein Auszahlungskonto ein, damit wir überweisen können."}
           </p>
-          {stats.paidOutCents > 0 && (
-            <p className="mt-1 text-sm text-white/55">
-              Bereits ausgezahlt: {formatEuro(stats.paidOutCents)}
-            </p>
-          )}
+          <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/15 pt-5 text-sm">
+            <Figure label="Diese Woche" value={formatEuro(stats.week.driverCents)} />
+            <Figure label="Diesen Monat" value={formatEuro(stats.month.driverCents)} />
+            <Figure label="Ausgezahlt" value={formatEuro(stats.paidOutCents)} />
+          </div>
         </div>
       </section>
 
@@ -67,63 +60,66 @@ export default async function EarningsPage({
             <span
               aria-hidden
               className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${
-                driver.payoutReady
-                  ? "bg-brand-50 text-brand"
-                  : "border-[1.5px] border-line bg-white"
+                driver.payoutReady ? "bg-brand-50 text-brand" : "border-[1.5px] border-line bg-white"
               }`}
             >
               {driver.payoutReady && <Check className="h-3.5 w-3.5" />}
             </span>
-            <span className="sr-only">{driver.payoutReady ? "Erledigt: " : "Offen: "}</span>
             <span className="flex-1">
               <span className="block font-semibold text-ink">
-                Auszahlungskonto eingerichtet
+                {driver.payoutReady ? "Auszahlungskonto eingerichtet" : "Auszahlungskonto einrichten"}
               </span>
               <span className="mt-1 block text-[0.9375rem] leading-relaxed text-ink-soft">
-                Die Einrichtung läuft über unseren Zahlungsdienstleister. Er prüft dabei
-                deine Identität – gesetzlich vorgeschrieben für jede Auszahlung. Lieferdank
-                sieht deine Bankdaten nicht.
+                Läuft über unseren Zahlungsdienstleister. Er prüft dabei einmalig deine Identität – das ist
+                für Auszahlungen gesetzlich vorgeschrieben. Lieferdank sieht deine Bankdaten nicht.
               </span>
             </span>
           </div>
-
           <PayoutSetup hasAccount={Boolean(driver.payoutAccountId)} ready={driver.payoutReady} />
-
           {isDemoPayment() && (
             <p className="rounded-xl bg-canvas px-4 py-3 text-[0.8125rem] leading-relaxed text-ink-soft">
-              Testmodus: Die Einrichtung wird simuliert. Es werden keine Bankdaten erhoben und
-              kein Geld bewegt.
+              Testmodus: Die Einrichtung wird simuliert. Es werden keine Bankdaten erhoben.
             </p>
           )}
         </div>
       </section>
 
+      {payouts.length > 0 && (
+        <section>
+          <SectionTitle>Auszahlungen</SectionTitle>
+          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-xs">
+            {payouts.map((payout) => (
+              <li key={payout.id} className="flex items-center justify-between gap-4 px-5 py-4">
+                <span>
+                  <span className="block font-bold text-ink">{formatEuro(payout.amountCents)}</span>
+                  <span className="block text-xs text-ink-faint">
+                    {formatDateTime(payout.createdAt)} · {payout.tipIds.length} Trinkgelder
+                  </span>
+                </span>
+                <span className={`chip ${payout.status === "paid" ? "bg-brand-50 text-brand" : payout.status === "failed" ? "bg-coral-50 text-coral-600" : "bg-canvas text-ink-soft"}`}>
+                  {payout.status === "paid" ? "überwiesen" : payout.status === "failed" ? "fehlgeschlagen" : "in Arbeit"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section>
         <SectionTitle>Deine Trinkgelder</SectionTitle>
         {stats.recentTips.length === 0 ? (
-          <EmptyState>
-            Noch kein Trinkgeld erhalten. Danke sagen ist für Kunden kostenlos – Trinkgeld
-            kommt oft erst später dazu.
-          </EmptyState>
+          <EmptyState>Noch kein Trinkgeld erhalten. Danke sagen ist für Kunden kostenlos – Trinkgeld kommt oft später dazu.</EmptyState>
         ) : (
           <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-xs">
             {stats.recentTips.map((tip) => (
               <li key={tip.id} className="flex items-center justify-between gap-4 px-5 py-4">
                 <span className="min-w-0">
-                  <span className="block font-bold text-ink">
-                    {formatEuro(tip.driverCents)}
-                  </span>
+                  <span className="block font-bold text-ink">{formatEuro(tip.driverCents)}</span>
                   <span className="mt-0.5 block text-xs text-ink-faint">
                     {formatDateTime(tip.createdAt)} · Kunde zahlte {formatEuro(tip.grossCents)}
                   </span>
                 </span>
-                <span
-                  className={`chip shrink-0 ${
-                    tip.payoutStatus === "paid_out"
-                      ? "bg-brand-50 text-brand"
-                      : "bg-canvas text-ink-soft"
-                  }`}
-                >
+                <span className={`chip shrink-0 ${tip.payoutStatus === "paid_out" ? "bg-brand-50 text-brand" : "bg-canvas text-ink-soft"}`}>
                   {tip.payoutStatus === "paid_out" ? "ausgezahlt" : "im Guthaben"}
                 </span>
               </li>
@@ -133,14 +129,23 @@ export default async function EarningsPage({
       </section>
 
       <p className="text-sm leading-relaxed text-ink-soft">
-        „Im Guthaben“ heißt: Der Betrag gehört dir und ist für die nächste Auszahlung
-        vorgemerkt. Pro Trinkgeldzahlung werden {formatEuro(PLATFORM_GROSS_FEE_CENTS)} für
-        Zahlungsabwicklung und Lieferdank einbehalten. Der Rest gehört dir. Mehr dazu in den{" "}
+        „Im Guthaben“ heißt: Der Betrag gehört dir und ist für die nächste Auszahlung vorgemerkt. Pro
+        Trinkgeld werden {formatEuro(PLATFORM_GROSS_FEE_CENTS)} für Zahlungsabwicklung und Lieferdank
+        einbehalten – der Rest gehört dir. Mehr in den{" "}
         <Link href="/legal/agb" className="font-semibold text-brand underline underline-offset-2">
           AGB
         </Link>
         .
       </p>
+    </div>
+  );
+}
+
+function Figure({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-white/55">{label}</p>
+      <p className="mt-0.5 font-bold">{value}</p>
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Check } from "@/components/icons";
 import { MAX_CUSTOM_MESSAGE_LENGTH, PRESET_MESSAGES } from "@/lib/messages";
-import { attachMessage } from "../actions";
+import { attachMessageAction } from "@/server/actions/customer-flow";
 
 export function MessageForm({ thankYouId }: { thankYouId: string }) {
   const [pending, startTransition] = useTransition();
@@ -15,7 +15,7 @@ export function MessageForm({ thankYouId }: { thankYouId: string }) {
   function submit(presetId: string | null, message: string | null) {
     setError(null);
     startTransition(async () => {
-      const result = await attachMessage(thankYouId, presetId, message);
+      const result = await attachMessageAction(thankYouId, presetId, message);
       if (result.ok) setSent(true);
       else setError(result.error ?? "Das hat nicht geklappt.");
     });
@@ -69,7 +69,7 @@ export function MessageForm({ thankYouId }: { thankYouId: string }) {
           maxLength={MAX_CUSTOM_MESSAGE_LENGTH}
           value={custom}
           onChange={(e) => setCustom(e.target.value)}
-          placeholder="Kurz und freundlich – dein Zusteller liest das später."
+          placeholder="Kurz und freundlich – wird später gelesen."
           className="field resize-none"
         />
         <div className="mt-2.5 flex items-center justify-between gap-3">

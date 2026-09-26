@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Milestone, ThankYou } from "@/lib/db/types";
-import { describeMilestone } from "@/lib/milestones";
+import { describeMilestone } from "@/lib/milestone-rules";
 import { presetById } from "@/lib/messages";
 import { formatRelative } from "@/lib/format";
 import { Heart } from "./icons";

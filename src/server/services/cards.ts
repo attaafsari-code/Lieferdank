@@ -15,6 +15,7 @@ import { sendMail } from "../mail";
 import { emails } from "../emails";
 import { baseUrl } from "../site";
 import { avatarUrl, driverPublicName } from "./drivers";
+import { getPaymentProvider } from "../payments";
 
 /* ---------- Design ---------- */
 
@@ -95,7 +96,7 @@ export async function createCardOrder(
   user: User,
   driver: DriverProfile,
   input: z.infer<typeof cardOrderSchema>,
-): Promise<CardOrder> {
+): Promise<{ order: CardOrder; paymentUrl: string | null }> {
   const db = getDb();
 
   // Schutz vor versehentlichen Mehrfachbestellungen.
@@ -146,8 +147,44 @@ export async function createCardOrder(
     shippedAt: null,
   });
 
+  // Kostenpflichtige Bestellungen laufen über denselben Payment-Layer wie Trinkgelder.
+  let paymentUrl: string | null = null;
+  if (!quote.free) {
+    const provider = getPaymentProvider();
+    const paymentId = newId();
+    await db.payments.insert({
+      id: paymentId,
+      purpose: "card_order",
+      referenceId: order.id,
+      provider: provider.id,
+      providerPaymentId: null,
+      providerIntentId: null,
+      amountCents: order.totalCents,
+      currency: CURRENCY,
+      status: "pending",
+      method: null,
+      failureReason: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const result = await provider.createPayment({
+      paymentId,
+      purpose: "card_order",
+      referenceId: order.id,
+      amountCents: order.totalCents,
+      applicationFeeCents: null,
+      destinationAccountId: null,
+      description: `${order.quantity}× Lieferdank-Karte`,
+      returnUrl: `${baseUrl()}/dashboard/karte/bestellen?bestellt=1`,
+      cancelUrl: `${baseUrl()}/dashboard/karte/bestellen?abgebrochen=1`,
+    });
+    await db.payments.update(paymentId, { providerPaymentId: result.providerPaymentId });
+    await db.cardOrders.update(order.id, { paymentId });
+    paymentUrl = result.redirectUrl;
+  }
+
   await sendMail(user.email, emails.cardOrderReceived(user.firstName, order, `${baseUrl()}/dashboard/karte/bestellen`), "card_order");
-  return order;
+  return { order, paymentUrl };
 }
 
 export async function cancelCardOrder(driverId: string, orderId: string): Promise<void> {
