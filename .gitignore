@@ -16,7 +16,8 @@ next-env.d.ts
 # Tests und Werkzeuge
 coverage
 .vercel
-.claude/settings.local.json
+# Lokale Werkzeug-Konfiguration (kann Test-Secrets enthalten)
+.claude/
 
 # Betriebssystem
 .DS_Store

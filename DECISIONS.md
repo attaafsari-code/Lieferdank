@@ -236,3 +236,104 @@ oder eine Auszahlung erfolgt ist – er muss ins Dashboard schauen. Im Feldtest 
 Personen lösbar, danach nicht mehr.
 
 **Status:** Umgesetzt. **Direkt danach:** Abzeichen-Entscheidung und Auszahlung per Mail.
+
+---
+
+## 14. Zielgruppe erweitert: alle, die an die Haustür liefern
+
+**Entscheidung:** Neben Paketzustellern sprechen Texte, Lieferdienst-Auswahl und Karten
+ausdrücklich Essenslieferanten, Kuriere und Fahrer an.
+
+**Grund:** Vorgabe aus dem finalen Produktbriefing.
+
+**Vorteil:** Größerer Markt, gleiche Mechanik.
+
+**Risiko:** Der Feldtest verliert an Schärfe. Wenn Paket- und Essensfahrer gemischt getestet
+werden, sind die Kennzahlen schwerer zu deuten. **Empfehlung:** im Admin nach Lieferdienst
+filtern und Kennzahlen getrennt auswerten.
+
+**Status:** Umgesetzt.
+
+---
+
+## 15. Stripe Checkout statt eingebetteter Wallet-Buttons
+
+**Entscheidung:** Nach der Betragswahl geht es zu Stripe Checkout. Dort erscheinen Apple
+Pay, Google Pay, PayPal und Karte.
+
+**Grund:** Checkout funktioniert ohne Domain-Verifizierung für Apple Pay, unterstützt alle
+Zahlarten über eine Dashboard-Einstellung und hält Kartendaten vollständig von Lieferdank
+fern. Es ist sofort nach dem Eintragen der Schlüssel einsatzbereit.
+
+**Vorteil:** Kein Risiko bei der Integration, keine eigene PCI-Fläche.
+
+**Risiko:** Ein Seitenwechsel mehr als nötig. Die schnellste Variante – Apple-Pay-Button
+direkt auf der Danke-Seite (Stripe Express Checkout Element) – spart einen Schritt, braucht
+aber Domain-Registrierung und Stripe.js auf der Seite.
+
+**Status:** Umgesetzt. **Nächster Schritt**, sobald echte Zahlungen laufen: Express Checkout
+Element testen und Conversion vergleichen.
+
+---
+
+## 16. Kundenkonten optional, nie Voraussetzung
+
+**Entscheidung:** Kunden können ein Konto anlegen, um Lieferanten zu speichern. Das Angebot
+erscheint erst nach einem Danke oder einer Zahlung, dezent, als Klick auf „speichern“.
+
+**Grund:** Vorbereitung der späteren Kunden-App, ohne den Kernablauf zu belasten.
+
+**Vorteil:** Wiederkehrende Kunden, Grundlage für „Meine Lieferanten“ in der App.
+
+**Risiko:** Ein weiteres Konto-System, das gepflegt werden will. Die Zahlung hängt davon nie ab.
+
+**Status:** Umgesetzt.
+
+---
+
+## 17. Physische Karten zunächst kostenlos
+
+**Entscheidung:** Bestellungen laufen komplett durch (Adresse, Status, Versandmail), kosten
+im Testbetrieb aber nichts. `CARD_ORDERS_PAID=true` schaltet die Bezahlung über Stripe ein.
+
+**Grund:** Im Feldtest sollen Lieferanten die Karte ausprobieren, nicht über den Preis
+nachdenken. Die Preislogik (Standard, persönlich, Bundles) ist fertig.
+
+**Risiko:** Karten verursachen Kosten, bevor sie Geld bringen. Die Admin-Übersicht zeigt
+offene Bestellungen, damit das kontrollierbar bleibt.
+
+**Status:** Umgesetzt.
+
+---
+
+## 18. Eigene REST-API mit Bearer-Tokens
+
+**Entscheidung:** `/api/v1` nutzt ausschließlich Bearer-Tokens, keine Cookies.
+
+**Grund:** Apps können keine HttpOnly-Cookies sinnvoll nutzen. Und wenn die API Cookies
+ignoriert, kann eine fremde Webseite keine Aktionen im Namen eines eingeloggten Nutzers
+auslösen (CSRF).
+
+**Vorteil:** Web und App teilen die Services, die API ist von Anfang an testbar.
+
+**Risiko:** Tokens gelten 30 Tage. Widerruf funktioniert über `token_version` (Passwort
+ändern, Sperre).
+
+**Status:** Umgesetzt.
+
+---
+
+## 19. Projekt vom iCloud-Sync ausgenommen
+
+**Entscheidung:** Der Projektordner auf dem Schreibtisch trägt das Attribut
+`com.apple.fileprovider.ignore#P`.
+
+**Grund:** iCloud blockierte Lesezugriffe auf frisch geschriebene Dateien, bis sie
+hochgeladen waren. Builds und Typprüfung hingen dadurch minutenlang oder ganz.
+
+**Vorteil:** Build in 19 Sekunden statt mehreren Minuten, keine „Stale NFS file handle“-Fehler.
+
+**Risiko:** Der Ordner ist nicht mehr in iCloud gesichert. Die Sicherung läuft über GitHub –
+regelmäßig pushen.
+
+**Status:** Umgesetzt.
