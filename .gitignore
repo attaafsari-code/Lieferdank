@@ -1,0 +1,26 @@
+# Abhängigkeiten und Build
+node_modules
+.next
+out
+*.tsbuildinfo
+next-env.d.ts
+
+# Umgebungsvariablen – niemals committen
+.env
+.env.*
+!.env.example
+
+# Lokale Testdaten und Uploads
+/data/
+
+# Tests und Werkzeuge
+coverage
+.vercel
+.claude/settings.local.json
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
+
+# Vom iCloud-Sync ausgenommene Arbeitsordner (siehe README → iCloud)
+*.nosync
