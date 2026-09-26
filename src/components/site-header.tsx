@@ -15,6 +15,8 @@ export async function SiteHeader() {
   const home =
     session?.user.role === "admin" ? "/admin" : session?.user.role === "customer" ? "/konto" : "/dashboard";
   const homeLabel = session?.user.role === "customer" ? "Meine Lieferanten" : session?.user.role === "admin" ? "Admin" : "Dashboard";
+  // Auf schmalen Handys ist neben Logo und Menü nur Platz für ein Wort.
+  const homeShort = session?.user.role === "customer" ? "Konto" : homeLabel;
 
   return (
     <header className="no-print sticky top-0 z-50 border-b border-line/70 bg-white/80 backdrop-blur-xl">
@@ -38,7 +40,8 @@ export async function SiteHeader() {
         <div className="flex items-center gap-2">
           {loggedIn ? (
             <Link href={home} className="btn btn-primary btn-sm">
-              {homeLabel}
+              <span className="sm:hidden">{homeShort}</span>
+              <span className="hidden sm:inline">{homeLabel}</span>
             </Link>
           ) : (
             <>
@@ -46,7 +49,8 @@ export async function SiteHeader() {
                 Anmelden
               </Link>
               <Link href="/register" className="btn btn-primary btn-sm">
-                Als Lieferant starten
+                <span className="sm:hidden">Starten</span>
+                <span className="hidden sm:inline">Als Lieferant starten</span>
               </Link>
             </>
           )}

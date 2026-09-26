@@ -1,5 +1,22 @@
 import path from "node:path";
+import { networkInterfaces } from "node:os";
 import type { NextConfig } from "next";
+
+/**
+ * LAN-Adressen dieses Rechners. Im Entwicklungsmodus blockiert Next.js sonst
+ * Anfragen von fremden Hosts – ein Handy im WLAN könnte die per QR-Code
+ * geöffnete Seite zwar laden, aber keinen Button bedienen.
+ */
+function lanAddresses(): string[] {
+  try {
+    return Object.values(networkInterfaces())
+      .flat()
+      .filter((address) => address && address.family === "IPv4" && !address.internal)
+      .map((address) => address!.address);
+  } catch {
+    return [];
+  }
+}
 
 const production = process.env.NODE_ENV === "production";
 
@@ -39,6 +56,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   // Ohne diese Angabe sucht Turbopack die Projektwurzel über die nächste Lockdatei.
   turbopack: { root: path.resolve(process.cwd()) },
+  allowedDevOrigins: production ? [] : lanAddresses(),
   experimental: {
     // Profilfotos werden im Browser auf < 1 MB verkleinert; 3 MB lassen Luft.
     serverActions: { bodySizeLimit: "3mb" },

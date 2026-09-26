@@ -5,6 +5,7 @@ import { recordScan } from "@/server/services/thanks";
 import { getPaymentProvider } from "@/server/payments";
 import { PLATFORM_GROSS_FEE_CENTS } from "@/lib/money";
 import { LogoMark } from "@/components/logo";
+import { dativeName } from "@/lib/names";
 import { ThankYouScreen } from "./thank-you-screen";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const found = await findDriverByCode(code);
   const name = found?.user ? toPublicDriver(found.driver, found.user).name : null;
   return {
-    title: name ? `Sag ${name} Danke` : "Danke sagen",
+    title: name ? `Sag ${dativeName(name)} Danke` : "Danke sagen",
     description: "Sag deinem Zusteller Danke – kostenlos, ohne App, in wenigen Sekunden.",
     robots: { index: false, follow: false },
   };

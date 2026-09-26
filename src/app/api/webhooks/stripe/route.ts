@@ -13,8 +13,11 @@ export const dynamic = "force-dynamic";
  * Alle Handler sind idempotent, weil Stripe Ereignisse mehrfach zustellt.
  */
 export async function POST(request: Request) {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!secret || !process.env.STRIPE_SECRET_KEY) {
+  // Stripe signiert Plattform- und Connect-Ereignisse mit unterschiedlichen Secrets.
+  const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_CONNECT_WEBHOOK_SECRET].filter(
+    (value): value is string => Boolean(value),
+  );
+  if (secrets.length === 0 || !process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json({ error: "Webhook nicht konfiguriert." }, { status: 503 });
   }
 
@@ -22,10 +25,17 @@ export async function POST(request: Request) {
   if (!signature) return NextResponse.json({ error: "Signatur fehlt." }, { status: 400 });
 
   const { stripeClient } = await import("@/server/payments/stripe");
-  let event: Stripe.Event;
-  try {
-    event = stripeClient().webhooks.constructEvent(await request.text(), signature, secret);
-  } catch {
+  const body = await request.text();
+  let event: Stripe.Event | null = null;
+  for (const secret of secrets) {
+    try {
+      event = stripeClient().webhooks.constructEvent(body, signature, secret);
+      break;
+    } catch {
+      // Nächstes Secret probieren.
+    }
+  }
+  if (!event) {
     await logEvent("warning", "stripe-webhook", "Ungültige Signatur abgewiesen");
     return NextResponse.json({ error: "Signatur ungültig." }, { status: 400 });
   }
