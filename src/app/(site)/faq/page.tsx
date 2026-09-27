@@ -83,7 +83,7 @@ const FAQ_CUSTOMERS = [
   },
   {
     q: "Zahle ich zusätzliche Gebühren?",
-    a: "Nein. Du zahlst exakt den Betrag, den du auswählst. Es kommt nichts obendrauf.",
+    a: "Nein. Du zahlst exakt den Betrag, den du auswählst. Es kommt nichts obendrauf. Vom gewählten Betrag werden lediglich Zahlungs- und Plattformkosten abgezogen.",
   },
   {
     q: "Kommt das Geld wirklich beim Zusteller an?",

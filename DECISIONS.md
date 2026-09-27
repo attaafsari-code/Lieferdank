@@ -337,3 +337,27 @@ hochgeladen waren. Builds und Typprüfung hingen dadurch minutenlang oder ganz.
 regelmäßig pushen.
 
 **Status:** Umgesetzt.
+
+---
+
+## 20. Keine Aufteilung auf der Kundenseite
+
+**Entscheidung:** Der Trinkgeld-Screen zeigt nur die Buttons 2 € / 3 € / 5 € (plus
+„Anderer Betrag“). Texte wie „1,50 € kommen an“ oder „Max erhält …“ sind überall auf
+Kundenseiten entfernt: Danke-Seite, Test-Bezahlmaske, Startseite, „So funktioniert's“,
+öffentliche API (`platformFeeCents` entfällt). Ein kleiner, neutraler Hinweis bleibt: „Vom
+Betrag werden Zahlungs- und Plattformkosten abgezogen“ mit Link auf `/so-funktionierts#geld`.
+Die konkreten 0,50 € stehen nur noch auf Lieferantenseiten und in AGB §4 (Absatz für Zusteller).
+
+**Grund:** Die Aufteilung am Button lenkt vom Danke ab und lässt Kunden über Abzüge
+nachdenken statt über den Zusteller.
+
+**Vorteil:** Ruhigerer, schnellerer Screen; weniger Kaufabbruch durch Gebührendiskussion.
+
+**Risiko:** Ganz ohne Hinweis könnte das Verschweigen, dass nicht der volle Betrag ankommt,
+als irreführend durch Unterlassen gelten (§ 5a UWG), weil Kunden bei Trinkgeld
+typischerweise erwarten, dass alles ankommt. Deshalb bleibt der neutrale Hinweis direkt unter
+den Buttons. Ob er entfallen kann, sollte eine Rechtsberatung entscheiden; Entfernen ist eine
+Zeile in `thank-you-screen.tsx`. Die Werbeaussage „100 % für den Zusteller“ bleibt unzulässig.
+
+**Status:** Umgesetzt.

@@ -82,6 +82,10 @@ Zahlungsabwicklung und Lieferdank.
 Jede Transaktion speichert getrennt: Brutto, Lieferantenanteil, Plattformgebühr brutto,
 Paymentkosten, Auszahlungskosten, Nettomarge. Details: [DATABASE.md](DATABASE.md).
 
+Die Aufteilung ist reine Backend-Logik. Kunden sehen nur die Beträge 2 € / 3 € / 5 € und
+einen neutralen Hinweis, dass Zahlungs- und Plattformkosten abgezogen werden. Die genauen
+Zahlen stehen nur auf Lieferantenseiten (Dashboard, `/fahrer`, FAQ für Lieferanten, AGB §4).
+
 ---
 
 ## Projektstruktur

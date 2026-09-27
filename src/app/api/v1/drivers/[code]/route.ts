@@ -2,7 +2,7 @@ import { api } from "@/server/api/handler";
 import { notFound } from "@/server/errors";
 import { findReceivingDriver, toPublicDriver } from "@/server/services/drivers";
 import { recordScan } from "@/server/services/thanks";
-import { PLATFORM_GROSS_FEE_CENTS, TIP_OPTIONS_CENTS, MIN_TIP_CENTS, MAX_TIP_CENTS } from "@/lib/money";
+import { TIP_OPTIONS_CENTS, MIN_TIP_CENTS, MAX_TIP_CENTS } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,6 @@ export const GET = api<{ code: string }>({ rateLimit: { key: "api-driver", limit
       optionsCents: TIP_OPTIONS_CENTS,
       minCents: MIN_TIP_CENTS,
       maxCents: MAX_TIP_CENTS,
-      platformFeeCents: PLATFORM_GROSS_FEE_CENTS,
     },
   };
 });

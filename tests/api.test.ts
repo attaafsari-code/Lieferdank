@@ -32,6 +32,8 @@ describe("API v1 – öffentlich", () => {
     const body = await response.json();
     expect(body.driver.name).toBe("Max");
     expect(body.tipping.optionsCents).toEqual([200, 300, 500]);
+    // Die Aufteilung ist Backend-Logik und gehört nicht in die öffentliche Antwort.
+    expect(body.tipping).not.toHaveProperty("platformFeeCents");
     expect(JSON.stringify(body)).not.toContain(user.email);
   });
 

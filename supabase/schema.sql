@@ -273,6 +273,16 @@ alter table public.scans              enable row level security;
 alter table public.admin_actions      enable row level security;
 alter table public.system_events      enable row level security;
 
+-- ---------- Tabellenrechte: nur der Service-Role-Key -----------------------
+-- Neuere Supabase-Projekte vergeben für per SQL angelegte Tabellen keine
+-- Standardrechte mehr an die API-Rollen. Ohne diese Zeilen scheitert jeder
+-- Zugriff mit „permission denied for table …“. anon/authenticated bleiben
+-- bewusst ohne Rechte (zusätzlich zu RLS).
+
+grant usage on schema public to service_role;
+grant select, insert, update, delete on all tables in schema public to service_role;
+revoke all on all tables in schema public from anon, authenticated;
+
 -- ---------- Dateispeicher für Profilfotos ----------------------------------
 -- Privat: Ausgeliefert wird nur über /api/media/avatar/[driverId], das die
 -- Sichtbarkeit prüft. Kein öffentlicher Bucket, keine erratbaren URLs.

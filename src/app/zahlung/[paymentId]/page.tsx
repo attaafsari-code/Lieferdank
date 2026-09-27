@@ -48,10 +48,7 @@ export default async function DemoPaymentPage({ params }: { params: Promise<{ pa
     <DemoSheet
       title={`Danke an ${name}`}
       amount={formatEuro(tip.grossCents)}
-      rows={[
-        { label: `${name} erhält`, value: formatEuro(tip.driverCents), strong: true },
-        { label: "Zahlungsabwicklung & Lieferdank", value: formatEuro(tip.platformGrossFeeCents) },
-      ]}
+      rows={[{ label: "Trinkgeld", value: formatEuro(tip.grossCents) }]}
       confirm={confirm}
       cancel={cancel}
     />

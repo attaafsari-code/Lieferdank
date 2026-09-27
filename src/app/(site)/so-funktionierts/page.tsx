@@ -2,8 +2,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-shell";
 import { ArrowRight } from "@/components/icons";
-import { formatEuro } from "@/lib/format";
-import { PLATFORM_GROSS_FEE_CENTS, TIP_OPTIONS_CENTS } from "@/lib/money";
 
 export const metadata: Metadata = {
   title: "So funktioniert's",
@@ -74,53 +72,19 @@ export default function HowItWorksPage() {
         <Section title="Für Lieferanten" steps={DRIVER_STEPS} />
         <Section title="Für Kunden" steps={CUSTOMER_STEPS} />
 
-        <section className="mt-16">
-          <h2 className="mb-5 text-xl font-extrabold text-brand-900">
-            Was mit dem Geld passiert
-          </h2>
+        <section id="geld" className="mt-16 scroll-mt-24">
+          <h2 className="mb-5 text-xl font-extrabold text-brand-900">Was mit dem Geld passiert</h2>
           <p className="leading-relaxed text-ink-soft">
-            Du zahlst exakt den Betrag, den du auswählst. Es kommt nichts obendrauf. Pro
-            Trinkgeldzahlung behalten wir {formatEuro(PLATFORM_GROSS_FEE_CENTS)} ein. Davon
-            bezahlen wir die Zahlungsabwicklung, den Betrieb der Plattform, den Support und
-            die Betrugsprävention. Der Rest geht an den Zusteller.
+            Du zahlst exakt den Betrag, den du auswählst. Es kommt nichts obendrauf. Vom gewählten
+            Betrag werden Zahlungs- und Plattformkosten abgezogen – für Zahlungsabwicklung, Betrieb,
+            Support und Betrugsprävention. Der Rest geht an den Zusteller.
           </p>
-
-          <div className="card-lift mt-7 !p-0">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-line">
-                  <th className="px-5 py-3.5 text-xs font-bold tracking-wide text-ink-faint uppercase">
-                    Kunde zahlt
-                  </th>
-                  <th className="px-5 py-3.5 text-xs font-bold tracking-wide text-ink-faint uppercase">
-                    Lieferant erhält
-                  </th>
-                  <th className="px-5 py-3.5 text-xs font-bold tracking-wide text-ink-faint uppercase">
-                    Abwicklung
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {TIP_OPTIONS_CENTS.map((cents) => (
-                  <tr key={cents}>
-                    <td className="px-5 py-3.5 font-extrabold text-ink">
-                      {formatEuro(cents)}
-                    </td>
-                    <td className="px-5 py-3.5 font-extrabold text-coral">
-                      {formatEuro(cents - PLATFORM_GROSS_FEE_CENTS)}
-                    </td>
-                    <td className="px-5 py-3.5 text-ink-soft">
-                      {formatEuro(PLATFORM_GROSS_FEE_CENTS)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <p className="mt-5 text-sm leading-relaxed text-ink-soft">
-            Der einbehaltene Anteil ist immer gleich hoch, egal wie viel du gibst. Wer mehr
-            gibt, bei dem kommt anteilig also mehr an.
+          <p className="mt-4 text-sm leading-relaxed text-ink-soft">
+            Lieferanten sehen die genaue Aufteilung in ihrem Dashboard und in den{" "}
+            <Link href="/legal/agb" className="font-semibold text-brand underline underline-offset-2">
+              AGB
+            </Link>
+            .
           </p>
         </section>
 

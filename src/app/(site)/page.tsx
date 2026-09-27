@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { ArrowRight, Check, Heart } from "@/components/icons";
 import { LogoMark } from "@/components/logo";
 import { Avatar } from "@/components/avatar";
-import { PLATFORM_GROSS_FEE_CENTS, TIP_OPTIONS_CENTS } from "@/lib/money";
-import { formatEuro, formatEuroShort } from "@/lib/format";
+import { TIP_OPTIONS_CENTS } from "@/lib/money";
+import { formatEuroShort } from "@/lib/format";
 import { renderCardSvg } from "@/lib/card/svg";
 import { canonicalBase } from "@/server/site";
 import { qrSvg } from "@/server/qr";
@@ -179,9 +179,8 @@ function PhoneMock() {
           <p className="mt-5 text-center text-[0.6rem] font-bold tracking-[0.14em] text-ink-faint uppercase">oder Trinkgeld geben</p>
           <div className="mt-2.5 grid w-full grid-cols-3 gap-2">
             {TIP_OPTIONS_CENTS.map((cents) => (
-              <div key={cents} className="rounded-xl border-[1.5px] border-line bg-white py-2.5 text-center">
+              <div key={cents} className="rounded-xl border-[1.5px] border-line bg-white py-3 text-center">
                 <span className="block text-base font-extrabold text-ink">{formatEuroShort(cents)}</span>
-                <span className="block text-[0.55rem] text-ink-faint">{formatEuro(cents - PLATFORM_GROSS_FEE_CENTS)} kommen an</span>
               </div>
             ))}
           </div>
@@ -192,39 +191,30 @@ function PhoneMock() {
 }
 
 function Transparency() {
+  const promises = [
+    { title: "Exakt dein Betrag", text: "Du zahlst genau den Betrag, den du auswählst." },
+    { title: "Nichts obendrauf", text: "Keine Servicegebühr, kein Abo, keine versteckten Zusatzkosten." },
+    { title: "Ohne Konto", text: "Kein Login, keine App, keine Registrierung. Scannen und fertig." },
+  ];
   return (
     <section className="border-y border-line bg-white py-20 sm:py-24">
-      <div className="container-page max-w-3xl">
+      <div className="container-page max-w-4xl">
         <p className="eyebrow text-center">Transparent</p>
         <h2 className="mt-3 text-center text-3xl font-extrabold text-brand-900 sm:text-4xl">Kein Kleingedrucktes</h2>
-        <p className="mx-auto mt-5 max-w-xl text-center text-lg leading-relaxed text-ink-soft">
-          Der Kunde zahlt exakt den gewählten Betrag. Keine Servicegebühr obendrauf.
-        </p>
-        <div className="card-lift mx-auto mt-12 max-w-lg !p-0">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-line">
-                {["Kunde zahlt", "Lieferant erhält", "Abwicklung"].map((label) => (
-                  <th key={label} className="px-6 py-4 text-xs font-bold tracking-wide text-ink-faint uppercase">
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {TIP_OPTIONS_CENTS.map((cents) => (
-                <tr key={cents}>
-                  <td className="px-6 py-4 text-lg font-extrabold text-ink">{formatEuro(cents)}</td>
-                  <td className="px-6 py-4 text-lg font-extrabold text-coral">{formatEuro(cents - PLATFORM_GROSS_FEE_CENTS)}</td>
-                  <td className="px-6 py-4 text-ink-soft">{formatEuro(PLATFORM_GROSS_FEE_CENTS)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-12 grid gap-4 sm:grid-cols-3">
+          {promises.map((item) => (
+            <div key={item.title} className="card-lift">
+              <Check className="h-5 w-5 text-brand" />
+              <h3 className="mt-3 text-lg font-extrabold text-ink">{item.title}</h3>
+              <p className="mt-1.5 leading-relaxed text-ink-soft">{item.text}</p>
+            </div>
+          ))}
         </div>
-        <p className="mx-auto mt-6 max-w-lg text-center text-sm leading-relaxed text-ink-soft">
-          Die {formatEuro(PLATFORM_GROSS_FEE_CENTS)} je Trinkgeld decken Zahlungsabwicklung, Betrieb und
-          Betrugsprävention. Der Rest gehört dem Lieferanten.
+        <p className="mx-auto mt-8 max-w-lg text-center text-sm leading-relaxed text-ink-faint">
+          Vom gewählten Betrag werden Zahlungs- und Plattformkosten abgezogen.{" "}
+          <Link href="/so-funktionierts#geld" className="underline underline-offset-2 transition hover:text-brand">
+            Mehr erfahren
+          </Link>
         </p>
       </div>
     </section>

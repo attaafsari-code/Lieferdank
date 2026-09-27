@@ -13,12 +13,11 @@ import { sendThanksAction, startTipAction, type FlowResult } from "@/server/acti
 
 type Props = {
   driver: PublicDriver;
-  platformFeeCents: number;
   paymentMethods: string;
   cancelled: boolean;
 };
 
-export function ThankYouScreen({ driver, platformFeeCents, paymentMethods, cancelled }: Props) {
+export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
@@ -118,20 +117,14 @@ export function ThankYouScreen({ driver, platformFeeCents, paymentMethods, cance
               type="button"
               onClick={() => run(() => startTipAction(driver.code, cents), cents)}
               disabled={pending}
-              className="group flex min-h-[5.25rem] flex-col items-center justify-center gap-1 rounded-2xl border-[1.5px] border-line bg-white py-3 shadow-xs transition hover:border-brand hover:shadow-sm disabled:opacity-50"
+              className="group flex min-h-[4.5rem] items-center justify-center rounded-2xl border-[1.5px] border-line bg-white py-3 shadow-xs transition hover:border-brand hover:shadow-sm disabled:opacity-50"
             >
               {busy === cents ? (
                 <Spinner label="Moment" tone="dark" />
               ) : (
-                <>
-                  <span className="text-[1.375rem] leading-none font-extrabold text-ink transition group-hover:text-brand">
-                    {formatEuroShort(cents)}
-                  </span>
-                  {/* Transparenz direkt am Button, nicht im Kleingedruckten. */}
-                  <span className="text-[0.6875rem] leading-tight text-ink-faint">
-                    kommen <span className="font-semibold text-ink-soft">{formatEuro(cents - platformFeeCents)}</span> an
-                  </span>
-                </>
+                <span className="text-[1.5rem] leading-none font-extrabold text-ink transition group-hover:text-brand">
+                  {formatEuroShort(cents)}
+                </span>
               )}
             </button>
           ))}
@@ -172,8 +165,14 @@ export function ThankYouScreen({ driver, platformFeeCents, paymentMethods, cance
         <p className="mt-6 text-center text-[0.8125rem] leading-relaxed text-ink-soft">
           {paymentMethods} · ohne Konto, ohne App.
           <br />
-          Du zahlst genau den gewählten Betrag. {formatEuro(platformFeeCents)} je Trinkgeld decken
-          Zahlungsabwicklung und Lieferdank.
+          Du zahlst genau den gewählten Betrag.
+        </p>
+        {/* Neutraler Pflichthinweis: Abzüge werden erwähnt, aber nicht beziffert (Details in AGB/Info-Seite). */}
+        <p className="mt-2 text-center text-[0.6875rem] leading-relaxed text-ink-faint">
+          Vom Betrag werden Zahlungs- und Plattformkosten abgezogen.{" "}
+          <Link href="/so-funktionierts#geld" className="underline underline-offset-2 transition hover:text-brand">
+            Mehr erfahren
+          </Link>
         </p>
 
         {driver.bio && (

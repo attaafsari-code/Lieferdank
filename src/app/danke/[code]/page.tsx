@@ -3,7 +3,6 @@ import Link from "next/link";
 import { findDriverByCode, toPublicDriver } from "@/server/services/drivers";
 import { recordScan } from "@/server/services/thanks";
 import { getPaymentProvider } from "@/server/payments";
-import { PLATFORM_GROSS_FEE_CENTS } from "@/lib/money";
 import { LogoMark } from "@/components/logo";
 import { dativeName } from "@/lib/names";
 import { ThankYouScreen } from "./thank-you-screen";
@@ -41,7 +40,6 @@ export default async function ThankYouPage({ params, searchParams }: Params) {
   return (
     <ThankYouScreen
       driver={toPublicDriver(driver, user)}
-      platformFeeCents={PLATFORM_GROSS_FEE_CENTS}
       paymentMethods={getPaymentProvider().methodsLabel}
       cancelled={query.abgebrochen === "1"}
     />

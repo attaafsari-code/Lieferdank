@@ -77,7 +77,7 @@ export default async function SuccessPage({ params, searchParams }: Props) {
             ) : tipCents ? (
               <>
                 <span className="font-semibold text-ink">{name}</span> hat deine Wertschätzung
-                erhalten – {formatEuro(tipCents)} Trinkgeld sind unterwegs.
+                erhalten. Deine Zahlung über {formatEuro(tipCents)} war erfolgreich.
               </>
             ) : (
               <>

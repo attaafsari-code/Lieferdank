@@ -40,7 +40,10 @@ export default function TermsPage() {
         <h2>4. Beträge und Gebühren</h2>
         <p>
           Der Sender zahlt exakt den ausgewählten Betrag. Es werden keine zusätzlichen Gebühren
-          aufgeschlagen. Von jeder Trinkgeldzahlung behält Lieferdank{" "}
+          aufgeschlagen. Vom ausgewählten Betrag werden Zahlungs- und Plattformkosten abgezogen.
+        </p>
+        <p>
+          Für Zusteller gilt: Von jeder Trinkgeldzahlung behält Lieferdank{" "}
           {formatEuro(PLATFORM_GROSS_FEE_CENTS)} ein; dieser Anteil deckt Zahlungsabwicklung,
           Betrieb, Support und Betrugsprävention. Der verbleibende Betrag wird dem Zusteller
           gutgeschrieben.
