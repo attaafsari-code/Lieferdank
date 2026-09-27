@@ -22,7 +22,7 @@ export default async function AdminPayments() {
       {tips.length === 0 ? (
         <Empty>Noch keine Transaktionen.</Empty>
       ) : (
-        <Table head={["Zeitpunkt", "Code", "Brutto", "Lieferant", "Plattform", "Payment", "Auszahlung", "Netto", "Status", "Zahlart"]} minWidth="62rem">
+        <Table head={["Zeitpunkt", "Code", "Brutto", "Lieferant", "Plattform", "Payment*", "Auszahlung*", "Netto*", "Status", "Zahlart"]} minWidth="62rem">
           {tips.map((tip) => (
             <tr key={tip.id}>
               <Td>{formatDateTime(tip.createdAt)}</Td>
@@ -39,6 +39,7 @@ export default async function AdminPayments() {
           ))}
         </Table>
       )}
+      <p className="mt-4 text-xs text-ink-faint">* Paymentkosten, Auszahlungskosten und Netto sind kalkuliert. Maßgeblich sind die Stripe-Abrechnungen.</p>
     </div>
   );
 }

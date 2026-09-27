@@ -36,6 +36,11 @@ Keine Secrets im Repo: `.env*` (außer `.env.example`), `data/`, `.claude/` und 
 1. Projekt anlegen auf [supabase.com](https://supabase.com), Region **Frankfurt (eu-central-1)**.
 2. **SQL Editor** → Inhalt von [`supabase/schema.sql`](supabase/schema.sql) ausführen.
    Legt 16 Tabellen, Indizes, Row Level Security und den privaten Storage-Bucket `media` an.
+   Bei einem bereits bestehenden Projekt zusätzlich
+   [`supabase/migrations/20260927_payout_lock.sql`](supabase/migrations/20260927_payout_lock.sql)
+   im SQL Editor ausführen. Vorher vorhandene `pending`-Auszahlungen mit Stripe
+   abgleichen; der Index verhindert parallele Doppelüberweisungen. Die Migration
+   sperrt außerdem den Foto-Bucket und ergänzt den Status für erstattete Karten.
 3. **Project Settings → API** notieren:
    - `Project URL` → `SUPABASE_URL`
    - `service_role` Secret → `SUPABASE_SERVICE_ROLE_KEY`
@@ -53,6 +58,8 @@ Details zu Tabellen und Sicherheit: [DATABASE.md](DATABASE.md).
 2. Framework wird automatisch erkannt. `vercel.json` legt die Region auf **Frankfurt (fra1)**
    – nah an der Supabase-Datenbank.
 3. Umgebungsvariablen setzen (Schritt 3a), dann **Deploy**.
+   Der Produktionsbuild nutzt den von Next.js 16 unterstützten Webpack-Modus
+   (`npm run build`).
 
 ### 3a. Umgebungsvariablen (Scope: Production)
 
@@ -78,11 +85,17 @@ Nach jeder Änderung an `NEXT_PUBLIC_*` **neu deployen** – diese Werte werden 
 eingebacken.
 
 **Sicherheitsnetze, falls etwas fehlt:**
-- Ohne `AUTH_SECRET` zeigt die App einen roten Warnbalken, Anmeldungen schlagen fehl.
+- Ohne `AUTH_SECRET` schlagen Anmeldungen fehl und der Health-Check ist nicht bereit.
 - Eine falsche `NEXT_PUBLIC_BASE_URL` (localhost, http, private IP) wird in Produktion
   ignoriert – QR-Codes zeigen dann trotzdem auf `https://lieferdank.de`.
-- Ohne `LIEFERDANK_DB=supabase` läuft die Testdatenbank, die auf Vercel bei jedem Neustart
-  verloren geht. Der Testmodus-Balken macht das sichtbar.
+- Ohne `LIEFERDANK_DB=supabase` wird im Production-Scope keine flüchtige
+  Testdatenbank verwendet. Der Health-Check liefert `503`.
+- Ohne `PAYMENT_PROVIDER=stripe` sind echte Trinkgelder im Production-Scope
+  gesperrt; kostenloses Danke bleibt verfügbar. Der Health-Check liefert `503`.
+- Ein Stripe-Testschlüssel meldet im Production-Scope ebenfalls `503` im
+  Health-Check, auch wenn Sandbox-Zahlungen technisch möglich sind.
+- Ohne `RESEND_API_KEY` ist das Zurücksetzen von Passwörtern in Produktion
+  nicht verfügbar. Reset-Links landen nie im Serverlog.
 
 Preview-Deployments (jeder Branch) nutzen automatisch ihre eigene Vercel-Adresse für
 QR-Codes. Für Previews am besten ein separates Supabase-Projekt und Stripe-Testschlüssel.
@@ -129,8 +142,7 @@ aktiviert sind:
 - **Karte** – immer aktiv
 - **Apple Pay / Google Pay** – aktivieren; bei Stripe Checkout ist keine eigene
   Domain-Verifizierung nötig
-- **PayPal** – aktivieren (in DE verfügbar). Stripe zeigt bei der Aktivierung, ob PayPal in
-  Kombination mit Connect-Destination-Charges für euer Konto freigeschaltet ist.
+- **PayPal** – später; für diesen Release weder aktivieren noch voraussetzen.
 - **Link** – optional, beschleunigt wiederkehrende Kunden
 
 ### Webhooks
@@ -155,9 +167,17 @@ erkannt und nur einmal gebucht.
 
 ### Live gehen
 
-Testflow komplett durchspielen (Schritt 8), dann Live-Schlüssel (`sk_live_…`) und die
+Testflow komplett durchspielen (Schritt 8), dann Live-Schlüssel (auch ein
+eingeschränkter `rk_live_…`-Schlüssel mit den benötigten Berechtigungen) und die
 Live-Webhook-Secrets in Vercel eintragen, neu deployen. Der Admin zeigt oben „Live“ statt
 „Sandbox“.
+
+Der eingeschränkte Schlüssel muss Checkout-Sessions, PaymentIntents, Express-Accounts,
+Account-Links und Transfers erstellen bzw. lesen können. Refunds benötigen eigene
+Berechtigung; eine Teil-Erstattung wird im aktuellen MVP konservativ als vollständig
+erstattet verbucht und muss im Admin/Stripe manuell abgestimmt werden. Erstattungen
+nach einem bereits ausgeführten Transfer ebenfalls manuell mit dem Stripe-Konto
+abgleichen. Keine Teil-Erstattungen ohne diesen Abgleich auslösen.
 
 ---
 
@@ -190,7 +210,7 @@ Admins können sich nicht selbst registrieren.
 ## 8. Abnahme
 
 - [ ] `https://lieferdank.de` lädt, `https://www.lieferdank.de` leitet weiter
-- [ ] `https://lieferdank.de/api/health` zeigt `"database":"supabase","payments":"stripe","mail":"resend"`
+- [ ] `https://lieferdank.de/api/health` liefert HTTP 200 und zeigt `"database":"supabase","payments":"stripe","mail":"resend"`
 - [ ] Registrierung → sofort ein Danke-Code, Willkommensmail kommt an
 - [ ] `/dashboard/karte` zeigt **keinen** Hinweis auf eine lokale Adresse, Link beginnt mit `https://lieferdank.de/danke/`
 - [ ] QR-Code mit **iPhone** und **Android** scannen (von Bildschirm und Ausdruck)

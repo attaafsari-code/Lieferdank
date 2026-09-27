@@ -18,14 +18,10 @@ export function MobileMenu({
   home?: string;
   homeLabel?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
-
-  useEffect(() => setMounted(true), []);
-
-  // Nach einem Seitenwechsel darf das Menü nicht offen stehen bleiben.
-  useEffect(() => setOpen(false), [pathname]);
+  const [openAtPath, setOpenAtPath] = useState<string | null>(null);
+  const open = openAtPath === pathname;
+  const setOpen = (value: boolean) => setOpenAtPath(value ? pathname : null);
 
   useEffect(() => {
     if (!open) return;
@@ -33,7 +29,7 @@ export function MobileMenu({
     document.body.style.overflow = "hidden";
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") setOpenAtPath(null);
     };
     window.addEventListener("keydown", onKeyDown);
 
@@ -110,7 +106,7 @@ export function MobileMenu({
         <MenuIcon />
       </button>
 
-      {mounted && overlay ? createPortal(overlay, document.body) : null}
+      {overlay ? createPortal(overlay, document.body) : null}
     </>
   );
 }

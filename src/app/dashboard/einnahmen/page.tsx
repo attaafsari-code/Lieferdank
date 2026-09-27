@@ -5,7 +5,6 @@ import { getDriverStats } from "@/server/services/stats";
 import { isDemoPayment } from "@/server/payments";
 import { formatDateTime, formatEuro } from "@/lib/format";
 import { PLATFORM_GROSS_FEE_CENTS } from "@/lib/money";
-import { nextPayoutDateLabel } from "@/lib/time";
 import { EmptyState, PageTitle, SectionTitle } from "@/components/dashboard-ui";
 import { Check } from "@/components/icons";
 import { PayoutSetup } from "./payout-setup";
@@ -27,7 +26,7 @@ export default async function EarningsPage({
 
   return (
     <div className="space-y-12">
-      <PageTitle title="Einnahmen" lead="Dein Trinkgeld sammelt sich als Guthaben und wird gebündelt ausgezahlt." />
+      <PageTitle title="Einnahmen" lead="Dein Trinkgeld wird über Stripe deinem Auszahlungskonto zugeordnet. Den Banktermin zeigt Stripe." />
 
       <section className="relative overflow-hidden rounded-3xl bg-brand-900 p-7 text-white shadow-md">
         <div aria-hidden className="pointer-events-none absolute -top-16 -right-10 h-52 w-52 rounded-full bg-brand/40 blur-3xl" />
@@ -36,7 +35,7 @@ export default async function EarningsPage({
           <p className="mt-1.5 text-[2.75rem] leading-none font-extrabold tracking-tight">{formatEuro(stats.balanceCents)}</p>
           <p className="mt-4 text-[0.9375rem] text-white/75">
             {driver.payoutReady
-              ? `Nächste Auszahlung: ${nextPayoutDateLabel()}`
+              ? "Dein Auszahlungskonto ist eingerichtet. Den Banktermin findest du bei Stripe."
               : "Richte dein Auszahlungskonto ein, damit wir überweisen können."}
           </p>
           <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/15 pt-5 text-sm">
@@ -97,7 +96,7 @@ export default async function EarningsPage({
                   </span>
                 </span>
                 <span className={`chip ${payout.status === "paid" ? "bg-brand-50 text-brand" : payout.status === "failed" ? "bg-coral-50 text-coral-600" : "bg-canvas text-ink-soft"}`}>
-                  {payout.status === "paid" ? "überwiesen" : payout.status === "failed" ? "fehlgeschlagen" : "in Arbeit"}
+                    {payout.status === "paid" ? "an Stripe übertragen" : payout.status === "failed" ? "fehlgeschlagen" : "in Arbeit"}
                 </span>
               </li>
             ))}
@@ -120,7 +119,7 @@ export default async function EarningsPage({
                   </span>
                 </span>
                 <span className={`chip shrink-0 ${tip.payoutStatus === "paid_out" ? "bg-brand-50 text-brand" : "bg-canvas text-ink-soft"}`}>
-                  {tip.payoutStatus === "paid_out" ? "ausgezahlt" : "im Guthaben"}
+                  {tip.payoutStatus === "paid_out" ? "an Stripe übertragen" : "im Guthaben"}
                 </span>
               </li>
             ))}
@@ -129,7 +128,8 @@ export default async function EarningsPage({
       </section>
 
       <p className="text-sm leading-relaxed text-ink-soft">
-        „Im Guthaben“ heißt: Der Betrag gehört dir und ist für die nächste Auszahlung vorgemerkt. Pro
+        „Im Guthaben“ heißt: Der Betrag gehört dir und wird für Stripe vorgemerkt oder liegt bereits
+        auf deinem Stripe-Konto. Den tatsächlichen Banktermin zeigt Stripe. Pro
         Trinkgeld werden {formatEuro(PLATFORM_GROSS_FEE_CENTS)} für Zahlungsabwicklung und Lieferdank
         einbehalten – der Rest gehört dir. Mehr in den{" "}
         <Link href="/legal/agb" className="font-semibold text-brand underline underline-offset-2">

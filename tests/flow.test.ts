@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/lib/db";
-import { authenticate, completePasswordReset, requestPasswordReset } from "@/server/services/auth";
+import { demoPaymentProvider } from "@/server/payments/demo";
+import { authenticate, completePasswordReset, registerDriver, requestPasswordReset } from "@/server/services/auth";
 import { confirmPayment, markRefunded, sendFreeThankYou, startTip, attachMessage } from "@/server/services/thanks";
 import { getDriverStats } from "@/server/services/stats";
 import { payoutDriver, refreshPayoutReadiness, startPayoutOnboarding } from "@/server/services/payouts";
-import { addFavoriteByCode, listFavorites } from "@/server/services/favorites";
+import { addFavoriteByCode, listFavorites, removeFavorite, renameFavorite } from "@/server/services/favorites";
 import { setDriverActive } from "@/server/services/profile";
 import { toPublicDriver } from "@/server/services/drivers";
 import { cardDesignSchema, createCardOrder, updateCardOrderStatus } from "@/server/services/cards";
@@ -43,6 +44,16 @@ describe("Registrierung", () => {
         m.registerDriver({ firstName: "A", lastName: "B", email: existing.email, phone: "", password: "sicheres-passwort", terms: "on" }),
       ),
     ).rejects.toThrow(/bereits ein Konto/);
+  });
+
+  it("hinterlässt bei einem fehlgeschlagenen Profil keinen unbenutzbaren Account", async () => {
+    const db = getDb();
+    const insert = vi.spyOn(db.cardDesigns, "insert").mockRejectedValueOnce(new Error("Datenbankfehler"));
+    await expect(registerDriver({ firstName: "Test", lastName: "Fahrer", email: "partial@test.de", phone: "", password: "sicheres-passwort", terms: "on" }))
+      .rejects.toThrow(/Datenbankfehler/);
+    expect(await db.users.findOne({ email: "partial@test.de" })).toBeNull();
+    expect(await db.driverProfiles.count()).toBe(0);
+    insert.mockRestore();
   });
 });
 
@@ -107,6 +118,43 @@ describe("Danke und Trinkgeld", () => {
     expect((await getDriverStats(driver.id)).balanceCents).toBe(0);
   });
 
+  it("bucht eine Erstattung vor einem verspäteten Erfolgsereignis nicht erneut gut", async () => {
+    const { driver } = await makeDriver();
+    const { paymentId } = await startTip(driver.code, 300, null);
+    await markRefunded("pi_early", paymentId);
+    await confirmPayment(paymentId, { providerIntentId: "pi_early" });
+    expect((await getDb().payments.get(paymentId))?.status).toBe("refunded");
+    expect((await getDriverStats(driver.id)).balanceCents).toBe(0);
+  });
+
+  it("verwendet kein veraltetes Connect-Zielkonto für einen neuen Checkout", async () => {
+    const { driver } = await makeDriver();
+    await getDb().driverProfiles.update(driver.id, { payoutAccountId: "acct_stale", payoutReady: true });
+    const readiness = vi.spyOn(demoPaymentProvider, "isAccountReady").mockResolvedValueOnce(false);
+    const { tipId } = await startTip(driver.code, 300, null);
+    expect((await getDb().tips.get(tipId))?.destinationAccountId).toBeNull();
+    readiness.mockRestore();
+  });
+
+  it("erstellt in Vercel Production keine simulierten Trinkgelder", async () => {
+    const { driver } = await makeDriver();
+    vi.stubEnv("VERCEL_ENV", "production");
+    try {
+      await expect(startTip(driver.code, 300, null)).rejects.toThrow(/gerade nicht verfügbar/);
+      expect(await getDb().tips.count()).toBe(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("holt eine unterbrochene Verbuchung beim nächsten Webhook nach", async () => {
+    const { driver } = await makeDriver();
+    const { paymentId } = await startTip(driver.code, 200, null);
+    await getDb().payments.update(paymentId, { status: "succeeded" });
+    await confirmPayment(paymentId);
+    expect((await getDriverStats(driver.id)).balanceCents).toBe(150);
+  });
+
   it("vergibt Meilensteine für erstes Danke und erstes Trinkgeld", async () => {
     const { driver } = await makeDriver();
     const { paymentId } = await startTip(driver.code, 200, null);
@@ -138,6 +186,32 @@ describe("Auszahlung", () => {
     }
     expect((await getDriverStats(driver.id)).balanceCents).toBe(0);
   });
+
+  it("verhindert parallele Doppelüberweisungen", async () => {
+    const { user, driver } = await makeDriver();
+    await confirmPayment((await startTip(driver.code, 300, null)).paymentId);
+    await startPayoutOnboarding(user, driver);
+    await refreshPayoutReadiness((await getDb().driverProfiles.get(driver.id))!);
+    const results = await Promise.allSettled([payoutDriver(driver.id), payoutDriver(driver.id)]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(await getDb().payouts.findMany({ where: { driverId: driver.id } })).toHaveLength(1);
+    expect((await getDriverStats(driver.id)).balanceCents).toBe(0);
+  });
+
+  it("setzt nach einem Transferfehler dieselbe vorgemerkte Auszahlung fort", async () => {
+    const { user, driver } = await makeDriver();
+    await confirmPayment((await startTip(driver.code, 300, null)).paymentId);
+    await startPayoutOnboarding(user, driver);
+    await refreshPayoutReadiness((await getDb().driverProfiles.get(driver.id))!);
+    const transfer = vi.spyOn(demoPaymentProvider, "createPayout").mockRejectedValueOnce(new Error("temporär"));
+    await expect(payoutDriver(driver.id)).rejects.toThrow(/nicht abgeschlossen/);
+    const pending = (await getDb().payouts.findMany({ where: { driverId: driver.id } }))[0];
+    expect(pending.status).toBe("pending");
+    const result = await payoutDriver(driver.id);
+    expect(result?.id).toBe(pending.id);
+    expect(await getDb().payouts.findMany({ where: { driverId: driver.id } })).toHaveLength(1);
+    transfer.mockRestore();
+  });
 });
 
 describe("Privatsphäre", () => {
@@ -157,6 +231,14 @@ describe("Privatsphäre", () => {
     const { user, driver } = await makeDriver();
     const view = toPublicDriver({ ...driver, photoKey: "avatars/x/y", photoPublic: false }, user);
     expect(view.photoUrl).toBeNull();
+  });
+
+  it("verwendet in öffentlichen Foto-URLs den Danke-Code statt einer internen UUID", async () => {
+    const { user, driver } = await makeDriver();
+    const view = toPublicDriver({ ...driver, photoKey: "avatars/private", photoPublic: true }, user);
+    expect(view.photoUrl).toContain(`/api/media/avatar/${driver.code}`);
+    expect(JSON.stringify(view)).not.toContain(driver.id);
+    expect(JSON.stringify(view)).not.toContain("avatars/private");
   });
 });
 
@@ -181,6 +263,16 @@ describe("Kundenkonto und Favoriten", () => {
     expect(stats.recentThankYous[0].customerId).toBe(customer.id); // intern gespeichert …
     // … aber die API entfernt den Bezug (siehe api.test.ts).
   });
+
+  it("lässt einen Kunden keine Favoriten eines anderen Kunden ändern", async () => {
+    const { driver } = await makeDriver();
+    const owner = await makeCustomer();
+    const stranger = await makeCustomer();
+    const favorite = await addFavoriteByCode(owner.id, driver.code);
+    await expect(renameFavorite(stranger.id, favorite.id, "Fremd")).rejects.toThrow();
+    await expect(removeFavorite(stranger.id, favorite.id)).rejects.toThrow();
+    expect((await listFavorites(owner.id))[0].nickname).toBeNull();
+  });
 });
 
 describe("Passwort vergessen", () => {
@@ -198,6 +290,30 @@ describe("Passwort vergessen", () => {
 
   it("verrät nicht, ob eine Adresse existiert", async () => {
     await expect(requestPasswordReset("gibt-es-nicht@test.de")).resolves.toEqual({ link: null });
+  });
+
+  it("lässt einen Reset-Link auch bei parallelen Anfragen nur einmal zu", async () => {
+    const { user } = await makeDriver();
+    const { link } = await requestPasswordReset(user.email);
+    const token = new URL(link!).searchParams.get("token")!;
+    const results = await Promise.allSettled([
+      completePasswordReset(token, "neues-passwort-1"),
+      completePasswordReset(token, "neues-passwort-2"),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    await expect(completePasswordReset("ungültig", "neues-passwort-3")).rejects.toThrow(/nicht mehr gültig/);
+  });
+
+  it("gibt in Produktion ohne E-Mail-Dienst keinen unerreichbaren Reset-Link aus", async () => {
+    const { user } = await makeDriver();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("RESEND_API_KEY", "");
+    try {
+      await expect(requestPasswordReset(user.email)).rejects.toThrow(/gerade nicht verfügbar/);
+      expect(await getDb().passwordResets.count()).toBe(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 
@@ -223,5 +339,45 @@ describe("Karten", () => {
 
     const shipped = await updateCardOrderStatus(order.id, "shipped", { carrier: "DHL", trackingNumber: "123" });
     expect(shipped.shippedAt).toBeTruthy();
+  });
+
+  it("gibt eine kostenpflichtige Karte erst nach bestätigter Zahlung frei", async () => {
+    const { user, driver } = await makeDriver();
+    const { order } = await createCardOrder(user, driver, {
+      quantity: 1,
+      shippingName: "Max Müller",
+      shippingStreet: "Musterstraße 1",
+      shippingPostalCode: "50667",
+      shippingCity: "Köln",
+      reorderOf: "",
+    });
+    await getDb().cardOrders.update(order.id, { totalCents: 490, paymentStatus: "pending" });
+    await expect(updateCardOrderStatus(order.id, "shipped", {})).rejects.toThrow(/noch nicht bezahlt/);
+    await getDb().cardOrders.update(order.id, { paymentStatus: "paid" });
+    await expect(updateCardOrderStatus(order.id, "shipped", {})).resolves.toMatchObject({ status: "shipped" });
+  });
+
+  it("sperrt den Versand einer nachträglich erstatteten Karte", async () => {
+    const { user, driver } = await makeDriver();
+    const { order } = await createCardOrder(user, driver, {
+      quantity: 1,
+      shippingName: "Max Müller",
+      shippingStreet: "Musterstraße 1",
+      shippingPostalCode: "50667",
+      shippingCity: "Köln",
+      reorderOf: "",
+    });
+    await getDb().cardOrders.update(order.id, { totalCents: 490, paymentStatus: "pending" });
+    const paymentId = "card-payment-test";
+    await getDb().payments.insert({
+      id: paymentId, purpose: "card_order", referenceId: order.id, provider: "demo",
+      providerPaymentId: "demo_card", providerIntentId: "pi_card", amountCents: 490,
+      currency: "EUR", status: "pending", method: null, failureReason: null,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    });
+    await confirmPayment(paymentId, { providerIntentId: "pi_card" });
+    await markRefunded("pi_card");
+    expect((await getDb().cardOrders.get(order.id))?.paymentStatus).toBe("refunded");
+    await expect(updateCardOrderStatus(order.id, "shipped", {})).rejects.toThrow(/noch nicht bezahlt/);
   });
 });

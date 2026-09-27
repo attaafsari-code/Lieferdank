@@ -59,6 +59,18 @@ export function resolveBaseUrl(env: BaseUrlEnv, lanAddress: string | null): Reso
   const production = env.NODE_ENV === "production";
   const explicit = env.NEXT_PUBLIC_BASE_URL ? clean(env.NEXT_PUBLIC_BASE_URL) : "";
 
+  // Die echte Vercel-Produktivumgebung darf auch bei einer versehentlich
+  // übernommenen Preview-URL keine falschen QR-Karten erzeugen.
+  if (env.VERCEL_ENV === "production") {
+    return {
+      url: PRODUCTION_URL,
+      source: "Vercel Production",
+      warning: explicit && explicit !== PRODUCTION_URL
+        ? `NEXT_PUBLIC_BASE_URL (${explicit}) wird in Produktion ignoriert – verwende ${PRODUCTION_URL}.`
+        : null,
+    };
+  }
+
   if (explicit) {
     if (!production || isProductionSafe(explicit)) {
       return { url: explicit, source: "NEXT_PUBLIC_BASE_URL", warning: null };
@@ -70,7 +82,6 @@ export function resolveBaseUrl(env: BaseUrlEnv, lanAddress: string | null): Reso
     };
   }
 
-  if (env.VERCEL_ENV === "production") return { url: PRODUCTION_URL, source: "Vercel Production", warning: null };
   if (env.VERCEL_ENV === "preview" && env.VERCEL_URL) {
     return { url: `https://${env.VERCEL_URL}`, source: "Vercel Preview", warning: null };
   }

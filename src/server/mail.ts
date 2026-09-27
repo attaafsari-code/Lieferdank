@@ -4,7 +4,8 @@ import { logEvent } from "./events";
 /**
  * E-Mail-Versand über Resend (HTTP-API, kein SDK nötig).
  *
- * Ohne RESEND_API_KEY wird nichts verschickt: Die Nachricht landet im Serverlog.
+ * Ohne RESEND_API_KEY wird nichts verschickt. Inhalte und Reset-Links werden
+ * niemals protokolliert.
  * Mailversand darf nie einen Nutzerablauf abbrechen – Fehler werden protokolliert.
  */
 
@@ -20,7 +21,7 @@ export function mailConfigured(): boolean {
 
 export async function sendMail(to: string, content: MailContent, tag: string): Promise<MailResult> {
   if (!mailConfigured()) {
-    console.info(`[mail:${tag}] Kein RESEND_API_KEY – nicht versendet an ${to}: ${content.subject}\n${content.text}`);
+    console.info(`[mail:${tag}] Kein RESEND_API_KEY – Nachricht nicht versendet.`);
     return { delivered: false };
   }
 
@@ -43,10 +44,7 @@ export async function sendMail(to: string, content: MailContent, tag: string): P
     });
 
     if (!response.ok) {
-      await logEvent("error", "mail", `Versand fehlgeschlagen (${response.status})`, {
-        tag,
-        body: (await response.text()).slice(0, 300),
-      });
+      await logEvent("error", "mail", `Versand fehlgeschlagen (${response.status})`, { tag });
       return { delivered: false };
     }
     return { delivered: true };

@@ -57,13 +57,13 @@ function StatsBlock({ title, stats }: { title: string; stats: PlatformStats }) {
         <Kpi label="Ø Trinkgeld" value={formatEuro(stats.averageTipCents)} />
         <Kpi label="Kostenlose Danke" value={String(stats.freeThankYouCount)} />
         <Kpi label="Plattformgebühr brutto" value={formatEuro(stats.grossPlatformFeeCents)} />
-        <Kpi label="Paymentkosten" value={formatEuro(stats.paymentFeeCents)} />
-        <Kpi label="Auszahlungskosten" value={formatEuro(stats.payoutFeeCents)} />
-        <Kpi label="Nettomarge" value={formatEuro(stats.netRevenueCents)} highlight />
-        <Kpi label="Netto je Transaktion" value={formatEuro(stats.revenuePerTransactionCents)} />
+        <Kpi label="Paymentkosten (kalk.)" value={formatEuro(stats.paymentFeeCents)} />
+        <Kpi label="Auszahlungskosten (kalk.)" value={formatEuro(stats.payoutFeeCents)} />
+        <Kpi label="Nettomarge (kalk.)" value={formatEuro(stats.netRevenueCents)} highlight />
+        <Kpi label="Netto je Transaktion (kalk.)" value={formatEuro(stats.revenuePerTransactionCents)} />
         <Kpi label="Scans" value={String(stats.scanCount)} />
-        <Kpi label="Scan → Danke" value={percent(stats.scanToThankYouRate)} />
-        <Kpi label="Scan → Zahlung" value={percent(stats.scanToPaymentRate)} />
+        <Kpi label="Danke / Scans" value={percent(stats.scanToThankYouRate)} />
+        <Kpi label="Zahlungen / Scans" value={percent(stats.scanToPaymentRate)} />
         <Kpi label="Lieferanten aktiv / gesamt" value={`${stats.activeDrivers} / ${stats.totalDrivers}`} />
         <Kpi label="Kundenkonten" value={String(stats.totalCustomers)} />
       </div>

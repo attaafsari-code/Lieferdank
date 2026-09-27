@@ -194,6 +194,9 @@ export async function cancelCardOrder(driverId: string, orderId: string): Promis
   if (order.status !== "requested") {
     throw new ServiceError("not_cancellable", "Diese Bestellung ist schon in Bearbeitung.", 409);
   }
+  if (order.totalCents > 0 && order.paymentStatus === "paid") {
+    throw new ServiceError("refund_required", "Bezahlte Bestellungen können nur über den Support storniert und erstattet werden.", 409);
+  }
   await db.cardOrders.update(order.id, { status: "cancelled", updatedAt: new Date().toISOString() });
 }
 
@@ -215,6 +218,9 @@ export async function updateCardOrderStatus(
   const db = getDb();
   const order = await db.cardOrders.get(orderId);
   if (!order) throw notFound();
+  if (order.totalCents > 0 && order.paymentStatus !== "paid" && !["requested", "cancelled"].includes(status)) {
+    throw new ServiceError("payment_required", "Diese Bestellung ist noch nicht bezahlt.", 409);
+  }
 
   const now = new Date().toISOString();
   const patch: Partial<CardOrder> = {

@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import { useRef, useState, useTransition } from "react";
 import { Avatar } from "@/components/avatar";
 import { removePhotoAction, setPhotoPublicAction, uploadPhotoAction } from "@/server/actions/driver";

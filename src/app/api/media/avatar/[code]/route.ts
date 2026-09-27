@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db";
+import { normalizeCode } from "@/lib/id";
 import { getSession } from "@/server/session";
 import { readDriverPhoto } from "@/server/services/profile";
 
@@ -8,9 +9,9 @@ export const dynamic = "force-dynamic";
  * Liefert ein Profilfoto aus – aber nur, wenn es öffentlich ist oder der
  * Zusteller selbst bzw. ein Admin fragt. So bleibt „nur im Dashboard“ wirklich privat.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ driverId: string }> }) {
-  const { driverId } = await params;
-  const driver = await getDb().driverProfiles.get(driverId);
+export async function GET(_request: Request, { params }: { params: Promise<{ code: string }> }) {
+  const { code } = await params;
+  const driver = await getDb().driverProfiles.findOne({ code: normalizeCode(code) });
   if (!driver?.photoKey) return new Response("Nicht gefunden", { status: 404 });
 
   let allowed = driver.photoPublic && driver.active;

@@ -33,6 +33,8 @@ export interface Table<T extends { id: string }> {
   count(query?: Pick<Query<T>, "where" | "since">): Promise<number>;
   insert(row: T): Promise<T>;
   update(id: string, patch: Partial<T>): Promise<void>;
+  /** Atomarer Zustandswechsel; false, wenn die Zeile nicht mehr im erwarteten Zustand ist. */
+  updateIf(id: string, where: Where<T>, patch: Partial<T>): Promise<boolean>;
   remove(id: string): Promise<void>;
 }
 

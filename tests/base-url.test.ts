@@ -29,6 +29,15 @@ describe("Basis-URL der QR-Codes", () => {
     );
   });
 
+  it("ignoriert in Vercel Production auch eine versehentlich gesetzte Preview-URL", () => {
+    const result = resolveBaseUrl({
+      NODE_ENV: "production", VERCEL_ENV: "production",
+      NEXT_PUBLIC_BASE_URL: "https://lieferdank-git-test.vercel.app",
+    }, null);
+    expect(result.url).toBe(PRODUCTION_URL);
+    expect(result.warning).toContain("ignoriert");
+  });
+
   it("nutzt auf Vercel Preview die Preview-Adresse", () => {
     expect(resolveBaseUrl({ NODE_ENV: "production", VERCEL_ENV: "preview", VERCEL_URL: "lieferdank-git-x.vercel.app" }, null).url).toBe(
       "https://lieferdank-git-x.vercel.app",

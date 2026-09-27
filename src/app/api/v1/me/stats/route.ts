@@ -14,7 +14,9 @@ export const GET = api({ auth: "driver" }, async ({ session }) => {
     paidOutCents: stats.paidOutCents,
     streakDays: stats.streakDays,
     // Kundenbezug wird nie an den Zusteller ausgeliefert.
-    recentThankYous: stats.recentThankYous.map(({ customerId: _c, ...rest }) => rest),
+    recentThankYous: stats.recentThankYous.map(({ id, tipId, presetId, message, createdAt }) => ({
+      id, tipId, presetId, message, createdAt,
+    })),
     recentTips: stats.recentTips.map(({ id, driverCents, grossCents, payoutStatus, createdAt }) => ({
       id,
       driverCents,

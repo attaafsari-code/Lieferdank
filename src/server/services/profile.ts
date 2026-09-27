@@ -70,10 +70,10 @@ export async function updateDriverProfile(user: User, driver: DriverProfile, inp
 /* ---------- Foto ---------- */
 
 export async function uploadDriverPhoto(driver: DriverProfile, bytes: Uint8Array): Promise<void> {
-  const contentType = validatePhoto(bytes);
+  const photo = await validatePhoto(bytes);
   // Zufälliger Schlüssel: kein Rückschluss auf die Person, alte Dateien sind nicht erratbar.
   const key = `avatars/${driver.id}/${newId()}`;
-  await putFile(key, bytes, contentType);
+  await putFile(key, photo.bytes, photo.contentType);
 
   const previous = driver.photoKey;
   await getDb().driverProfiles.update(driver.id, { photoKey: key, updatedAt: new Date().toISOString() });
@@ -178,6 +178,8 @@ export async function exportUserData(user: User) {
   const db = getDb();
   const driver = await db.driverProfiles.findOne({ userId: user.id });
   const { passwordHash: _hash, tokenVersion: _version, ...account } = user;
+  void _hash;
+  void _version;
 
   if (driver) {
     const [tips, thankYous, milestones, payouts, cardOrders, cardDesign, verification] = await Promise.all([

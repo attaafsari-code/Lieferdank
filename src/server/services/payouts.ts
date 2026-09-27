@@ -51,13 +51,21 @@ export async function payoutDriver(driverId: string): Promise<Payout | null> {
   const driver = await db.driverProfiles.get(driverId);
   if (!driver) throw new ServiceError("not_found", "Zusteller nicht gefunden.", 404);
 
-  const open = await db.tips.findMany({ where: { driverId, paymentStatus: "succeeded", payoutStatus: "in_balance" } });
-  if (open.length === 0) return null;
+  let payout = await db.payouts.findOne({ driverId, status: "pending" });
+  const open = payout
+    ? await Promise.all(payout.tipIds.map((id) => db.tips.get(id)))
+    : await db.tips.findMany({ where: { driverId, paymentStatus: "succeeded", payoutStatus: "in_balance" } });
+  if (!payout && open.length === 0) return null;
+  if (open.some((tip) => !tip || tip.driverId !== driverId || tip.paymentStatus !== "succeeded" ||
+      (tip.payoutStatus !== "in_balance" && !(payout && tip.payoutStatus === "paid_out" && tip.payoutId === payout.id)))) {
+    throw new ServiceError("payout_changed", "Auszahlung muss nach einer Änderung der Trinkgelder manuell geprüft werden.", 409);
+  }
+  const tips = open.filter((tip): tip is NonNullable<typeof tip> => tip !== null);
+  const amountCents = tips.reduce((sum, tip) => sum + tip.driverCents, 0);
+  const owedCents = tips.filter((t) => !t.destinationAccountId).reduce((sum, tip) => sum + tip.driverCents, 0);
 
-  const amountCents = open.reduce((sum, tip) => sum + tip.driverCents, 0);
-  const owedCents = open.filter((t) => !t.destinationAccountId).reduce((sum, tip) => sum + tip.driverCents, 0);
-
-  if (owedCents > 0 && (!driver.payoutAccountId || !driver.payoutReady)) {
+  if (owedCents > 0 && (!driver.payoutAccountId || !driver.payoutReady ||
+      !await getPaymentProvider().isAccountReady(driver.payoutAccountId))) {
     throw new ServiceError(
       "payout_account_missing",
       "Der Zusteller hat noch kein einsatzbereites Auszahlungskonto. Ohne Konto kann nicht überwiesen werden.",
@@ -67,44 +75,50 @@ export async function payoutDriver(driverId: string): Promise<Payout | null> {
 
   const provider = getPaymentProvider();
   const now = new Date().toISOString();
-  const feeCents = owedCents > 0 ? estimatePayoutFeeCents(owedCents) : 0;
-  const payout: Payout = {
-    id: newId(),
-    driverId,
-    amountCents,
-    transferredCents: owedCents,
-    feeCents,
-    status: "pending",
-    provider: provider.id,
-    providerTransferId: null,
-    tipIds: open.map((t) => t.id),
-    failureReason: null,
-    createdAt: now,
-    completedAt: null,
-  };
-  await db.payouts.insert(payout);
-
-  let transferId: string | null = null;
-  if (owedCents > 0) {
+  const feeCents = payout?.feeCents ?? (owedCents > 0 ? estimatePayoutFeeCents(owedCents) : 0);
+  if (!payout) {
+    payout = {
+      id: newId(), driverId, amountCents, transferredCents: owedCents, feeCents,
+      status: "pending", provider: provider.id, providerTransferId: null,
+      tipIds: tips.map((t) => t.id), failureReason: null, createdAt: now, completedAt: null,
+    };
     try {
-      transferId = await provider.createPayout({ accountId: driver.payoutAccountId!, amountCents: owedCents, payoutId: payout.id });
+      await db.payouts.insert(payout);
     } catch (error) {
-      const reason = errorMessage(error);
-      await db.payouts.update(payout.id, { status: "failed", failureReason: reason, completedAt: new Date().toISOString() });
-      await logEvent("error", "payout", "Überweisung fehlgeschlagen", { payoutId: payout.id, driverId, reason });
-      throw new ServiceError("payout_failed", `Überweisung fehlgeschlagen: ${reason}`, 502);
+      // Der eindeutige Datenbankindex entscheidet auch bei parallelen Requests.
+      if (await db.payouts.findOne({ driverId, status: "pending" })) {
+        throw new ServiceError("payout_in_progress", "Für diesen Zusteller läuft bereits eine Auszahlung.", 409);
+      }
+      throw error;
     }
   }
 
-  const shares = allocateFee(feeCents, open.length);
-  for (const [index, tip] of open.entries()) {
+  let transferId: string | null = payout.providerTransferId;
+  if (owedCents > 0 && !transferId) {
+    try {
+      transferId = await provider.createPayout({ accountId: driver.payoutAccountId!, amountCents: owedCents, payoutId: payout.id });
+      await db.payouts.update(payout.id, { providerTransferId: transferId });
+    } catch (error) {
+      const reason = errorMessage(error);
+      // Pending bleibt stehen: derselbe idempotente Transfer kann erneut
+      // abgefragt werden. Ein neuer Payout würde Doppelzahlung riskieren.
+      await db.payouts.update(payout.id, { failureReason: reason });
+      await logEvent("error", "payout", "Überweisung fehlgeschlagen", { payoutId: payout.id, driverId, reason });
+      throw new ServiceError("payout_failed", "Überweisung konnte nicht abgeschlossen werden. Bitte später erneut versuchen.", 502);
+    }
+  }
+
+  const shares = allocateFee(feeCents, tips.length);
+  for (const [index, tip] of tips.entries()) {
+    if (tip.payoutStatus === "paid_out" && tip.payoutId === payout.id) continue;
     const payoutFeeCents = shares[index];
-    await db.tips.update(tip.id, {
+    const changed = await db.tips.updateIf(tip.id, { paymentStatus: "succeeded", payoutStatus: "in_balance" }, {
       payoutStatus: "paid_out",
       payoutId: payout.id,
       payoutFeeCents,
       platformNetRevenueCents: tip.platformGrossFeeCents - tip.paymentProviderFeeCents - payoutFeeCents,
     });
+    if (!changed) throw new ServiceError("payout_changed", "Auszahlung muss nach einer Änderung der Trinkgelder manuell geprüft werden.", 409);
   }
 
   const completedAt = new Date().toISOString();

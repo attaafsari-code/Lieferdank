@@ -84,12 +84,13 @@ export async function saveDriverAction(code: string): Promise<FlowResult & { nee
  * bestätigt allein der signierte Webhook des Zahlungsdienstleisters.
  */
 export async function confirmDemoPaymentAction(paymentId: string, succeed: boolean): Promise<void> {
-  if (!isDemoPayment()) throw new Error("Testzahlungen sind deaktiviert.");
+  if (!isDemoPayment() || process.env.VERCEL_ENV === "production") throw new Error("Testzahlungen sind deaktiviert.");
   await enforceRateLimit("demo-pay", 20, 60_000);
 
   const db = getDb();
   const payment = await db.payments.get(paymentId);
   if (!payment) redirect("/");
+  if (payment.provider !== "demo") throw new Error("Testzahlungen sind deaktiviert.");
 
   if (payment.purpose === "card_order") {
     if (succeed) await confirmPayment(paymentId, { method: "demo" });

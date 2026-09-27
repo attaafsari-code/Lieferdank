@@ -13,12 +13,8 @@ export const CURRENCY = "EUR";
 /** Feste Trinkgeld-Buttons. */
 export const TIP_OPTIONS_CENTS = [200, 300, 500] as const;
 
-/**
- * Untergrenze für frei gewählte Beträge. Bei 1 € wäre die feste Gebühr die
- * Hälfte des Trinkgelds – diesen Betrag gibt es deshalb bewusst nicht.
- */
 export const MIN_TIP_CENTS = 200;
-export const MAX_TIP_CENTS = 5000;
+export const MAX_TIP_CENTS = 500;
 
 export const PLATFORM_GROSS_FEE_CENTS = 50;
 
@@ -72,7 +68,7 @@ export function splitTip(grossCents: number): TipSplit {
 }
 
 export function isAllowedTipAmount(grossCents: number): boolean {
-  return Number.isInteger(grossCents) && grossCents >= MIN_TIP_CENTS && grossCents <= MAX_TIP_CENTS;
+  return TIP_OPTIONS_CENTS.some((amount) => amount === grossCents);
 }
 
 /**

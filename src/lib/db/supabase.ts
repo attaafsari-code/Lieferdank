@@ -1,3 +1,4 @@
+import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Db, Query, Table, Where } from "./table";
 import { TABLE_NAMES, type TableName, type Tables } from "./types";
@@ -140,6 +141,16 @@ function supabaseTable<N extends TableName>(name: N): Table<Tables[N]> {
       if (Object.keys(values).length === 0) return;
       const { error } = await supabaseClient().from(table).update(values).eq("id", id);
       check(error, table);
+    },
+
+    async updateIf(id, where, patch) {
+      const values = toRow(patch as Record<string, unknown>);
+      delete values.id;
+      if (Object.keys(values).length === 0) return false;
+      const builder = applyFilters(supabaseClient().from(table).update(values).eq("id", id), { where });
+      const { data, error } = await builder.select("id").maybeSingle();
+      check(error, table);
+      return Boolean(data);
     },
 
     async remove(id) {

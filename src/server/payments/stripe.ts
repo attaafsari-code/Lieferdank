@@ -29,9 +29,9 @@ export function stripeClient(): Stripe {
 export const stripePaymentProvider: PaymentProvider = {
   id: "stripe",
   get isSandbox() {
-    return !(process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_live");
+    return !/^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY ?? "");
   },
-  methodsLabel: "Apple Pay, Google Pay, PayPal oder Karte",
+  methodsLabel: "Apple Pay, Google Pay oder Karte",
 
   async createPayment(input) {
     const metadata = { paymentId: input.paymentId, purpose: input.purpose, referenceId: input.referenceId };
@@ -79,14 +79,17 @@ export const stripePaymentProvider: PaymentProvider = {
   },
 
   async createConnectedAccount({ email, driverId }) {
-    const account = await stripeClient().accounts.create({
-      type: "express",
-      country: "DE",
-      email,
-      business_type: "individual",
-      capabilities: { transfers: { requested: true } },
-      metadata: { driverId },
-    });
+    const account = await stripeClient().accounts.create(
+      {
+        type: "express",
+        country: "DE",
+        email,
+        business_type: "individual",
+        capabilities: { transfers: { requested: true } },
+        metadata: { driverId },
+      },
+      { idempotencyKey: `driver_account_${driverId}` },
+    );
     return account.id;
   },
 

@@ -192,7 +192,7 @@ export type CardOrder = {
   unitPriceCents: number;
   totalCents: number;
   currency: string;
-  paymentStatus: "not_required" | "pending" | "paid";
+  paymentStatus: "not_required" | "pending" | "paid" | "refunded";
   paymentId: string | null;
   design: CardSnapshot;
   shippingName: string;

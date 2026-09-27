@@ -80,6 +80,11 @@ function memoryTable<N extends TableName>(name: N): Table<Tables[N]> {
       if (rows().some((existing) => existing.id === row.id)) {
         throw new Error(`${name}: Zeile ${row.id} existiert bereits`);
       }
+      if (name === "payouts" && rows().some((existing) =>
+        (existing as unknown as { driverId: string; status: string }).driverId === (row as unknown as { driverId: string }).driverId &&
+        (existing as unknown as { status: string }).status === "pending")) {
+        throw new Error("payouts: offene Auszahlung für diesen Zusteller existiert bereits");
+      }
       rows().push(clone(row));
       persist();
       return clone(row);
@@ -90,6 +95,13 @@ function memoryTable<N extends TableName>(name: N): Table<Tables[N]> {
         Object.assign(row, clone(patch));
         persist();
       }
+    },
+    async updateIf(id, where, patch) {
+      const row = rows().find((existing) => existing.id === id && matches(existing, { where }));
+      if (!row) return false;
+      Object.assign(row, clone(patch));
+      persist();
+      return true;
     },
     async remove(id) {
       const list = rows();

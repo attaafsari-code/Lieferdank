@@ -168,7 +168,7 @@ create table if not exists public.card_orders (
   total_cents           integer not null default 0,
   currency              text not null default 'EUR',
   payment_status        text not null default 'not_required'
-                          check (payment_status in ('not_required', 'pending', 'paid')),
+                          check (payment_status in ('not_required', 'pending', 'paid', 'refunded')),
   payment_id            uuid references public.payments (id),
   design                jsonb not null,       -- eingefrorener Kartenstand zum Bestellzeitpunkt
   shipping_name         text not null,
@@ -246,6 +246,8 @@ create index if not exists scans_created_idx              on public.scans (creat
 create index if not exists payments_intent_idx            on public.payments (provider_intent_id);
 create index if not exists payments_reference_idx         on public.payments (reference_id);
 create index if not exists payouts_driver_idx             on public.payouts (driver_id, created_at desc);
+-- Verhindert zwei gleichzeitige Transfers desselben offenen Guthabens.
+create unique index if not exists payouts_one_pending_per_driver_idx on public.payouts (driver_id) where status = 'pending';
 create index if not exists card_orders_driver_idx         on public.card_orders (driver_id, created_at desc);
 create index if not exists card_orders_status_idx         on public.card_orders (status);
 create index if not exists driver_favorites_customer_idx  on public.driver_favorites (customer_id, created_at desc);
@@ -289,4 +291,7 @@ revoke all on all tables in schema public from anon, authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('media', 'media', false, 2097152, array['image/jpeg', 'image/png', 'image/webp'])
-on conflict (id) do nothing;
+on conflict (id) do update set
+  public = false,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;

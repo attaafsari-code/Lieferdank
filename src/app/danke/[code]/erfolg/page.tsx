@@ -44,7 +44,7 @@ export default async function SuccessPage({ params, searchParams }: Props) {
   }
 
   const session = await getSession();
-  const saved = driver && session?.customer ? await isFavorite(session.user.id, driver.id) : false;
+  const saved = found && session?.customer ? await isFavorite(session.user.id, found.driver.id) : false;
   // Speichern ergibt nur für Kunden oder Besucher ohne Konto Sinn.
   const canSave = Boolean(driver) && (!session || Boolean(session.customer));
 

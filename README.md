@@ -8,7 +8,7 @@ ohne App, ohne Konto.
 
 - **Web-App**: Next.js 16, TypeScript, Tailwind CSS 4
 - **Daten**: Supabase (Postgres + Storage), lokal eine JSON-Testdatenbank
-- **Zahlungen**: Stripe Connect + Checkout (Apple Pay, Google Pay, PayPal, Karte)
+- **Zahlungen**: Stripe Connect + Checkout (Karte, Apple Pay, Google Pay; PayPal später)
 - **Mail**: Resend
 - **PWA**: installierbar auf iOS und Android, vorbereitet für native Apps
 
@@ -23,9 +23,9 @@ npm run dev
 ```
 
 Dann **http://localhost:3000** öffnen. Ohne jede Konfiguration: Zahlungen werden simuliert,
-Daten liegen in `data/db.json`, Mails landen im Terminal.
+Daten liegen in `data/db.json`; E-Mails werden nicht versendet und ihr Inhalt wird nicht protokolliert.
 
-### Demo-Zugänge
+### Demo-Zugänge (nur nach lokalem `npm run seed`, nie für Produktion)
 
 | Rolle     | E-Mail                | Passwort           | Startseite            |
 | --------- | --------------------- | ------------------ | --------------------- |
@@ -65,7 +65,7 @@ Auszahlungskonto über Stripe (dort passiert die gesetzlich nötige Identitätsp
 
 **Kunde mit Konto (optional)** – „Meine Lieferanten“, Verlauf, erneut Danke sagen.
 
-**Admin** – Kennzahlen inkl. Nettomarge · Nutzer, Codes, Sperren · Transaktionen ·
+**Admin** – Kennzahlen inkl. kalkulierter Nettomarge · Nutzer, Codes, Sperren · Transaktionen ·
 Auszahlungen · Kartenbestellungen mit Versandstatus · Fehlermeldungen und Adminprotokoll.
 
 ### Geldlogik

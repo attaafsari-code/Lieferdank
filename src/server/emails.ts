@@ -116,13 +116,13 @@ export const emails = {
 
   payoutSent(firstName: string, amountCents: number, earningsUrl: string): MailContent {
     return mail(
-      `Auszahlung über ${formatEuro(amountCents)} ist unterwegs`,
-      "Dein Guthaben wird überwiesen",
-      "Deine Auszahlung ist unterwegs",
+      `${formatEuro(amountCents)} für die Auszahlung erfasst`,
+      "Deine Trinkgelder wurden bei Stripe erfasst",
+      "Deine Trinkgelder sind bei Stripe",
       [
         {
           kind: "p",
-          text: `Hallo ${firstName}, wir haben ${formatEuro(amountCents)} an dein Auszahlungskonto angewiesen. Je nach Bank dauert die Gutschrift ein bis drei Werktage.`,
+          text: `Hallo ${firstName}, ${formatEuro(amountCents)} wurden für dein Stripe-Auszahlungskonto erfasst. Wann das Geld auf deinem Bankkonto ankommt, zeigt dir Stripe.`,
         },
         { kind: "button", label: "Einnahmen ansehen", href: earningsUrl },
       ],

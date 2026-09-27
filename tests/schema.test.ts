@@ -77,6 +77,15 @@ describe("Schema-Konsistenz", () => {
     expect([...schema.keys()].sort()).toEqual(TABLE_NAMES.map(toSnake).sort());
   });
 
+  it("aktiviert RLS für jede Tabelle und entzieht anon/authenticated Tabellenrechte", () => {
+    const sql = readFileSync(join(process.cwd(), "supabase", "schema.sql"), "utf8");
+    for (const name of TABLE_NAMES) {
+      expect(sql).toMatch(new RegExp(`alter table public\\.${toSnake(name)}\\s+enable row level security;`));
+    }
+    expect(sql).toMatch(/revoke all on all tables in schema public from anon, authenticated;/);
+    expect(sql).not.toMatch(/create\s+policy\s+/i);
+  });
+
   it.each(TABLE_NAMES)("Spalten von %s passen zum TypeScript-Typ", (name) => {
     const expected = Object.keys(KEYS[name]).map(toSnake).sort();
     expect([...(schema.get(toSnake(name)) ?? [])].sort()).toEqual(expected);

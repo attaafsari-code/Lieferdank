@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LogoMark } from "@/components/logo";
 
 export const metadata = { title: "Offline", robots: { index: false, follow: false } };
@@ -11,9 +12,9 @@ export default function OfflinePage() {
       <p className="mt-3 max-w-xs leading-relaxed text-ink-soft">
         Danke sagen und bezahlen braucht Internet. Sobald du wieder online bist, geht es weiter.
       </p>
-      <a href="/" className="btn btn-primary mt-8">
+      <Link href="/" className="btn btn-primary mt-8">
         Erneut versuchen
-      </a>
+      </Link>
     </div>
   );
 }

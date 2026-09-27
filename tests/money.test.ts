@@ -25,13 +25,11 @@ describe("Trinkgeld-Aufteilung", () => {
     expect(split.payoutFeeCents).toBe(0);
   });
 
-  it("erlaubt keine Beträge unter 2 € oder über 50 €", () => {
-    expect(isAllowedTipAmount(199)).toBe(false);
-    expect(isAllowedTipAmount(100)).toBe(false);
-    expect(isAllowedTipAmount(200)).toBe(true);
-    expect(isAllowedTipAmount(5000)).toBe(true);
-    expect(isAllowedTipAmount(5001)).toBe(false);
-    expect(isAllowedTipAmount(250.5)).toBe(false);
+  it("erlaubt ausschließlich die veröffentlichten Beträge", () => {
+    for (const amount of [200, 300, 500]) expect(isAllowedTipAmount(amount)).toBe(true);
+    for (const amount of [0, 100, 199, 250, 400, 600, -1, 999999, NaN, 250.5]) {
+      expect(isAllowedTipAmount(amount)).toBe(false);
+    }
   });
 
   it("lehnt ungültige Beträge ab", () => {

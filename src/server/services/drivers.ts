@@ -12,7 +12,6 @@ import { defaultCardDesign } from "@/lib/card/design";
  * sofern der Nachname nicht Teil des gewählten Anzeigenamens ist.
  */
 export type PublicDriver = {
-  id: string;
   code: string;
   name: string;
   initials: string;
@@ -25,10 +24,10 @@ export type PublicDriver = {
   providerVerified: boolean;
 };
 
-export function avatarUrl(driver: Pick<DriverProfile, "id" | "photoKey" | "updatedAt">): string | null {
+export function avatarUrl(driver: Pick<DriverProfile, "code" | "photoKey" | "updatedAt">): string | null {
   if (!driver.photoKey) return null;
   // Versionsparameter bricht den Browser-Cache, sobald ein neues Foto hochgeladen wird.
-  return `/api/media/avatar/${driver.id}?v=${encodeURIComponent(driver.updatedAt)}`;
+  return `/api/media/avatar/${driver.code}?v=${encodeURIComponent(driver.updatedAt)}`;
 }
 
 export function driverPublicName(driver: DriverProfile, user: Pick<User, "firstName" | "lastName">): string {
@@ -38,7 +37,6 @@ export function driverPublicName(driver: DriverProfile, user: Pick<User, "firstN
 export function toPublicDriver(driver: DriverProfile, user: User): PublicDriver {
   const name = driverPublicName(driver, user);
   return {
-    id: driver.id,
     code: driver.code,
     name,
     initials: initials(name),
@@ -103,6 +101,11 @@ export async function createDriverProfile(userId: string, now: string): Promise<
     updatedAt: now,
   });
 
-  await db.cardDesigns.insert({ id: newId(), driverId: driver.id, ...defaultCardDesign(), updatedAt: now });
+  try {
+    await db.cardDesigns.insert({ id: newId(), driverId: driver.id, ...defaultCardDesign(), updatedAt: now });
+  } catch (error) {
+    await db.driverProfiles.remove(driver.id).catch(() => undefined);
+    throw error;
+  }
   return driver;
 }

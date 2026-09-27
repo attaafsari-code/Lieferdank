@@ -6,7 +6,7 @@ import type { User } from "@/lib/db/types";
 import { newId } from "@/lib/id";
 import { ServiceError } from "../errors";
 import { hashPassword, verifyPassword } from "../session";
-import { sendMail } from "../mail";
+import { mailConfigured, sendMail } from "../mail";
 import { emails } from "../emails";
 import { baseUrl } from "../site";
 import { createDriverProfile } from "./drivers";
@@ -75,17 +75,22 @@ export async function registerDriver(input: z.infer<typeof driverRegistrationSch
     blockedReason: null,
   });
 
-  const driver = await createDriverProfile(user.id, now);
-
-  await db.verifications.insert({
-    id: newId(),
-    userId: user.id,
-    identityStatus: "unverified",
-    driverStatus: "unverified",
-    documentNote: null,
-    reviewNote: null,
-    updatedAt: now,
-  });
+  let driver;
+  try {
+    driver = await createDriverProfile(user.id, now);
+    await db.verifications.insert({
+      id: newId(),
+      userId: user.id,
+      identityStatus: "unverified",
+      driverStatus: "unverified",
+      documentNote: null,
+      reviewNote: null,
+      updatedAt: now,
+    });
+  } catch (error) {
+    await db.users.remove(user.id).catch(() => undefined);
+    throw error;
+  }
 
   await sendMail(user.email, emails.welcomeDriver(user.firstName, driver.code, `${baseUrl()}/dashboard`), "welcome_driver");
   return user;
@@ -109,7 +114,12 @@ export async function registerCustomer(input: z.infer<typeof customerRegistratio
     blockedAt: null,
     blockedReason: null,
   });
-  await db.customerProfiles.insert({ id: newId(), userId: user.id, createdAt: now });
+  try {
+    await db.customerProfiles.insert({ id: newId(), userId: user.id, createdAt: now });
+  } catch (error) {
+    await db.users.remove(user.id).catch(() => undefined);
+    throw error;
+  }
 
   // „Lieferant speichern“ vor der Registrierung: direkt nachholen.
   if (input.saveCode) {
@@ -154,6 +164,9 @@ function hashToken(token: string): string {
 
 /** Gibt den Link zurück, damit er ohne Mailversand im Testmodus angezeigt werden kann. */
 export async function requestPasswordReset(address: string): Promise<{ link: string | null }> {
+  if (process.env.NODE_ENV === "production" && !mailConfigured()) {
+    throw new ServiceError("mail_unavailable", "Passwort-Zurücksetzen ist gerade nicht verfügbar. Bitte versuche es später erneut.", 503);
+  }
   const db = getDb();
   const user = await db.users.findOne({ email: address.trim().toLowerCase() });
   if (!user || user.blockedAt) return { link: null };
@@ -179,15 +192,16 @@ export async function requestPasswordReset(address: string): Promise<{ link: str
 
 export async function completePasswordReset(token: string, newPassword: string): Promise<User> {
   const db = getDb();
-  const reset = await db.passwordResets.findOne({ tokenHash: hashToken(token) });
   const invalid = new ServiceError("reset_invalid", "Dieser Link ist nicht mehr gültig. Fordere bitte einen neuen an.", 400);
+  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw invalid;
+  const reset = await db.passwordResets.findOne({ tokenHash: hashToken(token) });
   if (!reset || reset.usedAt || new Date(reset.expiresAt).getTime() < Date.now()) throw invalid;
 
   const user = await db.users.get(reset.userId);
   if (!user || user.blockedAt) throw invalid;
 
+  if (!await db.passwordResets.updateIf(reset.id, { usedAt: null }, { usedAt: new Date().toISOString() })) throw invalid;
   const tokenVersion = (user.tokenVersion ?? 0) + 1;
   await db.users.update(user.id, { passwordHash: await hashPassword(newPassword), tokenVersion });
-  await db.passwordResets.update(reset.id, { usedAt: new Date().toISOString() });
   return { ...user, tokenVersion };
 }

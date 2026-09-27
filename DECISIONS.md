@@ -258,8 +258,8 @@ filtern und Kennzahlen getrennt auswerten.
 
 ## 15. Stripe Checkout statt eingebetteter Wallet-Buttons
 
-**Entscheidung:** Nach der Betragswahl geht es zu Stripe Checkout. Dort erscheinen Apple
-Pay, Google Pay, PayPal und Karte.
+**Entscheidung:** Nach der Betragswahl geht es zu Stripe Checkout. Dort erscheinen die
+jeweils aktivierten Zahlarten: Karte, Apple Pay und Google Pay. PayPal folgt später.
 
 **Grund:** Checkout funktioniert ohne Domain-Verifizierung für Apple Pay, unterstützt alle
 Zahlarten über eine Dashboard-Einstellung und hält Kartendaten vollständig von Lieferdank
@@ -342,8 +342,8 @@ regelmäßig pushen.
 
 ## 20. Keine Aufteilung auf der Kundenseite
 
-**Entscheidung:** Der Trinkgeld-Screen zeigt nur die Buttons 2 € / 3 € / 5 € (plus
-„Anderer Betrag“). Texte wie „1,50 € kommen an“ oder „Max erhält …“ sind überall auf
+**Entscheidung:** Der Trinkgeld-Screen zeigt ausschließlich die Buttons 2 € / 3 € / 5 €.
+Texte wie „1,50 € kommen an“ oder „Max erhält …“ sind überall auf
 Kundenseiten entfernt: Danke-Seite, Test-Bezahlmaske, Startseite, „So funktioniert's“,
 öffentliche API (`platformFeeCents` entfällt). Ein kleiner, neutraler Hinweis bleibt: „Vom
 Betrag werden Zahlungs- und Plattformkosten abgezogen“ mit Link auf `/so-funktionierts#geld`.

@@ -35,6 +35,7 @@ describe("API v1 – öffentlich", () => {
     // Die Aufteilung ist Backend-Logik und gehört nicht in die öffentliche Antwort.
     expect(body.tipping).not.toHaveProperty("platformFeeCents");
     expect(JSON.stringify(body)).not.toContain(user.email);
+    expect(body.driver).not.toHaveProperty("id");
   });
 
   it("antwortet mit 404 für unbekannte Codes", async () => {
@@ -68,6 +69,15 @@ describe("API v1 – öffentlich", () => {
     );
     expect(response.status).toBe(400);
     expect((await response.json()).error.field).toBe("amount");
+  });
+
+  it.each([0, 100, 400, 600, -1, 999999, 2.5, "300", null])("lehnt manipulierten Betrag %s ab", async (amountCents) => {
+    const { driver } = await makeDriver();
+    const response = await postTip(
+      request(`/api/v1/drivers/${driver.code}/tips`, { method: "POST", body: JSON.stringify({ amountCents }) }),
+      params({ code: driver.code }),
+    );
+    expect(response.status).toBe(400);
   });
 });
 

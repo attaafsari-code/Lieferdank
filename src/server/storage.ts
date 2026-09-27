@@ -1,6 +1,7 @@
 import "server-only";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, normalize, sep } from "node:path";
+import sharp from "sharp";
 import { ServiceError } from "./errors";
 
 /**
@@ -123,7 +124,7 @@ export function detectImageType(bytes: Uint8Array): "image/jpeg" | "image/png" |
   return null;
 }
 
-export function validatePhoto(bytes: Uint8Array): "image/jpeg" | "image/png" | "image/webp" {
+export async function validatePhoto(bytes: Uint8Array): Promise<StoredFile> {
   if (bytes.length === 0) throw new ServiceError("photo_empty", "Die Datei ist leer.", 400, "photo");
   if (bytes.length > MAX_PHOTO_BYTES) {
     throw new ServiceError("photo_too_large", "Das Foto ist zu groß (max. 2 MB).", 400, "photo");
@@ -132,5 +133,20 @@ export function validatePhoto(bytes: Uint8Array): "image/jpeg" | "image/png" | "
   if (!type) {
     throw new ServiceError("photo_type", "Bitte ein JPG-, PNG- oder WebP-Bild hochladen.", 400, "photo");
   }
-  return type;
+  try {
+    const format = type.slice(6) as "jpeg" | "png" | "webp";
+    // Vollständig decodieren und ohne Metadaten neu schreiben: Header-Attrappen,
+    // kaputte Dateien und EXIF-Ortsdaten gelangen so nicht in den Bucket.
+    const normalized = await sharp(Buffer.from(bytes), { failOn: "error", limitInputPixels: 8_000_000 })
+      .rotate()
+      .toFormat(format)
+      .toBuffer();
+    if (normalized.length > MAX_PHOTO_BYTES) {
+      throw new ServiceError("photo_too_large", "Das Foto ist nach der Verarbeitung zu groß (max. 2 MB).", 400, "photo");
+    }
+    return { bytes: new Uint8Array(normalized), contentType: type };
+  } catch (error) {
+    if (error instanceof ServiceError) throw error;
+    throw new ServiceError("photo_invalid", "Das Bild ist beschädigt oder zu groß. Bitte wähle ein anderes Foto.", 400, "photo");
+  }
 }

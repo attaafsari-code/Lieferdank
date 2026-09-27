@@ -27,7 +27,7 @@ export default async function AdminCardOrders() {
                 <Badge tone={order.status === "cancelled" ? "gray" : order.status === "shipped" || order.status === "delivered" ? "blue" : "coral"}>
                   {CARD_ORDER_STATUS_LABELS[order.status]}
                 </Badge>
-                <Badge>{order.paymentStatus === "not_required" ? "kostenlos" : order.paymentStatus === "paid" ? "bezahlt" : "Zahlung offen"}</Badge>
+                <Badge>{order.paymentStatus === "not_required" ? "kostenlos" : order.paymentStatus === "paid" ? "bezahlt" : order.paymentStatus === "refunded" ? "erstattet" : "Zahlung offen"}</Badge>
               </div>
               <p className="mt-1.5 text-sm text-ink-soft">
                 {formatDateTime(order.createdAt)} · {order.totalCents ? formatEuro(order.totalCents) : "0,00 €"} · Layout {order.design.layout} ·

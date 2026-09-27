@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Check, Heart } from "@/components/icons";
 import { Avatar } from "@/components/avatar";
 import { LogoMark } from "@/components/logo";
-import { formatEuro, formatEuroShort } from "@/lib/format";
-import { MAX_TIP_CENTS, MIN_TIP_CENTS, TIP_OPTIONS_CENTS } from "@/lib/money";
+import { formatEuroShort } from "@/lib/format";
+import { TIP_OPTIONS_CENTS } from "@/lib/money";
 import { dativeName } from "@/lib/names";
 import type { PublicDriver } from "@/server/services/drivers";
 import { sendThanksAction, startTipAction, type FlowResult } from "@/server/actions/customer-flow";
@@ -21,8 +21,6 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
-  const [customOpen, setCustomOpen] = useState(false);
-  const [customValue, setCustomValue] = useState("");
 
   function run(action: () => Promise<FlowResult>, marker: number) {
     setError(null);
@@ -33,16 +31,6 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
       if (result && !result.ok) setError(result.error ?? "Das hat leider nicht geklappt.");
       setBusy(null);
     });
-  }
-
-  function submitCustom() {
-    const euros = Number(customValue.replace(",", ".").trim());
-    const cents = Math.round(euros * 100);
-    if (!Number.isFinite(euros) || cents < MIN_TIP_CENTS || cents > MAX_TIP_CENTS) {
-      setError(`Möglich sind ${formatEuro(MIN_TIP_CENTS)} bis ${formatEuro(MAX_TIP_CENTS)}.`);
-      return;
-    }
-    run(() => startTipAction(driver.code, cents), cents);
   }
 
   return (
@@ -129,29 +117,6 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
             </button>
           ))}
         </div>
-
-        {customOpen ? (
-          <div className="mt-3 flex gap-2">
-            <input
-              type="text"
-              inputMode="decimal"
-              autoFocus
-              value={customValue}
-              onChange={(event) => setCustomValue(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && submitCustom()}
-              placeholder="z. B. 4,00"
-              aria-label="Anderer Betrag in Euro"
-              className="field flex-1"
-            />
-            <button type="button" onClick={submitCustom} disabled={pending} className="btn btn-primary !px-5">
-              Geben
-            </button>
-          </div>
-        ) : (
-          <button type="button" onClick={() => setCustomOpen(true)} className="btn btn-quiet mx-auto mt-2">
-            Anderer Betrag
-          </button>
-        )}
 
         {error && (
           <p
