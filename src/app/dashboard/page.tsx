@@ -44,6 +44,15 @@ export default async function DashboardPage({
         </p>
       </header>
 
+      {!driver.payoutReady && (
+        <aside role="status" className="rounded-2xl border border-coral-100 bg-coral-50 px-5 py-4 sm:px-6 sm:py-5">
+          <p className="font-extrabold text-coral-600">Auszahlung noch nicht eingerichtet</p>
+          <p className="mt-1 text-sm leading-relaxed text-coral-600">
+            Richte dein Auszahlungskonto ein, damit du Trinkgelder empfangen kannst. Dein QR-Code und kostenlose Danksagungen funktionieren bereits.
+          </p>
+        </aside>
+      )}
+
       {!driver.active && (
         <p className="rounded-2xl border border-coral-100 bg-coral-50 px-5 py-4 text-sm font-semibold text-coral-600">
           Dein Code ist pausiert – Kunden können dir gerade nicht Danke sagen.{" "}
