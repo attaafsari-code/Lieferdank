@@ -60,7 +60,7 @@ export default async function CustomerAccountPage({
                     <p className="truncate font-bold text-ink">{favorite.nickname || favorite.driver.name}</p>
                     <p className="truncate text-sm text-ink-soft">
                       {favorite.nickname ? `${favorite.driver.name} · ` : ""}
-                      {favorite.driver.provider ?? "Lieferant"}
+                      Lieferant
                     </p>
                   </div>
                   {favorite.active ? (

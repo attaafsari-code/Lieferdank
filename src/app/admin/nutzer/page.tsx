@@ -3,7 +3,6 @@ import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { searchUsers } from "@/server/services/admin";
 import { driverPublicName } from "@/server/services/drivers";
-import { providerLabel } from "@/lib/providers";
 import { formatDateTime, formatEuro } from "@/lib/format";
 import { AdminTitle, Badge, Empty } from "../ui";
 import { BadgeReview, UserControls } from "../admin-controls";
@@ -84,7 +83,6 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
               {driver && (
                 <p className="mt-1 text-sm text-ink-soft">
                   Öffentlich: „{driverPublicName(driver, user)}“
-                  {driver.providerId && ` · ${providerLabel(driver.providerId)}${driver.providerVerified ? " (geprüft)" : ""}`}
                   {" · Anteil vor Stripe-Kosten "}
                   <span className="font-semibold text-ink">{formatEuro(balance.get(driver.id) ?? 0)}</span>
                   {" · "}
@@ -107,8 +105,6 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
                   userId={user.id}
                   driverId={driver?.id ?? null}
                   blocked={Boolean(user.blockedAt)}
-                  providerVerified={driver?.providerVerified ?? false}
-                  hasProvider={Boolean(driver?.providerId)}
                 />
               )}
             </li>

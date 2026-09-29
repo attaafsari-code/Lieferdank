@@ -3,7 +3,6 @@
 import { useActionState, useState } from "react";
 import type { NameDisplay } from "@/lib/db/types";
 import { MAX_CUSTOM_NAME_LENGTH, NAME_DISPLAY_OPTIONS, dativeName, publicName } from "@/lib/names";
-import { DELIVERY_PROVIDERS, PROVIDER_GROUP_LABELS } from "@/lib/providers";
 import { FormAlert, FormField } from "@/components/form-field";
 import { Check } from "@/components/icons";
 import { updateProfileAction } from "@/server/actions/driver";
@@ -17,8 +16,6 @@ type Props = {
   phone: string | null;
   nameDisplay: NameDisplay;
   customName: string | null;
-  providerId: string | null;
-  providerPublic: boolean;
   tagline: string | null;
   bio: string | null;
   city: string | null;
@@ -121,29 +118,6 @@ export function ProfileForm(props: Props) {
           <p className="hint">Erscheint weiter unten auf deiner Kundenseite. Max. 280 Zeichen.</p>
           {errors.bio && <p className="error-text">{errors.bio}</p>}
         </div>
-      </section>
-
-      <section className="space-y-5">
-        <h2 className="text-[1.0625rem] font-extrabold text-brand-900">Lieferdienst</h2>
-        <div>
-          <label htmlFor="providerId" className="label">
-            Für wen fährst du? <span className="font-medium text-ink-faint">optional</span>
-          </label>
-          <select id="providerId" name="providerId" defaultValue={props.providerId ?? ""} className="field">
-            <option value="">Keine Angabe</option>
-            {(Object.keys(PROVIDER_GROUP_LABELS) as (keyof typeof PROVIDER_GROUP_LABELS)[]).map((group) => (
-              <optgroup key={group} label={PROVIDER_GROUP_LABELS[group]}>
-                {DELIVERY_PROVIDERS.filter((provider) => provider.group === group).map((provider) => (
-                  <option key={provider.id} value={provider.id}>
-                    {provider.label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          <p className="hint">Nur als Text („unterwegs für DHL“), ohne fremde Logos. Wir prüfen die Angabe nicht.</p>
-        </div>
-        <Checkbox name="providerPublic" label="Lieferdienst öffentlich anzeigen" defaultChecked={props.providerPublic} />
       </section>
 
       <section className="space-y-5">

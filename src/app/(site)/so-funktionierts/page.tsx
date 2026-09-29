@@ -16,7 +16,7 @@ const DRIVER_STEPS = [
   },
   {
     title: "Profil personalisieren",
-    text: "Welcher Name öffentlich erscheint, ob mit Foto, ob mit Lieferdienst – das entscheidest du.",
+    text: "Welcher Name öffentlich erscheint und ob mit Foto – das entscheidest du.",
   },
   {
     title: "Karte gestalten",

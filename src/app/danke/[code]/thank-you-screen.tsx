@@ -66,12 +66,6 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
                 <Check className="h-3.5 w-3.5" /> Verifiziert
               </span>
             )}
-            {driver.provider && (
-              <span className="text-sm text-ink-soft">
-                unterwegs für {driver.provider}
-                {!driver.providerVerified && <span className="text-ink-faint"> · eigene Angabe</span>}
-              </span>
-            )}
           </div>
 
           {driver.tagline && (

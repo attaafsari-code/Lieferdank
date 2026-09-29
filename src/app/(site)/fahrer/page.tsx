@@ -21,7 +21,7 @@ const BENEFITS = [
   },
   {
     title: "Du bestimmst, was man sieht",
-    text: "Nur Vorname, „Herr Müller“ oder voller Name. Foto ja oder nein. Lieferdienst anzeigen oder nicht. Jederzeit änderbar.",
+    text: "Nur Vorname, „Herr Müller“ oder voller Name. Foto ja oder nein. Jederzeit änderbar.",
   },
   {
     title: "Deine eigene Karte",

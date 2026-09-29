@@ -18,7 +18,7 @@ export default async function HomePage() {
     layout: "classic",
     headline: "Danke für deine Wertschätzung ❤",
     publicName: "Max",
-    providerLabel: "DHL",
+    providerLabel: null,
     code: "LD-DEMO01",
     qrSvg: qr,
     avatar: null,
@@ -172,7 +172,6 @@ function PhoneMock() {
           <p className="mt-3 text-center text-[1.2rem] leading-tight font-extrabold text-brand-900">
             Sag Max Danke <span className="text-coral">❤</span>
           </p>
-          <p className="mt-1 text-xs text-ink-soft">unterwegs für DHL</p>
           <div className="mt-4 w-full rounded-xl bg-coral py-3.5 text-center text-[0.9375rem] font-semibold text-white shadow-coral">
             ❤ Kostenlos Danke sagen
           </div>

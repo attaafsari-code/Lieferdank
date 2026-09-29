@@ -33,7 +33,7 @@ export function VerificationForm({ existingNote }: { existingNote: string | null
           defaultValue={existingNote ?? ""}
           maxLength={500}
           aria-invalid={error ? "true" : undefined}
-          placeholder="Zum Beispiel: Ich fahre seit März als Subunternehmer für einen DHL-Zustellstützpunkt in Köln. Dienstausweis und Arbeitsvertrag kann ich auf Anfrage zeigen."
+          placeholder="Zum Beispiel: Ich fahre seit März als Zusteller in Köln. Einen Nachweis meiner Tätigkeit kann ich auf Anfrage vorlegen."
           className="field resize-none"
         />
         <p className="hint">

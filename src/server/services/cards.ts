@@ -4,7 +4,6 @@ import { getDb } from "@/lib/db";
 import type { CardDesign, CardOrder, CardOrderStatus, CardSnapshot, DriverProfile, User } from "@/lib/db/types";
 import { isUuid, newId } from "@/lib/id";
 import { initials } from "@/lib/names";
-import { providerLabel } from "@/lib/providers";
 import { CURRENCY } from "@/lib/money";
 import { CARD_QUANTITIES, cardOrdersArePaid, cardProductFor, quoteCardOrder } from "@/lib/pricing";
 import { DEFAULT_HEADLINE, MAX_HEADLINE_LENGTH, defaultCardDesign } from "@/lib/card/design";
@@ -55,7 +54,7 @@ export async function cardContext(driver: DriverProfile, user: User) {
     url,
     publicName: name,
     initials: initials(name),
-    providerLabel: providerLabel(driver.providerId),
+    providerLabel: null,
     photoUrl: avatarUrl(driver),
     code: driver.code,
   };

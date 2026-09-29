@@ -23,7 +23,7 @@ export default async function DashboardPage({
   const steps = [
     { done: true, label: "Danke-Code erhalten", href: "/dashboard/karte" },
     {
-      done: Boolean(driver.tagline || driver.photoKey || driver.providerId || driver.nameDisplay !== "first"),
+      done: Boolean(driver.tagline || driver.photoKey || driver.nameDisplay !== "first"),
       label: "Profil personalisieren",
       href: "/dashboard/profil",
     },
@@ -77,6 +77,15 @@ export default async function DashboardPage({
         </div>
       </section>
 
+      <section>
+        <SectionTitle>Seit Beginn</SectionTitle>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <StatTile tone="coral" icon={<Heart className="h-5 w-5" />} value={String(stats.freeThankYouTotal)} label="Danke gesamt" />
+          <StatTile icon={<Euro className="h-5 w-5" />} value={formatEuro(stats.total.driverCents)} label="Einnahmen gesamt" />
+        </div>
+        <p className="mt-2 text-xs text-ink-faint">Einnahmen aus bestätigten Trinkgeldern, vor Stripe-Kosten.</p>
+      </section>
+
       {stats.streakDays >= 2 && (
         <p className="-mt-6 rounded-2xl bg-brand-50 px-4 py-3.5 text-sm font-semibold text-brand-900">
           🔥 {stats.streakDays} Tage hintereinander ein Danke erhalten.
@@ -89,7 +98,7 @@ export default async function DashboardPage({
           layout={card.design.layout}
           headline={card.design.headline}
           publicName={card.publicName}
-          providerLabel={card.design.showProvider ? card.providerLabel : null}
+          providerLabel={null}
           code={card.code}
           qrSvg={card.qr}
           avatar={

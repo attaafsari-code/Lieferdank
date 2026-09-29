@@ -42,7 +42,6 @@ export default async function CardPage() {
         qrSvg={card.qr}
         publicName={card.publicName}
         initials={card.initials}
-        providerLabel={card.providerLabel}
         photoUrl={card.photoUrl}
         code={card.code}
       />

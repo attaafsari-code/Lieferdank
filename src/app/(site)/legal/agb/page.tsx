@@ -72,7 +72,7 @@ export default function TermsPage() {
 
         <h2>8. Pflichten der Zusteller</h2>
         <ul>
-          <li>Angaben zur Person und zum Zustelldienst müssen zutreffen.</li>
+          <li>Angaben zur Person müssen zutreffen.</li>
           <li>
             Die Regeln des jeweiligen Arbeitgebers bzw. Auftraggebers sind eigenverantwortlich
             zu beachten.

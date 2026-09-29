@@ -10,6 +10,8 @@ export type DriverStats = {
   week: Period;
   month: Period;
   total: Period;
+  /** Nur kostenlose Danksagungen, ohne die mit Trinkgeld verbundenen Danke. */
+  freeThankYouTotal: number;
   /** Anteil nach Application Fee, vor Stripe-Kosten. Kein auszahlbares Guthaben. */
   driverShareBeforeStripeCents: number;
   inReviewCents: number;
@@ -69,6 +71,7 @@ export async function getDriverStats(driverId: string): Promise<DriverStats> {
     week: summarize(inWeek(tips), inWeek(thankYous)),
     month: summarize(inMonth(tips), inMonth(thankYous)),
     total: summarize(tips, thankYous),
+    freeThankYouTotal: thankYous.filter((thankYou) => !thankYou.tipId).length,
     driverShareBeforeStripeCents: tips.reduce((s, t) => s + t.driverCents, 0),
     inReviewCents: allTips.filter((t) => t.paymentStatus === "review_required").reduce((s, t) => s + t.driverCents, 0),
     streakDays: computeStreak(thankYous.map((t) => t.createdAt)),

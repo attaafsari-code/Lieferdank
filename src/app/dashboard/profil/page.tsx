@@ -43,8 +43,6 @@ export default async function ProfilePage() {
           phone={user.phone}
           nameDisplay={driver.nameDisplay}
           customName={driver.customName}
-          providerId={driver.providerId}
-          providerPublic={driver.providerPublic}
           tagline={driver.tagline}
           bio={driver.bio}
           city={driver.city}

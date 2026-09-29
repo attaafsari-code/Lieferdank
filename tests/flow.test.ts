@@ -7,7 +7,7 @@ import { refreshPayoutReadiness, startPayoutOnboarding } from "@/server/services
 import { addFavoriteByCode, listFavorites, removeFavorite, renameFavorite } from "@/server/services/favorites";
 import { deleteAccount, requestBadge, setDriverActive, updateDriverProfile } from "@/server/services/profile";
 import { toPublicDriver } from "@/server/services/drivers";
-import { cardDesignSchema, cancelCardOrder, createCardOrder, updateCardOrderStatus } from "@/server/services/cards";
+import { cardContext, cardDesignSchema, cancelCardOrder, createCardOrder, renderDriverCard, updateCardOrderStatus } from "@/server/services/cards";
 import { parseInput } from "@/server/services/auth";
 import { regenerateCode, reviewBadge, setProviderVerified, setUserBlocked } from "@/server/services/admin";
 import { freshDb, makeCustomer, makeDriver } from "./helpers";
@@ -85,6 +85,23 @@ describe("Registrierung", () => {
 });
 
 describe("Danke und Trinkgeld", () => {
+  it("zählt kostenlose Danke getrennt und nur bestätigte Fahreranteile als Gesamteinnahmen", async () => {
+    const { driver } = await makeDriver();
+    await sendFreeThankYou(driver.code, null);
+    await sendFreeThankYou(driver.code, null);
+    const paid = await startTip(driver.code, 200, null);
+    const refunded = await startTip(driver.code, 300, null);
+    await confirmPayment(paid.paymentId);
+    await confirmPayment(refunded.paymentId, { providerIntentId: "pi_lifetime_refund" });
+    await markRefunded("pi_lifetime_refund");
+
+    const stats = await getDriverStats(driver.id);
+    expect(stats.freeThankYouTotal).toBe(2);
+    expect(stats.total.thanks).toBe(4); // Bestehende Zeitraumsummen zählen weiterhin alle Danke.
+    expect(stats.total.driverCents).toBe(150);
+    expect(stats.today.driverCents).toBe(150);
+  });
+
   it("rechnet 3 € mit 0,60 € Application Fee und ohne Lieferdank-Wallet ab", async () => {
     const { driver } = await makeDriver();
     const { paymentId, redirectUrl } = await startTip(driver.code, 300, null);
@@ -286,6 +303,18 @@ describe("Privatsphäre", () => {
     expect(json).not.toContain("Müller");
     expect(json).not.toContain("Köln");
     expect(json).not.toContain("+49");
+  });
+
+  it("zeigt gespeicherte Lieferdienste in V1 weder öffentlich noch auf Karten", async () => {
+    const { user, driver } = await makeDriver();
+    await getDb().driverProfiles.update(driver.id, { providerId: "dhl", providerPublic: true, providerVerified: true });
+    const withProvider = (await getDb().driverProfiles.get(driver.id))!;
+    const publicView = toPublicDriver(withProvider, user);
+    expect(publicView.provider).toBeNull();
+    expect(publicView.providerVerified).toBe(false);
+    expect((await cardContext(withProvider, user)).providerLabel).toBeNull();
+    expect(await renderDriverCard(withProvider, user)).not.toContain("unterwegs für");
+    expect((await getDb().driverProfiles.get(driver.id))?.providerId).toBe("dhl");
   });
 
   it("zeigt kein privates Foto", async () => {

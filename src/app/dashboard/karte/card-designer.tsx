@@ -14,7 +14,6 @@ type Props = {
   qrSvg: string;
   publicName: string;
   initials: string;
-  providerLabel: string | null;
   photoUrl: string | null;
   code: string;
 };
@@ -23,7 +22,7 @@ export function CardDesigner(props: Props) {
   const [layout, setLayout] = useState<CardLayout>(props.initial.layout);
   const [headline, setHeadline] = useState(props.initial.headline);
   const [showPhoto, setShowPhoto] = useState(props.initial.showPhoto && Boolean(props.photoUrl));
-  const [showProvider, setShowProvider] = useState(props.initial.showProvider);
+  const showProvider = props.initial.showProvider;
   const [saved, setSaved] = useState(props.initial);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,20 +30,20 @@ export function CardDesigner(props: Props) {
   const [pending, startTransition] = useTransition();
 
   const dirty =
-    layout !== saved.layout || headline !== saved.headline || showPhoto !== saved.showPhoto || showProvider !== saved.showProvider;
+    layout !== saved.layout || headline !== saved.headline || showPhoto !== saved.showPhoto;
 
   const renderInput = (overrides: Partial<CardRenderInput> = {}): CardRenderInput => ({
     layout,
     headline,
     publicName: props.publicName,
-    providerLabel: showProvider ? props.providerLabel : null,
+    providerLabel: null,
     code: props.code,
     qrSvg: props.qrSvg,
     avatar: showPhoto || layout === "personal" ? { href: showPhoto ? props.photoUrl : null, initials: props.initials } : null,
     ...overrides,
   });
 
-  const preview = useMemo(() => renderCardSvg(renderInput({ idPrefix: "editor" })), [layout, headline, showPhoto, showProvider]); // eslint-disable-line react-hooks/exhaustive-deps
+  const preview = useMemo(() => renderCardSvg(renderInput({ idPrefix: "editor" })), [layout, headline, showPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function save() {
     setError(null);
@@ -188,13 +187,6 @@ export function CardDesigner(props: Props) {
             checked={showPhoto}
             disabled={!props.photoUrl}
             onChange={setShowPhoto}
-          />
-          <Toggle
-            label={props.providerLabel ? `„unterwegs für ${props.providerLabel}“ anzeigen` : "Lieferdienst anzeigen"}
-            hint={props.providerLabel ? undefined : "Kein Lieferdienst im Profil angegeben."}
-            checked={showProvider && Boolean(props.providerLabel)}
-            disabled={!props.providerLabel}
-            onChange={setShowProvider}
           />
         </div>
 

@@ -2,7 +2,6 @@ import "server-only";
 import { getDb } from "@/lib/db";
 import type { DriverProfile, User } from "@/lib/db/types";
 import { initials, publicName } from "@/lib/names";
-import { providerLabel } from "@/lib/providers";
 import { generateLieferdankCode, newId, normalizeCode } from "@/lib/id";
 import { defaultCardDesign } from "@/lib/card/design";
 import { isDemoPayment } from "../payments";
@@ -43,11 +42,11 @@ export function toPublicDriver(driver: DriverProfile, user: User): PublicDriver 
     name,
     initials: initials(name),
     photoUrl: driver.photoPublic ? avatarUrl(driver) : null,
-    provider: driver.providerPublic ? providerLabel(driver.providerId) : null,
+    provider: null,
     tagline: driver.tagline,
     bio: driver.bio,
     verified: driver.verification === "verified",
-    providerVerified: driver.providerVerified,
+    providerVerified: false,
     tipReady: isDemoPayment() ? process.env.VERCEL_ENV !== "production" : driver.payoutReady,
   };
 }

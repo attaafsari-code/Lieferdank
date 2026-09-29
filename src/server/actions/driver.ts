@@ -33,15 +33,16 @@ export async function updateProfileAction(_prev: FormState, formData: FormData):
       lastName: formString(formData, "lastName"),
       nameDisplay: formString(formData, "nameDisplay"),
       customName: formString(formData, "customName"),
-      providerId: formString(formData, "providerId"),
-      providerPublic: formBoolean(formData, "providerPublic"),
+      // V1: Lieferdienstfelder behalten, obwohl sie nicht mehr im Formular stehen.
+      providerId: "",
+      providerPublic: driver.providerPublic,
       tagline: formString(formData, "tagline"),
       bio: formString(formData, "bio"),
       city: formString(formData, "city"),
       phone: formString(formData, "phone"),
       notifyOnTip: formBoolean(formData, "notifyOnTip"),
     });
-    await updateDriverProfile(user, driver, input);
+    await updateDriverProfile(user, driver, { ...input, providerId: driver.providerId, providerPublic: driver.providerPublic });
     refreshDashboard();
     return { saved: true };
   });

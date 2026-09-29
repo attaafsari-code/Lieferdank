@@ -55,9 +55,8 @@ export default function ImprintPage() {
 
         <h2>Hinweis zu Marken Dritter</h2>
         <p>
-          Genannte Zustelldienste und deren Marken sind Eigentum der jeweiligen Unternehmen.
-          Lieferdank steht in keiner Verbindung zu diesen Unternehmen und verwendet deren
-          Logos nicht. Angaben wie „unterwegs für DHL“ sind Selbstauskünfte der Zusteller.
+          Marken Dritter sind Eigentum der jeweiligen Unternehmen. Lieferdank steht in keiner
+          Verbindung zu Paketdiensten und verwendet deren Logos nicht.
         </p>
       </Prose>
     </>

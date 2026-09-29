@@ -54,7 +54,7 @@ const FAQ_DRIVERS = [
   },
   {
     q: "Was passiert, wenn ich den Job wechsle?",
-    a: "Dein Lieferdank-Code bleibt deiner. Du änderst im Profil einfach den Zustelldienst.",
+    a: "Dein Lieferdank-Code bleibt deiner, auch wenn du den Job wechselst.",
   },
 ];
 

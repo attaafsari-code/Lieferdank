@@ -5,7 +5,6 @@ import type { CardOrderStatus } from "@/lib/db/types";
 import {
   regenerateCodeAction,
   reviewBadgeAction,
-  setProviderVerifiedAction,
   setUserBlockedAction,
   updateCardOrderAction,
 } from "@/server/actions/admin";
@@ -61,14 +60,10 @@ export function UserControls({
   userId,
   driverId,
   blocked,
-  providerVerified,
-  hasProvider,
 }: {
   userId: string;
   driverId: string | null;
   blocked: boolean;
-  providerVerified: boolean;
-  hasProvider: boolean;
 }) {
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [reason, setReason] = useState("");
@@ -77,11 +72,6 @@ export function UserControls({
   return (
     <div className="mt-4">
       <div className="flex flex-wrap gap-2">
-        {driverId && hasProvider && (
-          <Small disabled={pending} onClick={() => run(() => setProviderVerifiedAction(driverId, !providerVerified))}>
-            {providerVerified ? "Anbieter ungeprüft" : "Anbieter geprüft"}
-          </Small>
-        )}
         {driverId && (
           <Small disabled={pending} onClick={() => setConfirm("code")}>
             Code neu erzeugen
