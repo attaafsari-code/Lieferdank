@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "../guards";
-import { regenerateCode, reviewBadge, setProviderVerified, setUserBlocked } from "../services/admin";
-import { payoutDriver } from "../services/payouts";
+import { logAdminAction, regenerateCode, reviewBadge, setProviderVerified, setUserBlocked } from "../services/admin";
 import { updateCardOrderStatus } from "../services/cards";
 import { formAction, type FormState } from "./form-state";
 import type { CardOrderStatus } from "@/lib/db/types";
+import { ServiceError } from "../errors";
 
 /** Jede Adminaktion prüft die Rolle selbst – das Layout allein schützt keine Server Action. */
 
@@ -46,22 +46,19 @@ export async function regenerateCodeAction(driverId: string, reason: string): Pr
   });
 }
 
-export async function payoutAction(driverId: string): Promise<FormState> {
-  return formAction(async () => {
-    await requireAdmin();
-    await payoutDriver(driverId);
-    refresh();
-  });
-}
-
 export async function updateCardOrderAction(
   orderId: string,
   status: CardOrderStatus,
   carrier: string,
   trackingNumber: string,
+  reason: string,
 ): Promise<FormState> {
   return formAction(async () => {
-    await requireAdmin();
+    const { user } = await requireAdmin();
+    if (!reason.trim()) throw new ServiceError("reason_required", "Bitte einen Grund für die Statusänderung angeben.", 400);
+    // Vor der finanziell relevanten Änderung protokollieren: scheitert das
+    // Audit-Log, darf auch der Kartenstatus nicht verändert werden.
+    await logAdminAction(user, orderId, "card_order_status_requested", `${status}: ${reason.trim().slice(0, 250)}`);
     await updateCardOrderStatus(orderId, status, { carrier, trackingNumber });
     refresh();
   });

@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 import { createSession, destroySession } from "../session";
 import { enforceRateLimit } from "../rate-limit";
-import { mailConfigured } from "../mail";
 import { safeRedirectPath } from "../guards";
 import {
   authenticate,
@@ -16,6 +15,7 @@ import {
   registerCustomer,
   registerDriver,
   requestPasswordReset,
+  localResetLink,
 } from "../services/auth";
 import { addFavoriteByCode } from "../services/favorites";
 import { formAction, formString, type FormState } from "./form-state";
@@ -69,7 +69,7 @@ export async function requestResetAction(_prev: FormState, formData: FormData): 
     if (!email.includes("@")) throw new ServiceError("invalid_email", "Bitte gib eine gültige E-Mail-Adresse an.", 400, "email");
     const { link } = await requestPasswordReset(email);
     // Immer dieselbe Antwort – verrät nicht, ob es das Konto gibt.
-    return { saved: true, devLink: process.env.NODE_ENV !== "production" && !mailConfigured() && link ? link : undefined };
+    return { saved: true, devLink: localResetLink(link) };
   });
 }
 

@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/server/guards";
 import { getDb } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { AdminTitle, Badge, Empty, SectionHeading } from "../ui";
@@ -5,6 +6,7 @@ import { AdminTitle, Badge, Empty, SectionHeading } from "../ui";
 export const dynamic = "force-dynamic";
 
 export default async function AdminSystem() {
+  await requireAdmin();
   const db = getDb();
   const [events, actions] = await Promise.all([
     db.systemEvents.findMany({ orderBy: "createdAt", desc: true, limit: 100 }),

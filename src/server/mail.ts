@@ -12,9 +12,6 @@ import { logEvent } from "./events";
 export type MailContent = { subject: string; html: string; text: string };
 export type MailResult = { delivered: boolean };
 
-const FROM = process.env.MAIL_FROM ?? "Lieferdank <noreply@lieferdank.de>";
-const REPLY_TO = process.env.MAIL_REPLY_TO;
-
 export function mailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY);
 }
@@ -26,30 +23,38 @@ export async function sendMail(to: string, content: MailContent, tag: string): P
   }
 
   try {
+    const from = process.env.MAIL_FROM ?? "Lieferdank <noreply@lieferdank.de>";
+    const replyTo = process.env.MAIL_REPLY_TO;
+    if ([from, to, replyTo ?? ""].some((value) => /[\r\n]/.test(value))) {
+      throw new Error("invalid_mail_header");
+    }
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
+      signal: AbortSignal.timeout(10_000),
       headers: {
         authorization: `Bearer ${process.env.RESEND_API_KEY}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        from: FROM,
+        from,
         to: [to],
         subject: content.subject,
         html: content.html,
         text: content.text,
-        ...(REPLY_TO ? { reply_to: REPLY_TO } : {}),
+        ...(replyTo ? { reply_to: replyTo } : {}),
         tags: [{ name: "type", value: tag }],
       }),
     });
 
     if (!response.ok) {
-      await logEvent("error", "mail", `Versand fehlgeschlagen (${response.status})`, { tag });
+      await logEvent("error", "mail", `Versand fehlgeschlagen (${response.status})`, { tag }).catch(() => undefined);
       return { delivered: false };
     }
     return { delivered: true };
   } catch (error) {
-    await logEvent("error", "mail", "Versand fehlgeschlagen", { tag, error: String(error) });
+    await logEvent("error", "mail", "Versand fehlgeschlagen", {
+      tag, errorType: error instanceof Error ? error.name : "unknown",
+    }).catch(() => undefined);
     return { delivered: false };
   }
 }

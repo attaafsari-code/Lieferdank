@@ -2,7 +2,7 @@
 
 **Dein Danke kommt an.**
 
-Lieferdank gibt Paketzustellern, Essenslieferanten und Kurieren einen persönlichen
+Lieferdank gibt Paketzustellern einen persönlichen
 Danke-Code. Kunden scannen ihn und sagen kostenlos Danke oder geben ein Trinkgeld –
 ohne App, ohne Konto.
 
@@ -60,31 +60,34 @@ optional Lieferant speichern. Nie Pflicht: Konto, App oder Dateneingabe.
 **Lieferant** – registrieren und sofort loslegen (keine Verifizierungspflicht) · öffentlichen
 Namen wählen (Vorname, „Max M.“, voller Name, „Herr Müller“ …) · Foto öffentlich oder nur
 privat · Karte gestalten (3 Designs, eigener Text) · Export als PNG/SVG, Druckbogen,
-Plastikkarte bestellen · Dashboard mit Tag/Woche/Monat, Guthaben, Meilensteinen ·
+Plastikkarte nur bei aktivierter Bezahlfunktion bestellen · Dashboard mit Tag/Woche/Monat, Trinkgeldanteil vor Stripe-Kosten, Meilensteinen ·
 Auszahlungskonto über Stripe (dort passiert die gesetzlich nötige Identitätsprüfung).
 
 **Kunde mit Konto (optional)** – „Meine Lieferanten“, Verlauf, erneut Danke sagen.
 
-**Admin** – Kennzahlen inkl. kalkulierter Nettomarge · Nutzer, Codes, Sperren · Transaktionen ·
-Auszahlungen · Kartenbestellungen mit Versandstatus · Fehlermeldungen und Adminprotokoll.
+**Admin** – Kennzahlen zur Application Fee vor Betriebskosten · Nutzer, Codes, Sperren · Transaktionen ·
+historische Auszahlungen · Kartenbestellungen mit Versandstatus · Fehlermeldungen und Adminprotokoll.
 
 ### Geldlogik
 
-Der Kunde zahlt **exakt** den gewählten Betrag. Pro Trinkgeld bleiben 0,50 € für
-Zahlungsabwicklung und Lieferdank.
+Der Kunde zahlt **exakt** den gewählten Betrag. Trinkgelder sind Stripe-Connect-Direct-Charges
+auf dem Standard-Konto des Zustellers; Stripe übernimmt KYC und normale Auszahlungen.
+Lieferdank hält kein Fahrergeld und startet keine eigenen Transfers.
 
-| Kunde zahlt | Lieferant erhält |
-| ----------- | ---------------- |
-| 2,00 €      | 1,50 €           |
-| 3,00 €      | 2,50 €           |
-| 5,00 €      | 4,50 €           |
+| Kunde zahlt | Application Fee | Fahreranteil vor Stripe-Kosten |
+| ----------- | --------------- | ------------------------------ |
+| 2,00 €      | 0,50 €          | 1,50 €                         |
+| 3,00 €      | 0,60 €          | 2,40 €                         |
+| 5,00 €      | 1,00 €          | 4,00 €                         |
 
-Jede Transaktion speichert getrennt: Brutto, Lieferantenanteil, Plattformgebühr brutto,
-Paymentkosten, Auszahlungskosten, Nettomarge. Details: [DATABASE.md](DATABASE.md).
+Stripe belastet das Connected Account mit seinen Processing- und gegebenenfalls
+Auszahlungskosten. Der tatsächliche Bankbetrag kann deshalb niedriger sein.
+Historische Kostenspalten im Schema sind kein Nachweis des Stripe-Nettoerlöses.
+Details: [DATABASE.md](DATABASE.md).
 
 Die Aufteilung ist reine Backend-Logik. Kunden sehen nur die Beträge 2 € / 3 € / 5 € und
 einen neutralen Hinweis, dass Zahlungs- und Plattformkosten abgezogen werden. Die genauen
-Zahlen stehen nur auf Lieferantenseiten (Dashboard, `/fahrer`, FAQ für Lieferanten, AGB §4).
+Zahlen stehen nur auf Zustellerseiten (Dashboard, `/fahrer`, FAQ für Zusteller, AGB §4).
 
 ---
 

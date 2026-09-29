@@ -158,6 +158,12 @@ export function homePathFor(user: Pick<User, "role">): string {
 
 const RESET_TTL_MINUTES = 60;
 
+/** Ein Reset-Link darf nur auf dem lokalen Entwicklungsrechner sichtbar sein. */
+export function localResetLink(link: string | null): string | undefined {
+  return process.env.NODE_ENV === "development" && !process.env.VERCEL_ENV && !mailConfigured()
+    ? link ?? undefined : undefined;
+}
+
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -200,8 +206,14 @@ export async function completePasswordReset(token: string, newPassword: string):
   const user = await db.users.get(reset.userId);
   if (!user || user.blockedAt) throw invalid;
 
+  const passwordHash = await hashPassword(newPassword);
   if (!await db.passwordResets.updateIf(reset.id, { usedAt: null }, { usedAt: new Date().toISOString() })) throw invalid;
   const tokenVersion = (user.tokenVersion ?? 0) + 1;
-  await db.users.update(user.id, { passwordHash: await hashPassword(newPassword), tokenVersion });
+  // Two different reset links may race. Only one version may win; otherwise
+  // the later password would silently overwrite the first one.
+  if (!await db.users.updateIf(user.id, { tokenVersion: user.tokenVersion }, { passwordHash, tokenVersion })) throw invalid;
+  for (const other of await db.passwordResets.findMany({ where: { userId: user.id, usedAt: null } })) {
+    await db.passwordResets.updateIf(other.id, { usedAt: null }, { usedAt: new Date().toISOString() });
+  }
   return { ...user, tokenVersion };
 }

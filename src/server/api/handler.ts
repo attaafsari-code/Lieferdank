@@ -22,7 +22,7 @@ type Options = {
 };
 
 export function apiError(status: number, code: string, message: string, field?: string) {
-  return NextResponse.json({ error: { code, message, ...(field ? { field } : {}) } }, { status });
+  return NextResponse.json({ error: { code, message, ...(field ? { field } : {}) } }, { status, headers: { "cache-control": "no-store" } });
 }
 
 export function api<P = Record<string, string>>(
@@ -55,14 +55,32 @@ export function api<P = Record<string, string>>(
         return apiError(400, "invalid_input", issue.message, String(issue.path[0] ?? ""));
       }
       if (error instanceof SyntaxError) return apiError(400, "invalid_json", "Ungültiges JSON.");
-      await logEvent("error", "api", "Unerwarteter Fehler", { path: new URL(request.url).pathname, error: errorMessage(error) });
+      await logEvent("error", "api", "Unerwarteter Fehler", { path: new URL(request.url).pathname, error: errorMessage(error) }).catch(() => undefined);
       return apiError(500, "internal", "Unerwarteter Fehler.");
     }
   };
 }
 
 export async function readJson(request: Request): Promise<Record<string, unknown>> {
-  const text = await request.text();
-  if (text.length > 20_000) throw new SyntaxError("zu groß");
+  const reader = request.body?.getReader();
+  if (!reader) return {};
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength;
+    if (bytes > 20_000) {
+      await reader.cancel();
+      throw new SyntaxError("zu groß");
+    }
+    chunks.push(value);
+  }
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks));
+  } catch {
+    throw new SyntaxError("Ungültiges UTF-8");
+  }
   return text ? (JSON.parse(text) as Record<string, unknown>) : {};
 }

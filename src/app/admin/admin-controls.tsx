@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import type { CardOrderStatus } from "@/lib/db/types";
 import {
-  payoutAction,
   regenerateCodeAction,
   reviewBadgeAction,
   setProviderVerifiedAction,
@@ -132,28 +131,6 @@ export function UserControls({
   );
 }
 
-export function PayoutButton({ driverId, label }: { driverId: string; label: string }) {
-  const [confirming, setConfirming] = useState(false);
-  const { pending, error, done, run } = useAction();
-  return (
-    <div>
-      {confirming ? (
-        <span className="flex items-center gap-2">
-          <button type="button" disabled={pending} onClick={() => { run(() => payoutAction(driverId), "Ausgezahlt"); setConfirming(false); }} className="btn btn-primary btn-sm">
-            {label} auszahlen
-          </button>
-          <button type="button" onClick={() => setConfirming(false)} className="btn btn-ghost btn-sm">Abbrechen</button>
-        </span>
-      ) : (
-        <button type="button" disabled={pending} onClick={() => setConfirming(true)} className="btn btn-ghost btn-sm">
-          Auszahlen
-        </button>
-      )}
-      <Feedback error={error} done={done} />
-    </div>
-  );
-}
-
 const ORDER_STATUSES: { id: CardOrderStatus; label: string }[] = [
   { id: "requested", label: "Eingegangen" },
   { id: "confirmed", label: "Bestätigt" },
@@ -167,6 +144,7 @@ export function OrderControls({ orderId, status, carrier, trackingNumber }: { or
   const [next, setNext] = useState<CardOrderStatus>(status);
   const [carrierValue, setCarrier] = useState(carrier ?? "");
   const [tracking, setTracking] = useState(trackingNumber ?? "");
+  const [reason, setReason] = useState("");
   const { pending, error, done, run } = useAction();
   return (
     <div className="mt-4">
@@ -178,10 +156,13 @@ export function OrderControls({ orderId, status, carrier, trackingNumber }: { or
         </select>
         <input value={carrierValue} onChange={(e) => setCarrier(e.target.value)} placeholder="Versanddienst" className="field !py-2.5 text-sm" />
         <input value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="Sendungsnummer" className="field !py-2.5 text-sm" />
-        <button type="button" disabled={pending} onClick={() => run(() => updateCardOrderAction(orderId, next, carrierValue, tracking), next === "shipped" && status !== "shipped" ? "Gespeichert – Versandmail verschickt" : "Gespeichert")} className="btn btn-primary btn-sm">
+        <button type="button" disabled={pending || !reason.trim()} onClick={() => run(() => updateCardOrderAction(orderId, next, carrierValue, tracking, reason), next === "shipped" && status !== "shipped" ? "Gespeichert – Versandmail verschickt" : "Gespeichert")} className="btn btn-primary btn-sm">
           Speichern
         </button>
       </div>
+      <label className="mt-2 block text-xs font-semibold text-ink-soft">Grund der Statusänderung
+        <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={250} className="field mt-1 !py-2.5 text-sm" />
+      </label>
       <Feedback error={error} done={done} />
     </div>
   );

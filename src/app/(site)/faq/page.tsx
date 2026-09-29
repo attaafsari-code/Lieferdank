@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-shell";
-import { formatEuro } from "@/lib/format";
-import { PLATFORM_GROSS_FEE_CENTS } from "@/lib/money";
 
 export const metadata = {
   title: "FAQ",
@@ -12,11 +10,11 @@ export const metadata = {
 const FAQ_DRIVERS = [
   {
     q: "Was kostet mich Lieferdank?",
-    a: "Nichts. Registrierung, Danke-Code, Karte und Dashboard sind kostenlos. Wir behalten nur bei einer freiwilligen Trinkgeldzahlung einen festen Anteil ein.",
+    a: "Registrierung, digitaler Danke-Code und Dashboard sind kostenlos. Physische Karten kosten extra. Für Trinkgeld fallen eine Lieferdank-Gebühr und separate Stripe-Kosten auf deinem Stripe-Konto an.",
   },
   {
     q: "Wie viel bekomme ich vom Trinkgeld?",
-    a: `Pro Zahlung werden ${formatEuro(PLATFORM_GROSS_FEE_CENTS)} für Zahlungsabwicklung und Lieferdank einbehalten. Bei 2 € bekommst du also 1,50 €, bei 3 € sind es 2,50 € und bei 5 € sind es 4,50 €.`,
+    a: "Vor Stripe-Kosten: Bei 2 € verbleiben 1,50 €, bei 3 € 2,40 € und bei 5 € 4,00 €. Stripe zieht seine Zahlungs- und gegebenenfalls Auszahlungskosten separat ab. Deinen tatsächlichen Auszahlungsbetrag zeigt Stripe.",
   },
   {
     q: "Darf ich den Code während der Arbeit zeigen?",
@@ -24,7 +22,7 @@ const FAQ_DRIVERS = [
   },
   {
     q: "Muss ich mich verifizieren lassen?",
-    a: "Nein. Du kannst dich registrieren und sofort loslegen – Danke-Code und Danke-Funktion sind ohne Prüfung nutzbar. Nur für die Auszahlung prüft unser Zahlungsdienstleister deine Identität, so wie es bei jedem Konto gesetzlich vorgeschrieben ist.",
+    a: "Der Danke-Code und kostenlose Danke funktionieren sofort. Für Trinkgeld musst du die von Stripe verlangte Konto- und Identitätsprüfung abschließen.",
   },
   {
     q: "Welcher Name steht auf meiner Karte?",
@@ -48,7 +46,7 @@ const FAQ_DRIVERS = [
   },
   {
     q: "Wann bekomme ich mein Geld?",
-    a: "Dein Trinkgeld sammelt sich als Guthaben und wird gebündelt ausgezahlt. Einzelne Kleinstauszahlungen würden unnötig Gebühren kosten.",
+    a: "Stripe verwaltet das Guthaben auf deinem eigenen Stripe-Konto und zahlt gemäß deinem Stripe-Auszahlungsplan aus. Lieferdank führt keine Sammelauszahlung aus.",
   },
   {
     q: "Muss ich Trinkgeld versteuern?",
@@ -71,7 +69,7 @@ const FAQ_CUSTOMERS = [
   },
   {
     q: "Wie kann ich bezahlen?",
-    a: "Mit Apple Pay, Google Pay, PayPal oder Karte – abgewickelt von einem regulierten Zahlungsdienstleister. Lieferdank sieht deine Kartendaten nie.",
+    a: "Mit Karte und – bei geeignetem Gerät und Stripe-Konto – Apple Pay oder Google Pay. Lieferdank sieht deine Kartendaten nie. PayPal ist noch nicht eingerichtet.",
   },
   {
     q: "Kann ich Lieferanten speichern?",

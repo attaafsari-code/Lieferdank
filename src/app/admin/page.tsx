@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/server/guards";
 import Link from "next/link";
 import { getPlatformStats, type PlatformStats } from "@/server/services/stats";
 import { getPaymentProvider } from "@/server/payments";
@@ -8,6 +9,7 @@ import { AdminTitle, Kpi, SectionHeading } from "./ui";
 export const dynamic = "force-dynamic";
 
 export default async function AdminOverview() {
+  await requireAdmin();
   const [today, total] = await Promise.all([getPlatformStats("today"), getPlatformStats("all")]);
   const provider = getPaymentProvider();
 
@@ -21,15 +23,15 @@ export default async function AdminOverview() {
       <div className="grid gap-3 sm:grid-cols-3">
         <QuickLink href="/admin/nutzer?status=pending" label="Abzeichen-Anfragen" value={total.pendingBadgeRequests} />
         <QuickLink href="/admin/karten" label="Offene Kartenbestellungen" value={total.openCardOrders} />
-        <QuickLink href="/admin/auszahlungen" label="Auszahlungen verwalten" />
+        <QuickLink href="/admin/auszahlungen" label="Historische Überweisungen" />
       </div>
 
       <StatsBlock title="Heute" stats={today} />
       <StatsBlock title="Gesamt" stats={total} />
 
       <p className="text-xs leading-relaxed text-ink-faint">
-        Payment- und Auszahlungskosten sind kalkulierte Werte auf Basis der konfigurierten Sätze. Für die
-        Buchhaltung zählen die Abrechnungen des Zahlungsdienstleisters.
+        Bei Direct Charges belastet Stripe den Connected Account. Angezeigt wird die Lieferdank-Gebühr
+        vor eigenen Betriebskosten; für die Buchhaltung zählen die Stripe-Abrechnungen.
       </p>
     </div>
   );
@@ -56,11 +58,9 @@ function StatsBlock({ title, stats }: { title: string; stats: PlatformStats }) {
         <Kpi label="Transaktionen" value={String(stats.tipCount)} />
         <Kpi label="Ø Trinkgeld" value={formatEuro(stats.averageTipCents)} />
         <Kpi label="Kostenlose Danke" value={String(stats.freeThankYouCount)} />
-        <Kpi label="Plattformgebühr brutto" value={formatEuro(stats.grossPlatformFeeCents)} />
-        <Kpi label="Paymentkosten (kalk.)" value={formatEuro(stats.paymentFeeCents)} />
-        <Kpi label="Auszahlungskosten (kalk.)" value={formatEuro(stats.payoutFeeCents)} />
-        <Kpi label="Nettomarge (kalk.)" value={formatEuro(stats.netRevenueCents)} highlight />
-        <Kpi label="Netto je Transaktion (kalk.)" value={formatEuro(stats.revenuePerTransactionCents)} />
+        <Kpi label="Vorgesehene Application Fees" value={formatEuro(stats.grossPlatformFeeCents)} />
+        <Kpi label="Vorgesehen vor Betriebskosten" value={formatEuro(stats.netRevenueCents)} highlight />
+        <Kpi label="Gebühr je Transaktion" value={formatEuro(stats.revenuePerTransactionCents)} />
         <Kpi label="Scans" value={String(stats.scanCount)} />
         <Kpi label="Danke / Scans" value={percent(stats.scanToThankYouRate)} />
         <Kpi label="Zahlungen / Scans" value={percent(stats.scanToPaymentRate)} />

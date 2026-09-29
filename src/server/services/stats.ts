@@ -10,9 +10,9 @@ export type DriverStats = {
   week: Period;
   month: Period;
   total: Period;
-  /** Bestätigt, noch nicht ausgezahlt. */
-  balanceCents: number;
-  paidOutCents: number;
+  /** Anteil nach Application Fee, vor Stripe-Kosten. Kein auszahlbares Guthaben. */
+  driverShareBeforeStripeCents: number;
+  inReviewCents: number;
   streakDays: number;
   recentThankYous: ThankYou[];
   recentTips: Tip[];
@@ -69,8 +69,8 @@ export async function getDriverStats(driverId: string): Promise<DriverStats> {
     week: summarize(inWeek(tips), inWeek(thankYous)),
     month: summarize(inMonth(tips), inMonth(thankYous)),
     total: summarize(tips, thankYous),
-    balanceCents: tips.filter((t) => t.payoutStatus !== "paid_out").reduce((s, t) => s + t.driverCents, 0),
-    paidOutCents: tips.filter((t) => t.payoutStatus === "paid_out").reduce((s, t) => s + t.driverCents, 0),
+    driverShareBeforeStripeCents: tips.reduce((s, t) => s + t.driverCents, 0),
+    inReviewCents: allTips.filter((t) => t.paymentStatus === "review_required").reduce((s, t) => s + t.driverCents, 0),
     streakDays: computeStreak(thankYous.map((t) => t.createdAt)),
     recentThankYous: newestFirst(thankYous).slice(0, 30),
     recentTips: newestFirst(tips).slice(0, 30),

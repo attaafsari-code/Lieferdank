@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/server/guards";
 import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { searchUsers } from "@/server/services/admin";
@@ -18,11 +19,12 @@ const FILTERS = [
 ];
 
 export default async function AdminUsers({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  await requireAdmin();
   const { q = "", status = "" } = await searchParams;
   const db = getDb();
   const [results, tips, verifications] = await Promise.all([
     searchUsers(q),
-    db.tips.findMany({ where: { paymentStatus: "succeeded", payoutStatus: "in_balance" } }),
+    db.tips.findMany({ where: { paymentStatus: "succeeded" } }),
     db.verifications.findMany(),
   ]);
 
@@ -83,7 +85,7 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
                 <p className="mt-1 text-sm text-ink-soft">
                   Öffentlich: „{driverPublicName(driver, user)}“
                   {driver.providerId && ` · ${providerLabel(driver.providerId)}${driver.providerVerified ? " (geprüft)" : ""}`}
-                  {" · Guthaben "}
+                  {" · Anteil vor Stripe-Kosten "}
                   <span className="font-semibold text-ink">{formatEuro(balance.get(driver.id) ?? 0)}</span>
                   {" · "}
                   <Link href={`/danke/${driver.code}?vorschau=1`} className="font-semibold text-brand hover:underline">

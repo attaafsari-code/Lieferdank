@@ -16,6 +16,8 @@ export type CreatePaymentInput = {
   applicationFeeCents: number | null;
   /** Konto des Zustellers beim Anbieter, falls einsatzbereit. */
   destinationAccountId: string | null;
+  /** Für Direct Charges: der interne, serverseitig ermittelte Kontoinhaber. */
+  driverId?: string;
   description: string;
   returnUrl: string;
   cancelUrl: string;
@@ -39,9 +41,7 @@ export interface PaymentProvider {
   refundPayment(providerIntentId: string): Promise<void>;
 
   createConnectedAccount(input: { email: string; driverId: string }): Promise<string>;
-  onboardDriver(input: { accountId: string; returnUrl: string; refreshUrl: string }): Promise<OnboardingLink>;
-  isAccountReady(accountId: string): Promise<boolean>;
+  onboardDriver(input: { accountId: string; driverId: string; returnUrl: string; refreshUrl: string }): Promise<OnboardingLink>;
+  isAccountReady(accountId: string, driverId: string): Promise<boolean>;
 
-  /** Überweist Guthaben an das Konto des Zustellers. Gibt die Transfer-ID zurück. */
-  createPayout(input: { accountId: string; amountCents: number; payoutId: string }): Promise<string>;
 }

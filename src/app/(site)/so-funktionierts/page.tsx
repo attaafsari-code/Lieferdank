@@ -47,7 +47,7 @@ const CUSTOMER_STEPS = [
   },
   {
     title: "Optional Trinkgeld",
-    text: "2 €, 3 €, 5 € oder ein eigener Betrag – mit Apple Pay, Google Pay, PayPal oder Karte. Freiwillig.",
+    text: "2 €, 3 € oder 5 € – mit Karte und je nach Gerät Apple Pay oder Google Pay. Freiwillig.",
   },
   {
     title: "Kurze Nachricht",

@@ -2,8 +2,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-shell";
 import { ArrowRight } from "@/components/icons";
-import { formatEuro } from "@/lib/format";
-import { PLATFORM_GROSS_FEE_CENTS } from "@/lib/money";
 
 export const metadata: Metadata = {
   title: "Für Lieferanten",
@@ -15,11 +13,11 @@ export const metadata: Metadata = {
 const BENEFITS = [
   {
     title: "Kostenlos für dich",
-    text: `Registrierung, Danke-Code und Dashboard kosten dich nichts. Wir verdienen nur, wenn ein Kunde freiwillig Trinkgeld gibt – ${formatEuro(PLATFORM_GROSS_FEE_CENTS)} pro Zahlung.`,
+    text: "Registrierung, digitaler Danke-Code und Dashboard kosten dich nichts. Bei Trinkgeld erhält Lieferdank je nach Betrag 0,50 €, 0,60 € oder 1,00 €. Stripe berechnet seine Kosten separat.",
   },
   {
     title: "Sofort einsatzbereit",
-    text: "Nach der Registrierung hast du deinen QR-Code. Kein Arbeitgebernachweis, keine Wartezeit, keine Freischaltung.",
+    text: "Nach der Registrierung hast du deinen QR-Code für kostenlose Danke. Für Trinkgeld muss zuerst dein Stripe-Konto freigeschaltet sein.",
   },
   {
     title: "Du bestimmst, was man sieht",
@@ -42,8 +40,8 @@ const BENEFITS = [
     text: "Wir liefern keine Leistungsdaten an Arbeitgeber. Was du verdienst, sehen nur du und – soweit gesetzlich nötig – die Buchhaltung.",
   },
   {
-    title: "Auszahlung gebündelt",
-    text: "Dein Trinkgeld sammelt sich als Guthaben und wird gesammelt ausgezahlt. So gehen nicht bei jeder Kleinzahlung Gebühren verloren.",
+    title: "Auszahlung über Stripe",
+    text: "Stripe verarbeitet dein Trinkgeld auf deinem verbundenen Konto und zahlt es nach deinem Stripe-Auszahlungsplan aus.",
   },
 ];
 

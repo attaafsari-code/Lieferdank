@@ -10,8 +10,8 @@ export const GET = api({ auth: "driver" }, async ({ session }) => {
     week: stats.week,
     month: stats.month,
     total: stats.total,
-    balanceCents: stats.balanceCents,
-    paidOutCents: stats.paidOutCents,
+    driverShareBeforeStripeCents: stats.driverShareBeforeStripeCents,
+    inReviewCents: stats.inReviewCents,
     streakDays: stats.streakDays,
     // Kundenbezug wird nie an den Zusteller ausgeliefert.
     recentThankYous: stats.recentThankYous.map(({ id, tipId, presetId, message, createdAt }) => ({

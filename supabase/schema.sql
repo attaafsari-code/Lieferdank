@@ -102,9 +102,10 @@ create table if not exists public.payments (
   provider_payment_id  text unique,          -- Checkout-Session
   provider_intent_id   text,                 -- PaymentIntent, für Erstattungen
   amount_cents         integer not null check (amount_cents > 0),
-  currency             text not null default 'EUR',
+  refunded_amount_cents integer not null default 0 check (refunded_amount_cents >= 0 and refunded_amount_cents <= amount_cents),
+  currency             text not null default 'EUR' check (currency = 'EUR'),
   status               text not null default 'pending'
-                         check (status in ('pending', 'succeeded', 'failed', 'refunded')),
+                         check (status in ('pending', 'succeeded', 'failed', 'refunded', 'review_required')),
   method               text,
   failure_reason       text,
   created_at           timestamptz not null default now(),
@@ -134,19 +135,25 @@ create table if not exists public.tips (
   gross_cents                 integer not null check (gross_cents > 0),
   driver_cents                integer not null check (driver_cents >= 0),
   platform_gross_fee_cents    integer not null check (platform_gross_fee_cents >= 0),
-  payment_provider_fee_cents  integer not null default 0,
-  payout_fee_cents            integer not null default 0,
+  payment_provider_fee_cents  integer not null default 0 check (payment_provider_fee_cents >= 0),
+  payout_fee_cents            integer not null default 0 check (payout_fee_cents >= 0),
   platform_net_revenue_cents  integer not null default 0,
-  currency                    text not null default 'EUR',
+  currency                    text not null default 'EUR' check (currency = 'EUR'),
   payment_status              text not null default 'pending'
-                                check (payment_status in ('pending', 'succeeded', 'failed', 'refunded')),
+                                check (payment_status in ('pending', 'succeeded', 'failed', 'refunded', 'review_required')),
   payout_status               text not null default 'pending'
                                 check (payout_status in ('pending', 'in_balance', 'paid_out')),
   payout_id                   uuid references public.payouts (id),
   destination_account_id      text,
   created_at                  timestamptz not null default now(),
   -- Der Kunde zahlt exakt den Bruttobetrag: Anteil + Gebühr müssen aufgehen.
-  constraint tips_split_consistent check (driver_cents + platform_gross_fee_cents = gross_cents)
+  constraint tips_split_consistent check (driver_cents + platform_gross_fee_cents = gross_cents),
+  constraint tips_direct_charge_model check (
+    destination_account_id is not null and
+    ((gross_cents = 200 and platform_gross_fee_cents = 50 and driver_cents = 150) or
+     (gross_cents = 300 and platform_gross_fee_cents = 60 and driver_cents = 240) or
+     (gross_cents = 500 and platform_gross_fee_cents = 100 and driver_cents = 400))
+  )
 );
 
 create table if not exists public.thank_yous (
@@ -168,7 +175,7 @@ create table if not exists public.card_orders (
   total_cents           integer not null default 0,
   currency              text not null default 'EUR',
   payment_status        text not null default 'not_required'
-                          check (payment_status in ('not_required', 'pending', 'paid', 'refunded')),
+                          check (payment_status in ('not_required', 'pending', 'paid', 'failed', 'refunded', 'review_required')),
   payment_id            uuid references public.payments (id),
   design                jsonb not null,       -- eingefrorener Kartenstand zum Bestellzeitpunkt
   shipping_name         text not null,
@@ -243,8 +250,11 @@ create index if not exists thank_yous_customer_idx        on public.thank_yous (
 create index if not exists thank_yous_created_idx         on public.thank_yous (created_at desc);
 create index if not exists scans_driver_created_idx       on public.scans (driver_id, created_at desc);
 create index if not exists scans_created_idx              on public.scans (created_at desc);
-create index if not exists payments_intent_idx            on public.payments (provider_intent_id);
+create unique index if not exists payments_intent_idx     on public.payments (provider_intent_id) where provider_intent_id is not null;
 create index if not exists payments_reference_idx         on public.payments (reference_id);
+create unique index if not exists driver_profiles_connect_unique_idx on public.driver_profiles (payout_account_id) where payout_account_id is not null;
+create unique index if not exists payouts_transfer_unique_idx on public.payouts (provider_transfer_id) where provider_transfer_id is not null;
+create unique index if not exists card_orders_payment_unique_idx on public.card_orders (payment_id) where payment_id is not null;
 create index if not exists payouts_driver_idx             on public.payouts (driver_id, created_at desc);
 -- Verhindert zwei gleichzeitige Transfers desselben offenen Guthabens.
 create unique index if not exists payouts_one_pending_per_driver_idx on public.payouts (driver_id) where status = 'pending';

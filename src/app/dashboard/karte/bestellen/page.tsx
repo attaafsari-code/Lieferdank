@@ -8,6 +8,7 @@ import { formatDateTime, formatEuro } from "@/lib/format";
 import { CardPreview } from "@/components/card-preview";
 import { PageTitle, SectionTitle } from "@/components/dashboard-ui";
 import { OrderForm, CancelOrderButton } from "./order-form";
+import { isProductionRuntime } from "@/lib/runtime";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Karte bestellen" };
@@ -73,7 +74,9 @@ export default async function OrderPage({
         </div>
 
         <div className="rounded-3xl border border-line bg-white p-6 shadow-xs sm:p-7">
-          <OrderForm
+          {isProductionRuntime() && !cardOrdersArePaid() ? (
+            <p className="text-sm leading-relaxed text-ink-soft">Physische Karten sind derzeit nicht bestellbar. Deinen digitalen QR-Code kannst du kostenlos herunterladen und selbst ausdrucken.</p>
+          ) : <OrderForm
             quotes={quotes}
             paid={cardOrdersArePaid()}
             defaults={{
@@ -83,7 +86,7 @@ export default async function OrderPage({
               shippingCity: lastOrder?.shippingCity ?? "",
             }}
             reorderOf={lastOrder?.id}
-          />
+          />}
         </div>
       </div>
 

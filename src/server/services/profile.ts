@@ -43,6 +43,9 @@ export const profileSchema = z
 export type ProfileInput = z.infer<typeof profileSchema>;
 
 export async function updateDriverProfile(user: User, driver: DriverProfile, input: ProfileInput): Promise<void> {
+  if (user.role !== "driver" || driver.userId !== user.id) {
+    throw new ServiceError("forbidden", "Dieses Profil gehört nicht zu deinem Konto.", 403);
+  }
   const db = getDb();
   const now = new Date().toISOString();
 
@@ -102,6 +105,9 @@ export async function setDriverActive(driver: DriverProfile, active: boolean): P
 }
 
 export async function requestBadge(user: User, driver: DriverProfile, note: string): Promise<void> {
+  if (user.role !== "driver" || driver.userId !== user.id) {
+    throw new ServiceError("forbidden", "Dieses Profil gehört nicht zu deinem Konto.", 403);
+  }
   const trimmed = note.trim();
   if (trimmed.length < 10) {
     throw new ServiceError("note_short", "Bitte beschreibe kurz, wie wir deine Tätigkeit nachvollziehen können.", 400, "documentNote");
@@ -121,8 +127,9 @@ export async function requestBadge(user: User, driver: DriverProfile, note: stri
 }
 
 /**
- * DSGVO-Löschung. Zahlungsdatensätze bleiben aus buchhalterischen Gründen,
- * verlieren aber jeden Personenbezug. Der Code wird deaktiviert, nie neu vergeben.
+ * Kontodeaktivierung und Datenminimierung. Buchhaltungsdaten sowie die
+ * Stripe-Konto-ID bleiben für Refunds, Disputes und Aufbewahrung erhalten.
+ * Der Code wird deaktiviert und nie neu vergeben.
  */
 export async function deleteAccount(user: User): Promise<void> {
   const db = getDb();
@@ -130,6 +137,14 @@ export async function deleteAccount(user: User): Promise<void> {
 
   const driver = await db.driverProfiles.findOne({ userId: user.id });
   if (driver) {
+    const [tips, orders] = await Promise.all([
+      db.tips.findMany({ where: { driverId: driver.id } }),
+      db.cardOrders.findMany({ where: { driverId: driver.id } }),
+    ]);
+    if (tips.some((tip) => ["pending", "review_required"].includes(tip.paymentStatus)) ||
+        orders.some((order) => ["pending", "review_required"].includes(order.paymentStatus))) {
+      throw new ServiceError("open_payments", "Offene Zahlungen oder Erstattungen müssen vor der Kontolöschung geklärt werden.", 409);
+    }
     if (driver.photoKey) await removeFile(driver.photoKey).catch(() => undefined);
     await db.driverProfiles.update(driver.id, {
       nameDisplay: "custom",
@@ -140,16 +155,22 @@ export async function deleteAccount(user: User): Promise<void> {
       bio: null,
       city: null,
       active: false,
-      payoutAccountId: null,
+      // Stripe-Konto nicht löschen oder abkoppeln: Nachlaufende Refunds,
+      // Disputes und reguläre Stripe-Auszahlungen bleiben nachvollziehbar.
       payoutReady: false,
       updatedAt: now,
     });
   }
 
   if (user.role === "customer") {
-    for (const favorite of await db.driverFavorites.findMany({ where: { customerId: user.id } })) {
-      await db.driverFavorites.remove(favorite.id);
-    }
+    const [favorites, tips, thankYous] = await Promise.all([
+      db.driverFavorites.findMany({ where: { customerId: user.id } }),
+      db.tips.findMany({ where: { customerId: user.id } }),
+      db.thankYous.findMany({ where: { customerId: user.id } }),
+    ]);
+    for (const favorite of favorites) await db.driverFavorites.remove(favorite.id);
+    for (const tip of tips) await db.tips.update(tip.id, { customerId: null });
+    for (const thanks of thankYous) await db.thankYous.update(thanks.id, { customerId: null });
   }
 
   await db.users.update(user.id, {

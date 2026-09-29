@@ -4,8 +4,13 @@ import type { User } from "@/lib/db/types";
 import { generateLieferdankCode, newId } from "@/lib/id";
 import { ServiceError } from "../errors";
 
+function assertAdmin(actor: User): void {
+  if (actor.role !== "admin" || actor.blockedAt) throw new ServiceError("forbidden", "Nur für Administratoren.", 403);
+}
+
 /** Protokolliert jede Adminaktion – wer, was, warum. */
 export async function logAdminAction(actor: User, targetId: string, action: string, reason?: string | null) {
+  assertAdmin(actor);
   await getDb().adminActions.insert({
     id: newId(),
     actorEmail: actor.email,
@@ -17,6 +22,7 @@ export async function logAdminAction(actor: User, targetId: string, action: stri
 }
 
 export async function reviewBadge(actor: User, driverId: string, decision: "verified" | "rejected", note: string) {
+  assertAdmin(actor);
   const db = getDb();
   const driver = await db.driverProfiles.get(driverId);
   if (!driver) throw new ServiceError("not_found", "Zusteller nicht gefunden.", 404);
@@ -35,11 +41,13 @@ export async function reviewBadge(actor: User, driverId: string, decision: "veri
 }
 
 export async function setProviderVerified(actor: User, driverId: string, verified: boolean) {
+  assertAdmin(actor);
   await getDb().driverProfiles.update(driverId, { providerVerified: verified, updatedAt: new Date().toISOString() });
   await logAdminAction(actor, driverId, verified ? "provider_verified" : "provider_unverified");
 }
 
 export async function setUserBlocked(actor: User, userId: string, blocked: boolean, reason: string) {
+  assertAdmin(actor);
   if (actor.id === userId) throw new ServiceError("self", "Du kannst dich nicht selbst sperren.", 400);
   if (blocked && !reason.trim()) throw new ServiceError("reason_required", "Bitte gib einen Grund an.", 400);
 
@@ -61,11 +69,12 @@ export async function setUserBlocked(actor: User, userId: string, blocked: boole
  * Der alte Code funktioniert danach nicht mehr, gedruckte Karten werden ungültig.
  */
 export async function regenerateCode(actor: User, driverId: string, reason: string) {
+  assertAdmin(actor);
   if (!reason.trim()) throw new ServiceError("reason_required", "Bitte gib einen Grund an.", 400);
   const db = getDb();
   let code = generateLieferdankCode();
   for (let attempt = 0; attempt < 12 && (await db.driverProfiles.findOne({ code })); attempt++) {
-    code = generateLieferdankCode(attempt < 8 ? 5 : 6);
+    code = generateLieferdankCode(attempt < 8 ? 10 : 12);
   }
   const driver = await db.driverProfiles.get(driverId);
   await db.driverProfiles.update(driverId, { code, updatedAt: new Date().toISOString() });

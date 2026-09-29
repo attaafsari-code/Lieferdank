@@ -5,6 +5,7 @@ import { initials, publicName } from "@/lib/names";
 import { providerLabel } from "@/lib/providers";
 import { generateLieferdankCode, newId, normalizeCode } from "@/lib/id";
 import { defaultCardDesign } from "@/lib/card/design";
+import { isDemoPayment } from "../payments";
 
 /**
  * Öffentliche Sicht auf einen Zusteller. Enthält ausschließlich, was der
@@ -22,6 +23,7 @@ export type PublicDriver = {
   bio: string | null;
   verified: boolean;
   providerVerified: boolean;
+  tipReady: boolean;
 };
 
 export function avatarUrl(driver: Pick<DriverProfile, "code" | "photoKey" | "updatedAt">): string | null {
@@ -46,6 +48,7 @@ export function toPublicDriver(driver: DriverProfile, user: User): PublicDriver 
     bio: driver.bio,
     verified: driver.verification === "verified",
     providerVerified: driver.providerVerified,
+    tipReady: isDemoPayment() ? process.env.VERCEL_ENV !== "production" : driver.payoutReady,
   };
 }
 
@@ -70,7 +73,7 @@ export async function findDriverByCode(code: string): Promise<{ driver: DriverPr
 export async function uniqueCode(): Promise<string> {
   const db = getDb();
   for (let attempt = 0; attempt < 12; attempt++) {
-    const code = generateLieferdankCode(attempt < 8 ? 5 : 6);
+    const code = generateLieferdankCode(attempt < 8 ? 10 : 12);
     if (!(await db.driverProfiles.findOne({ code }))) return code;
   }
   throw new Error("Es konnte kein freier Lieferdank-Code erzeugt werden.");

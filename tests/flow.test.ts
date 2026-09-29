@@ -1,26 +1,46 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/lib/db";
-import { demoPaymentProvider } from "@/server/payments/demo";
-import { authenticate, completePasswordReset, registerDriver, requestPasswordReset } from "@/server/services/auth";
-import { confirmPayment, markRefunded, sendFreeThankYou, startTip, attachMessage } from "@/server/services/thanks";
+import { authenticate, completePasswordReset, localResetLink, registerDriver, requestPasswordReset } from "@/server/services/auth";
+import { confirmPayment, failPayment, markRefunded, sendFreeThankYou, startTip, attachMessage } from "@/server/services/thanks";
 import { getDriverStats } from "@/server/services/stats";
-import { payoutDriver, refreshPayoutReadiness, startPayoutOnboarding } from "@/server/services/payouts";
+import { refreshPayoutReadiness, startPayoutOnboarding } from "@/server/services/payouts";
 import { addFavoriteByCode, listFavorites, removeFavorite, renameFavorite } from "@/server/services/favorites";
-import { setDriverActive } from "@/server/services/profile";
+import { deleteAccount, requestBadge, setDriverActive, updateDriverProfile } from "@/server/services/profile";
 import { toPublicDriver } from "@/server/services/drivers";
-import { cardDesignSchema, createCardOrder, updateCardOrderStatus } from "@/server/services/cards";
+import { cardDesignSchema, cancelCardOrder, createCardOrder, updateCardOrderStatus } from "@/server/services/cards";
 import { parseInput } from "@/server/services/auth";
+import { regenerateCode, reviewBadge, setProviderVerified, setUserBlocked } from "@/server/services/admin";
 import { freshDb, makeCustomer, makeDriver } from "./helpers";
 
 beforeEach(() => {
   freshDb();
   vi.spyOn(console, "info").mockImplementation(() => undefined);
 });
+afterEach(() => vi.unstubAllEnvs());
 
 describe("Registrierung", () => {
+  it("gibt Reset-Entwicklungslinks nicht in Vercel Preview heraus", async () => {
+    const link = "https://lieferdank.de/passwort-neu?token=test";
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("RESEND_API_KEY", "");
+    expect(localResetLink(link)).toBeUndefined();
+    vi.stubEnv("VERCEL_ENV", "");
+    expect(localResetLink(link)).toBe(link);
+    vi.stubEnv("NODE_ENV", "production");
+    expect(localResetLink(link)).toBeUndefined();
+    vi.unstubAllEnvs();
+  });
+
+  it("blockiert Supabase-Zugriff im Preview ohne separates Testprojekt", () => {
+    vi.stubEnv("LIEFERDANK_DB", "supabase");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect(() => getDb()).toThrow(/separates Supabase-Testprojekt/);
+    vi.unstubAllEnvs();
+  });
   it("vergibt sofort einen funktionierenden Code – ohne Verifizierung", async () => {
     const { driver } = await makeDriver();
-    expect(driver.code).toMatch(/^LD-[A-Z0-9]{5}$/);
+    expect(driver.code).toMatch(/^LD-[23456789A-HJ-NP-Z]{10}$/);
     expect(driver.verification).toBe("unverified");
     expect(driver.active).toBe(true);
     expect(await getDb().cardDesigns.findOne({ driverId: driver.id })).not.toBeNull();
@@ -33,6 +53,13 @@ describe("Registrierung", () => {
     const codes = new Set<string>();
     for (let i = 0; i < 15; i++) codes.add((await makeDriver()).driver.code);
     expect(codes.size).toBe(15);
+  });
+
+  it("erzeugt 10-stellige, nicht erratbare QR-Identifier ohne Wiederverwendung", async () => {
+    const { generateLieferdankCode } = await import("@/lib/id");
+    const codes = new Set(Array.from({ length: 10_000 }, () => generateLieferdankCode()));
+    expect(codes.size).toBe(10_000);
+    for (const code of codes) expect(code).toMatch(/^LD-[23456789A-HJ-NP-Z]{10}$/);
   });
 
   it("lehnt doppelte E-Mail-Adressen ab", async () => {
@@ -58,22 +85,22 @@ describe("Registrierung", () => {
 });
 
 describe("Danke und Trinkgeld", () => {
-  it("rechnet 3 € korrekt ab und bucht 2,50 € ins Guthaben", async () => {
+  it("rechnet 3 € mit 0,60 € Application Fee und ohne Lieferdank-Wallet ab", async () => {
     const { driver } = await makeDriver();
     const { paymentId, redirectUrl } = await startTip(driver.code, 300, null);
     expect(redirectUrl).toBe(`/zahlung/${paymentId}`);
 
     // Vor der Bestätigung zählt nichts.
-    expect((await getDriverStats(driver.id)).balanceCents).toBe(0);
+    expect((await getDriverStats(driver.id)).driverShareBeforeStripeCents).toBe(0);
 
     await confirmPayment(paymentId);
     const stats = await getDriverStats(driver.id);
-    expect(stats.balanceCents).toBe(250);
+    expect(stats.driverShareBeforeStripeCents).toBe(240);
     expect(stats.today.tipCount).toBe(1);
     expect(stats.total.thanks).toBe(1);
 
     const tip = (await getDb().tips.findMany({ where: { driverId: driver.id } }))[0];
-    expect(tip).toMatchObject({ grossCents: 300, driverCents: 250, platformGrossFeeCents: 50, paymentStatus: "succeeded" });
+    expect(tip).toMatchObject({ grossCents: 300, driverCents: 240, platformGrossFeeCents: 60, paymentStatus: "succeeded" });
   });
 
   it("bucht eine doppelt gemeldete Zahlung nur einmal", async () => {
@@ -82,7 +109,7 @@ describe("Danke und Trinkgeld", () => {
     await confirmPayment(paymentId);
     await confirmPayment(paymentId);
     const stats = await getDriverStats(driver.id);
-    expect(stats.balanceCents).toBe(450);
+    expect(stats.driverShareBeforeStripeCents).toBe(400);
     expect(stats.total.thanks).toBe(1);
   });
 
@@ -115,7 +142,7 @@ describe("Danke und Trinkgeld", () => {
     const { paymentId } = await startTip(driver.code, 300, null);
     await confirmPayment(paymentId, { providerIntentId: "pi_test" });
     await markRefunded("pi_test");
-    expect((await getDriverStats(driver.id)).balanceCents).toBe(0);
+    expect((await getDriverStats(driver.id)).driverShareBeforeStripeCents).toBe(0);
   });
 
   it("bucht eine Erstattung vor einem verspäteten Erfolgsereignis nicht erneut gut", async () => {
@@ -123,17 +150,41 @@ describe("Danke und Trinkgeld", () => {
     const { paymentId } = await startTip(driver.code, 300, null);
     await markRefunded("pi_early", paymentId);
     await confirmPayment(paymentId, { providerIntentId: "pi_early" });
-    expect((await getDb().payments.get(paymentId))?.status).toBe("refunded");
-    expect((await getDriverStats(driver.id)).balanceCents).toBe(0);
+    expect((await getDb().payments.get(paymentId))?.status).toBe("review_required");
+    expect((await getDriverStats(driver.id)).driverShareBeforeStripeCents).toBe(0);
   });
 
-  it("verwendet kein veraltetes Connect-Zielkonto für einen neuen Checkout", async () => {
+  it("merkt kumulative Teil-Erstattungen monoton, auch bei verspäteten Events", async () => {
     const { driver } = await makeDriver();
-    await getDb().driverProfiles.update(driver.id, { payoutAccountId: "acct_stale", payoutReady: true });
-    const readiness = vi.spyOn(demoPaymentProvider, "isAccountReady").mockResolvedValueOnce(false);
-    const { tipId } = await startTip(driver.code, 300, null);
-    expect((await getDb().tips.get(tipId))?.destinationAccountId).toBeNull();
-    readiness.mockRestore();
+    const { paymentId } = await startTip(driver.code, 300, null);
+    await confirmPayment(paymentId, { providerIntentId: "pi_partial_order" });
+    for (const cents of [100, 200, 300, 100, 300]) {
+      await markRefunded("pi_partial_order", paymentId, cents);
+    }
+    const payment = (await getDb().payments.get(paymentId))!;
+    expect(payment.refundedAmountCents).toBe(300);
+    expect(payment.status).toBe("review_required");
+    expect(payment.failureReason).toMatch(/Abgleich|Teil-Erstattung|Abstimmung/);
+    expect((await getDriverStats(driver.id)).driverShareBeforeStripeCents).toBe(0);
+  });
+
+  it("hält keinen Fahrerbetrag auf dem Plattformkonto", async () => {
+    const { driver } = await makeDriver();
+    const { tipId, paymentId } = await startTip(driver.code, 300, null);
+    await confirmPayment(paymentId);
+    expect((await getDb().tips.get(tipId))?.destinationAccountId).toMatch(/^demo_acct_/);
+    expect((await getDb().tips.get(tipId))?.payoutStatus).toBe("in_balance");
+    expect(await getDb().payouts.count()).toBe(0);
+  });
+
+  it("nimmt strittige Zahlungen aus der Statistik", async () => {
+    const { driver } = await makeDriver();
+    const { paymentId } = await startTip(driver.code, 300, null);
+    await confirmPayment(paymentId, { providerIntentId: "pi_disputed" });
+    const { markDisputed } = await import("@/server/services/thanks");
+    await markDisputed("pi_disputed");
+    expect((await getDriverStats(driver.id)).driverShareBeforeStripeCents).toBe(0);
+    expect((await getDriverStats(driver.id)).inReviewCents).toBe(240);
   });
 
   it("erstellt in Vercel Production keine simulierten Trinkgelder", async () => {
@@ -152,7 +203,7 @@ describe("Danke und Trinkgeld", () => {
     const { paymentId } = await startTip(driver.code, 200, null);
     await getDb().payments.update(paymentId, { status: "succeeded" });
     await confirmPayment(paymentId);
-    expect((await getDriverStats(driver.id)).balanceCents).toBe(150);
+    expect((await getDriverStats(driver.id)).driverShareBeforeStripeCents).toBe(150);
   });
 
   it("vergibt Meilensteine für erstes Danke und erstes Trinkgeld", async () => {
@@ -164,57 +215,67 @@ describe("Danke und Trinkgeld", () => {
   });
 });
 
-describe("Auszahlung", () => {
-  it("überweist erst mit Auszahlungskonto und verteilt die Gebühr", async () => {
+describe("Stripe-Onboarding", () => {
+  it("erstellt höchstens ein Testkonto pro Fahrer und prüft Eigentum", async () => {
     const { user, driver } = await makeDriver();
-    for (const amount of [200, 300, 500]) await confirmPayment((await startTip(driver.code, amount, null)).paymentId);
-
-    await expect(payoutDriver(driver.id)).rejects.toThrow(/Auszahlungskonto/);
-
     await startPayoutOnboarding(user, driver);
-    const withAccount = (await getDb().driverProfiles.get(driver.id))!;
-    expect(await refreshPayoutReadiness(withAccount)).toBe(true);
-
-    const payout = await payoutDriver(driver.id);
-    expect(payout).toMatchObject({ amountCents: 150 + 250 + 450, transferredCents: 850, status: "paid" });
-
-    const tips = await getDb().tips.findMany({ where: { driverId: driver.id } });
-    expect(tips.every((t) => t.payoutStatus === "paid_out")).toBe(true);
-    expect(tips.reduce((s, t) => s + t.payoutFeeCents, 0)).toBe(payout!.feeCents);
-    for (const tip of tips) {
-      expect(tip.platformNetRevenueCents).toBe(tip.platformGrossFeeCents - tip.paymentProviderFeeCents - tip.payoutFeeCents);
-    }
-    expect((await getDriverStats(driver.id)).balanceCents).toBe(0);
-  });
-
-  it("verhindert parallele Doppelüberweisungen", async () => {
-    const { user, driver } = await makeDriver();
-    await confirmPayment((await startTip(driver.code, 300, null)).paymentId);
-    await startPayoutOnboarding(user, driver);
-    await refreshPayoutReadiness((await getDb().driverProfiles.get(driver.id))!);
-    const results = await Promise.allSettled([payoutDriver(driver.id), payoutDriver(driver.id)]);
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect(await getDb().payouts.findMany({ where: { driverId: driver.id } })).toHaveLength(1);
-    expect((await getDriverStats(driver.id)).balanceCents).toBe(0);
-  });
-
-  it("setzt nach einem Transferfehler dieselbe vorgemerkte Auszahlung fort", async () => {
-    const { user, driver } = await makeDriver();
-    await confirmPayment((await startTip(driver.code, 300, null)).paymentId);
-    await startPayoutOnboarding(user, driver);
-    await refreshPayoutReadiness((await getDb().driverProfiles.get(driver.id))!);
-    const transfer = vi.spyOn(demoPaymentProvider, "createPayout").mockRejectedValueOnce(new Error("temporär"));
-    await expect(payoutDriver(driver.id)).rejects.toThrow(/nicht abgeschlossen/);
-    const pending = (await getDb().payouts.findMany({ where: { driverId: driver.id } }))[0];
-    expect(pending.status).toBe("pending");
-    const result = await payoutDriver(driver.id);
-    expect(result?.id).toBe(pending.id);
-    expect(await getDb().payouts.findMany({ where: { driverId: driver.id } })).toHaveLength(1);
-    transfer.mockRestore();
+    const stored = (await getDb().driverProfiles.get(driver.id))!;
+    expect(stored.payoutAccountId).toMatch(/^demo_acct_/);
+    expect(await refreshPayoutReadiness(stored)).toBe(true);
+    await startPayoutOnboarding(user, stored);
+    expect((await getDb().driverProfiles.get(driver.id))?.payoutAccountId).toBe(stored.payoutAccountId);
+    expect(await getDb().payouts.count()).toBe(0);
   });
 });
 
 describe("Privatsphäre", () => {
+  it("entfernt beim Kundenlöschen die Verknüpfung zu Dankes- und Zahlungsdaten", async () => {
+    const { driver } = await makeDriver();
+    const customer = await makeCustomer();
+    const thanks = await sendFreeThankYou(driver.code, customer.id);
+    const tip = await startTip(driver.code, 200, customer.id);
+    await deleteAccount(customer);
+    expect((await getDb().thankYous.get(thanks.thankYouId))?.customerId).toBeNull();
+    expect((await getDb().tips.get(tip.tipId))?.customerId).toBeNull();
+  });
+  it("verweigert Neu-Bestellungen mit einer fremden Vorbestellung", async () => {
+    const a = await makeDriver();
+    const b = await makeDriver();
+    const previous = await createCardOrder(b.user, b.driver, {
+      quantity: 1, shippingName: "B Test", shippingStreet: "Weg 1", shippingPostalCode: "50667", shippingCity: "Köln", reorderOf: "",
+    });
+    await expect(createCardOrder(a.user, a.driver, {
+      quantity: 1, shippingName: "A Test", shippingStreet: "Weg 2", shippingPostalCode: "50667", shippingCity: "Köln", reorderOf: previous.order.id,
+    })).rejects.toThrow(/nicht gefunden/);
+    expect(await getDb().cardOrders.count()).toBe(1);
+  });
+  it("weist fremde Fahrer-Objekte an Profil, Karte, Badge und Connect zurück", async () => {
+    const a = await makeDriver();
+    const b = await makeDriver();
+    const profile = parseInput((await import("@/server/services/profile")).profileSchema, {
+      firstName: "Angreifer", lastName: "Test", nameDisplay: "first", customName: "",
+      providerId: "", providerPublic: true, tagline: "", bio: "", city: "", phone: "", notifyOnTip: true,
+    });
+    await expect(updateDriverProfile(a.user, b.driver, profile)).rejects.toThrow(/gehört nicht/);
+    await expect(requestBadge(a.user, b.driver, "Ich bin Zusteller")).rejects.toThrow(/gehört nicht/);
+    await expect(startPayoutOnboarding(a.user, b.driver)).rejects.toThrow(/gehört nicht/);
+    await expect(createCardOrder(a.user, b.driver, {
+      quantity: 1, shippingName: "A Test", shippingStreet: "Weg 1", shippingPostalCode: "50667", shippingCity: "Köln", reorderOf: "",
+    })).rejects.toThrow(/gehört nicht/);
+    expect((await getDb().users.get(a.user.id))?.firstName).not.toBe("Angreifer");
+    expect(await getDb().payouts.count()).toBe(0);
+  });
+
+  it("verweigert Admin-Serviceaktionen mit normalem Fahrer als Akteur", async () => {
+    const a = await makeDriver();
+    const b = await makeDriver();
+    await expect(reviewBadge(a.user, b.driver.id, "verified", "")).rejects.toThrow(/Administrator/);
+    await expect(setProviderVerified(a.user, b.driver.id, true)).rejects.toThrow(/Administrator/);
+    await expect(setUserBlocked(a.user, b.user.id, true, "Angriff")).rejects.toThrow(/Administrator/);
+    await expect(regenerateCode(a.user, b.driver.id, "Angriff")).rejects.toThrow(/Administrator/);
+    expect((await getDb().driverProfiles.get(b.driver.id))?.code).toBe(b.driver.code);
+    expect((await getDb().users.get(b.user.id))?.blockedAt).toBeNull();
+  });
   it("gibt öffentlich nur Freigegebenes heraus", async () => {
     const { user, driver } = await makeDriver();
     const publicView = toPublicDriver({ ...driver, city: "Köln", providerId: "dhl", providerPublic: false }, user);
@@ -304,6 +365,20 @@ describe("Passwort vergessen", () => {
     await expect(completePasswordReset("ungültig", "neues-passwort-3")).rejects.toThrow(/nicht mehr gültig/);
   });
 
+  it("verhindert, dass zwei verschiedene offene Reset-Links das Passwort nacheinander überschreiben", async () => {
+    const { user } = await makeDriver();
+    const first = await requestPasswordReset(user.email);
+    const oldRow = (await getDb().passwordResets.findMany({ where: { userId: user.id } }))[0];
+    const second = await requestPasswordReset(user.email);
+    // Simuliert zwei gleichzeitig gestartete Reset-Anfragen vor dem Sperren des alten Links.
+    await getDb().passwordResets.update(oldRow.id, { usedAt: null });
+    const tokens = [first.link, second.link].map((link) => new URL(link!).searchParams.get("token")!);
+    const results = await Promise.allSettled(tokens.map((token, index) => completePasswordReset(token, `neues-passwort-${index}`)));
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect((await getDb().users.get(user.id))?.tokenVersion).toBe(1);
+    for (const token of tokens) await expect(completePasswordReset(token, "dritter-versuch")).rejects.toThrow(/nicht mehr gültig/);
+  });
+
   it("gibt in Produktion ohne E-Mail-Dienst keinen unerreichbaren Reset-Link aus", async () => {
     const { user } = await makeDriver();
     vi.stubEnv("NODE_ENV", "production");
@@ -371,7 +446,7 @@ describe("Karten", () => {
     const paymentId = "card-payment-test";
     await getDb().payments.insert({
       id: paymentId, purpose: "card_order", referenceId: order.id, provider: "demo",
-      providerPaymentId: "demo_card", providerIntentId: "pi_card", amountCents: 490,
+      providerPaymentId: "demo_card", providerIntentId: "pi_card", amountCents: 490, refundedAmountCents: 0,
       currency: "EUR", status: "pending", method: null, failureReason: null,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     });
@@ -379,5 +454,57 @@ describe("Karten", () => {
     await markRefunded("pi_card");
     expect((await getDb().cardOrders.get(order.id))?.paymentStatus).toBe("refunded");
     await expect(updateCardOrderStatus(order.id, "shipped", {})).rejects.toThrow(/noch nicht bezahlt/);
+  });
+
+  it("verhindert die Stornierung einer noch zahlbaren Karte", async () => {
+    const { user, driver } = await makeDriver();
+    const { order } = await createCardOrder(user, driver, {
+      quantity: 1, shippingName: "Max Müller", shippingStreet: "Musterstraße 1",
+      shippingPostalCode: "50667", shippingCity: "Köln", reorderOf: "",
+    });
+    await getDb().cardOrders.update(order.id, { totalCents: 490, paymentStatus: "pending" });
+    await expect(cancelCardOrder(driver.id, order.id)).rejects.toThrow(/Klärung der Zahlung/);
+    await expect(updateCardOrderStatus(order.id, "cancelled", {})).rejects.toThrow(/Klärung der Zahlung/);
+  });
+
+  it("verhindert Versand nach fehlgeschlagener Zahlung und markiert späten Erfolg nach Storno", async () => {
+    const { user, driver } = await makeDriver();
+    const { order } = await createCardOrder(user, driver, {
+      quantity: 1, shippingName: "Max Müller", shippingStreet: "Musterstraße 1",
+      shippingPostalCode: "50667", shippingCity: "Köln", reorderOf: "",
+    });
+    await getDb().cardOrders.update(order.id, { totalCents: 490, paymentStatus: "pending" });
+    const paymentId = "card-failure-test";
+    await getDb().payments.insert({
+      id: paymentId, purpose: "card_order", referenceId: order.id, provider: "demo",
+      providerPaymentId: "demo_card_failed", providerIntentId: null, amountCents: 490, refundedAmountCents: 0,
+      currency: "EUR", status: "pending", method: null, failureReason: null,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    });
+    await failPayment(paymentId, "Abgelaufen");
+    expect((await getDb().cardOrders.get(order.id))?.paymentStatus).toBe("failed");
+    await expect(updateCardOrderStatus(order.id, "shipped", {})).rejects.toThrow(/noch nicht bezahlt/);
+    await cancelCardOrder(driver.id, order.id);
+    await confirmPayment(paymentId, { providerIntentId: "pi_late_card" });
+    expect((await getDb().payments.get(paymentId))?.status).toBe("review_required");
+    expect((await getDb().cardOrders.get(order.id))?.paymentStatus).toBe("review_required");
+  });
+
+  it("versendet keine Karte, wenn ein Refund zwischen Prüfung und Statuswechsel eintrifft", async () => {
+    const { user, driver } = await makeDriver();
+    const { order } = await createCardOrder(user, driver, {
+      quantity: 1, shippingName: "Max Müller", shippingStreet: "Musterstraße 1",
+      shippingPostalCode: "50667", shippingCity: "Köln", reorderOf: "",
+    });
+    const db = getDb();
+    await db.cardOrders.update(order.id, { totalCents: 490, paymentStatus: "paid" });
+    const original = db.cardOrders.updateIf.bind(db.cardOrders);
+    vi.spyOn(db.cardOrders, "updateIf").mockImplementationOnce(async (id, where, patch) => {
+      await db.cardOrders.update(id, { paymentStatus: "refunded" });
+      return original(id, where, patch);
+    });
+    await expect(updateCardOrderStatus(order.id, "shipped", {})).rejects.toThrow(/geändert/);
+    expect((await db.cardOrders.get(order.id))?.status).toBe("requested");
+    vi.restoreAllMocks();
   });
 });

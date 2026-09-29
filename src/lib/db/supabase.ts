@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Db, Query, Table, Where } from "./table";
+import { isUuid } from "@/lib/id";
 import { TABLE_NAMES, type TableName, type Tables } from "./types";
 
 /**
@@ -75,6 +76,7 @@ function supabaseTable<N extends TableName>(name: N): Table<Tables[N]> {
 
   return {
     async get(id) {
+      if (!isUuid(id)) return null;
       const { data, error } = await supabaseClient().from(table).select("*").eq("id", id).maybeSingle();
       check(error, table);
       return data ? fromRow<Row>(data) : null;
@@ -136,6 +138,7 @@ function supabaseTable<N extends TableName>(name: N): Table<Tables[N]> {
     },
 
     async update(id, patch) {
+      if (!isUuid(id)) throw new Error("Ungültige Datenbank-ID.");
       const values = toRow(patch as Record<string, unknown>);
       delete values.id;
       if (Object.keys(values).length === 0) return;
@@ -144,6 +147,7 @@ function supabaseTable<N extends TableName>(name: N): Table<Tables[N]> {
     },
 
     async updateIf(id, where, patch) {
+      if (!isUuid(id)) return false;
       const values = toRow(patch as Record<string, unknown>);
       delete values.id;
       if (Object.keys(values).length === 0) return false;
@@ -154,6 +158,7 @@ function supabaseTable<N extends TableName>(name: N): Table<Tables[N]> {
     },
 
     async remove(id) {
+      if (!isUuid(id)) return;
       const { error } = await supabaseClient().from(table).delete().eq("id", id);
       check(error, table);
     },

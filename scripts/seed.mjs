@@ -13,11 +13,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { dirname, join } from "node:path";
 
-const PLATFORM_FEE = 50;
-const PROVIDER_FEE_PERCENT = 1.5;
-const PROVIDER_FEE_FIXED = 25;
-const PAYOUT_FEE_PERCENT = 0.25;
-const PAYOUT_FEE_FIXED = 10;
+const APPLICATION_FEES = { 200: 50, 300: 60, 500: 100 };
 const PRESETS = ["freundlich", "paket", "hochtragen", "wetter", "einfach", "feierabend"];
 
 /* ---------- Hilfen ---------- */
@@ -43,10 +39,6 @@ function isoAt(daysAgo, hour, minute) {
   const now = Date.now();
   if (d.getTime() > now) return new Date(now - Math.floor(rnd() * 90 * 60_000)).toISOString();
   return d.toISOString();
-}
-
-function providerFee(gross) {
-  return Math.round((gross * PROVIDER_FEE_PERCENT) / 100 + PROVIDER_FEE_FIXED);
 }
 
 /* ---------- Bestand ---------- */
@@ -139,8 +131,8 @@ function addDriver(user, options) {
 function addTip(driver, grossCents, createdAt, customerId = null) {
   const tipId = randomUUID();
   const paymentId = randomUUID();
-  const platformGrossFeeCents = Math.min(PLATFORM_FEE, grossCents);
-  const paymentProviderFeeCents = providerFee(grossCents);
+  const platformGrossFeeCents = APPLICATION_FEES[grossCents];
+  const paymentProviderFeeCents = 0;
 
   db.payments.push({
     id: paymentId,
@@ -149,10 +141,11 @@ function addTip(driver, grossCents, createdAt, customerId = null) {
     provider: "demo",
     providerPaymentId: `demo_${paymentId}`,
     providerIntentId: null,
+    refundedAmountCents: 0,
     amountCents: grossCents,
     currency: "EUR",
     status: "succeeded",
-    method: pick(["apple_pay", "google_pay", "card", "paypal"]),
+    method: pick(["apple_pay", "google_pay", "card"]),
     failureReason: null,
     createdAt,
     updatedAt: createdAt,
@@ -173,7 +166,7 @@ function addTip(driver, grossCents, createdAt, customerId = null) {
     paymentStatus: "succeeded",
     payoutStatus: "in_balance",
     payoutId: null,
-    destinationAccountId: null,
+    destinationAccountId: `demo_acct_${driver.userId.slice(0, 8)}`,
     createdAt,
   };
   db.tips.push(tip);
@@ -217,42 +210,6 @@ function addDay(driver, daysAgo, tipAmounts, freeThanks, customerId = null) {
   // Nicht jeder Scan endet in einem Danke – realistische Conversion.
   const scans = Math.round((tipAmounts.length + freeThanks) * (1.6 + rnd()));
   for (let i = 0; i < scans; i++) db.scans.push({ id: randomUUID(), driverId: driver.id, createdAt: nextTime() });
-}
-
-/** Zahlt alle Trinkgelder vor `beforeDaysAgo` aus – so gibt es einen Auszahlungsverlauf. */
-function addPayout(driver, beforeDaysAgo) {
-  const cutoff = isoAt(beforeDaysAgo, 0, 0);
-  const tips = db.tips.filter((t) => t.driverId === driver.id && t.createdAt < cutoff);
-  if (tips.length === 0) return;
-
-  const amount = tips.reduce((sum, t) => sum + t.driverCents, 0);
-  const fee = Math.round((amount * PAYOUT_FEE_PERCENT) / 100 + PAYOUT_FEE_FIXED);
-  const payoutId = randomUUID();
-  const base = Math.floor(fee / tips.length);
-  const remainder = fee - base * tips.length;
-
-  tips.forEach((tip, index) => {
-    tip.payoutStatus = "paid_out";
-    tip.payoutId = payoutId;
-    tip.payoutFeeCents = base + (index < remainder ? 1 : 0);
-    tip.platformNetRevenueCents = tip.platformGrossFeeCents - tip.paymentProviderFeeCents - tip.payoutFeeCents;
-  });
-
-  const createdAt = isoAt(beforeDaysAgo - 1, 10, 0);
-  db.payouts.push({
-    id: payoutId,
-    driverId: driver.id,
-    amountCents: amount,
-    transferredCents: amount,
-    feeCents: fee,
-    status: "paid",
-    provider: "demo",
-    providerTransferId: `demo_tr_${payoutId.slice(0, 8)}`,
-    tipIds: tips.map((t) => t.id),
-    failureReason: null,
-    createdAt,
-    completedAt: createdAt,
-  });
 }
 
 /** Gleiche Regeln wie src/lib/milestone-rules.ts. */
@@ -304,6 +261,7 @@ const max = addDriver(maxUser, {
 const ayseUser = addUser({ firstName: "Ayşe", lastName: "Yılmaz", email: "ayse@lieferdank.de", password: "lieferdank-demo", role: "driver" });
 const ayse = addDriver(ayseUser, {
   code: "LD-DEMO02",
+  payoutReady: true,
   nameDisplay: "first_initial",
   providerId: "lieferando",
   city: "Hamburg",
@@ -337,7 +295,6 @@ addDay(max, 3, [500, 200, 300, 200, 200], 6);
 addDay(max, 4, [300, 300, 200], 4);
 addDay(max, 5, [200, 500, 300, 200, 200], 6);
 for (let d = 6; d <= 16; d++) addDay(max, d, [300, 200, 200], 5);
-addPayout(max, 8);
 
 addDay(ayse, 0, [200, 300], 3, lenaUser.id);
 addDay(ayse, 1, [200, 300, 200], 4);

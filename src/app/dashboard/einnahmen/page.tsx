@@ -4,7 +4,6 @@ import { getDb } from "@/lib/db";
 import { getDriverStats } from "@/server/services/stats";
 import { isDemoPayment } from "@/server/payments";
 import { formatDateTime, formatEuro } from "@/lib/format";
-import { PLATFORM_GROSS_FEE_CENTS } from "@/lib/money";
 import { EmptyState, PageTitle, SectionTitle } from "@/components/dashboard-ui";
 import { Check } from "@/components/icons";
 import { PayoutSetup } from "./payout-setup";
@@ -31,17 +30,23 @@ export default async function EarningsPage({
       <section className="relative overflow-hidden rounded-3xl bg-brand-900 p-7 text-white shadow-md">
         <div aria-hidden className="pointer-events-none absolute -top-16 -right-10 h-52 w-52 rounded-full bg-brand/40 blur-3xl" />
         <div className="relative">
-          <p className="text-sm font-semibold text-white/60">Lieferdank-Guthaben</p>
-          <p className="mt-1.5 text-[2.75rem] leading-none font-extrabold tracking-tight">{formatEuro(stats.balanceCents)}</p>
+          <p className="text-sm font-semibold text-white/60">Dein Trinkgeldanteil vor Stripe-Kosten</p>
+          <p className="mt-1.5 break-words text-[2.25rem] leading-none font-extrabold tracking-tight sm:text-[2.75rem]">{formatEuro(stats.total.driverCents)}</p>
+          <p className="mt-3 text-sm text-white/75">
+            Deine tatsächliche Stripe-Balance und den Banktermin siehst du bei Stripe. Lieferdank verwahrt kein Fahrergeld.
+          </p>
+          {stats.inReviewCents > 0 && (
+            <p className="mt-2 text-sm font-semibold text-white">{formatEuro(stats.inReviewCents)} aus strittigen Zahlungen in Prüfung; nicht im bestätigten Anteil enthalten.</p>
+          )}
           <p className="mt-4 text-[0.9375rem] text-white/75">
             {driver.payoutReady
               ? "Dein Auszahlungskonto ist eingerichtet. Den Banktermin findest du bei Stripe."
-              : "Richte dein Auszahlungskonto ein, damit wir überweisen können."}
+              : "Schließe die Stripe-Einrichtung ab, bevor Kunden Trinkgeld senden können."}
           </p>
           <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/15 pt-5 text-sm">
             <Figure label="Diese Woche" value={formatEuro(stats.week.driverCents)} />
             <Figure label="Diesen Monat" value={formatEuro(stats.month.driverCents)} />
-            <Figure label="Ausgezahlt" value={formatEuro(stats.paidOutCents)} />
+            <Figure label="Insgesamt" value={formatEuro(stats.total.driverCents)} />
           </div>
         </div>
       </section>
@@ -113,13 +118,13 @@ export default async function EarningsPage({
             {stats.recentTips.map((tip) => (
               <li key={tip.id} className="flex items-center justify-between gap-4 px-5 py-4">
                 <span className="min-w-0">
-                  <span className="block font-bold text-ink">{formatEuro(tip.driverCents)}</span>
+                  <span className="block font-bold text-ink">{formatEuro(tip.driverCents)} vor Stripe-Kosten</span>
                   <span className="mt-0.5 block text-xs text-ink-faint">
                     {formatDateTime(tip.createdAt)} · Kunde zahlte {formatEuro(tip.grossCents)}
                   </span>
                 </span>
-                <span className={`chip shrink-0 ${tip.payoutStatus === "paid_out" ? "bg-brand-50 text-brand" : "bg-canvas text-ink-soft"}`}>
-                  {tip.payoutStatus === "paid_out" ? "an Stripe übertragen" : "im Guthaben"}
+                <span className={`chip shrink-0 ${tip.paymentStatus === "succeeded" ? "bg-brand-50 text-brand" : "bg-canvas text-ink-soft"}`}>
+                  {tip.paymentStatus === "succeeded" ? "bei Stripe" : "in Prüfung"}
                 </span>
               </li>
             ))}
@@ -128,10 +133,9 @@ export default async function EarningsPage({
       </section>
 
       <p className="text-sm leading-relaxed text-ink-soft">
-        „Im Guthaben“ heißt: Der Betrag gehört dir und wird für Stripe vorgemerkt oder liegt bereits
-        auf deinem Stripe-Konto. Den tatsächlichen Banktermin zeigt Stripe. Pro
-        Trinkgeld werden {formatEuro(PLATFORM_GROSS_FEE_CENTS)} für Zahlungsabwicklung und Lieferdank
-        einbehalten – der Rest gehört dir. Mehr in den{" "}
+        Bei 2 €, 3 € und 5 € Trinkgeld beträgt die Lieferdank-Gebühr 0,50 €, 0,60 € bzw. 1,00 €.
+        Stripe zieht seine eigenen Zahlungs- und gegebenenfalls Auszahlungskosten separat von deinem Stripe-Konto ab.
+        Der tatsächliche Auszahlungsbetrag kann daher geringer sein. Mehr in den{" "}
         <Link href="/legal/agb" className="font-semibold text-brand underline underline-offset-2">
           AGB
         </Link>
@@ -143,9 +147,9 @@ export default async function EarningsPage({
 
 function Figure({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-white/55">{label}</p>
-      <p className="mt-0.5 font-bold">{value}</p>
+      <p className="mt-0.5 break-words font-bold">{value}</p>
     </div>
   );
 }

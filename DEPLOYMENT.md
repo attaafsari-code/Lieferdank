@@ -36,11 +36,14 @@ Keine Secrets im Repo: `.env*` (außer `.env.example`), `data/`, `.claude/` und 
 1. Projekt anlegen auf [supabase.com](https://supabase.com), Region **Frankfurt (eu-central-1)**.
 2. **SQL Editor** → Inhalt von [`supabase/schema.sql`](supabase/schema.sql) ausführen.
    Legt 16 Tabellen, Indizes, Row Level Security und den privaten Storage-Bucket `media` an.
-   Bei einem bereits bestehenden Projekt zusätzlich
+   Bei einem bereits bestehenden Projekt zuerst das schreibgeschützte
+   [`supabase/preflight_20260928.sql`](supabase/preflight_20260928.sql) ausführen,
+   Konflikte mit Stripe abgleichen und dann nacheinander
    [`supabase/migrations/20260927_payout_lock.sql`](supabase/migrations/20260927_payout_lock.sql)
-   im SQL Editor ausführen. Vorher vorhandene `pending`-Auszahlungen mit Stripe
-   abgleichen; der Index verhindert parallele Doppelüberweisungen. Die Migration
-   sperrt außerdem den Foto-Bucket und ergänzt den Status für erstattete Karten.
+   und [`supabase/migrations/20260928_payment_reconciliation.sql`](supabase/migrations/20260928_payment_reconciliation.sql)
+   im SQL Editor ausführen. Beide Migrationen sind transaktional. Vorhandene
+   `pending`-Auszahlungen vor dem Release mit Stripe manuell abgleichen; die App
+   startet keine eigenen Transfers mehr.
 3. **Project Settings → API** notieren:
    - `Project URL` → `SUPABASE_URL`
    - `service_role` Secret → `SUPABASE_SERVICE_ROLE_KEY`
@@ -79,7 +82,7 @@ Details zu Tabellen und Sicherheit: [DATABASE.md](DATABASE.md).
 | `MAIL_FROM`                     | `Lieferdank <noreply@lieferdank.de>`   | ja      |
 | `MAIL_REPLY_TO`                 | z. B. `hallo@lieferdank.de`            | nein    |
 | `CARD_ORDERS_PAID`              | `true`, sobald Karten Geld kosten      | nein    |
-| `PAYMENT_FEE_PERCENT` usw.      | nur, wenn die Stripe-Sätze abweichen   | nein    |
+| `ALLOW_PREVIEW_SUPABASE_TEST_PROJECT` | `true` nur für getrenntes Preview-Testprojekt | Preview |
 
 Nach jeder Änderung an `NEXT_PUBLIC_*` **neu deployen** – diese Werte werden beim Build
 eingebacken.
@@ -97,8 +100,14 @@ eingebacken.
 - Ohne `RESEND_API_KEY` ist das Zurücksetzen von Passwörtern in Produktion
   nicht verfügbar. Reset-Links landen nie im Serverlog.
 
-Preview-Deployments (jeder Branch) nutzen automatisch ihre eigene Vercel-Adresse für
-QR-Codes. Für Previews am besten ein separates Supabase-Projekt und Stripe-Testschlüssel.
+Preview-Deployments dürfen nicht auf das Production-Supabase-Projekt zugreifen.
+Die App blockiert Supabase im Preview-Scope ohne `ALLOW_PREVIEW_SUPABASE_TEST_PROJECT=true`
+und blockiert Stripe-Live-Schlüssel dort immer. QR-Codes im Preview verwenden
+die jeweilige Preview-Domain, auch wenn eine Production-Base-URL geerbt wurde.
+Erst ein separates Testprojekt und
+Stripe-Testschlüssel eintragen, dann den Preview-Opt-in setzen. Demo + Supabase
+benötigt zusätzlich `ALLOW_DEMO_SUPABASE_TEST_PROJECT=true` in einer isolierten
+Testumgebung; niemals in Production setzen.
 
 ---
 
@@ -127,59 +136,68 @@ Die exakten Werte zeigt Vercel im Dialog – im Zweifel die von dort nehmen.
 
 ## 5. Stripe (Zahlungen)
 
-### Konto und Connect
+### Konto, Gebühren und Connect
 
-1. Stripe-Konto anlegen (Land: Deutschland), Unternehmensdaten vervollständigen.
-2. **Connect** aktivieren → Kontotyp **Express**. Stripe fragt nach dem Plattformprofil
-   (Marktplatz / Trinkgeld an Dienstleister).
-3. Zuerst komplett mit **Testschlüsseln** (`sk_test_…`) arbeiten.
+1. Stripe Connect für Deutschland aktivieren und das Plattformprofil abschließen.
+2. Neue Fahrer werden als **Standard Connected Accounts** mit Stripe Hosted Onboarding
+   angelegt. Vor jedem Checkout liest die App den Account frisch bei Stripe und verlangt:
+   `country=DE`, `charges_enabled=true`, `payouts_enabled=true`,
+   `card_payments=active`, `transfers=active`, `details_submitted=true`,
+   `controller.fees.payer=account` und `controller.losses.payments=stripe`.
+   Alte Express-Konten erfüllen diese Bedingungen nicht und nehmen kein Trinkgeld an.
+   Sie dürfen nicht still umgedeutet werden; betroffene Fahrer müssen nach Prüfung
+   ein geeignetes neues Konto verbinden.
+3. Stripe zieht seine Processing-Kosten vom Connected Account ab und übernimmt bei
+   dieser Konfiguration dessen Negativsaldo-Risiko. Refunds und Disputes belasten
+   zunächst das Connected Account; Dispute-Gebühren ebenfalls. Lieferdank bleibt
+   für sein eigenes Plattformkonto und eigene optionale Stripe-Produkte verantwortlich.
+4. Anwendungseigene Gebühren: 2 € → 0,50 €, 3 € → 0,60 €, 5 € → 1,00 €.
+   Der Kunde zahlt exakt den gewählten Betrag. Fahreranteile **vor** Stripe-Kosten:
+   1,50 €, 2,40 €, 4,00 €. Andere Kartenarten, Währungen und Zusatzdienste können
+   andere Gebühren auslösen und dürfen nicht ungeprüft Lieferdank belasten.
+5. Normale Auszahlungen richtet der Fahrer in Stripe ein. Keine Instant Payouts,
+   keine Lieferdank-Transfer-/Wallet-Funktion. Einen monatlichen Rhythmus erst nach
+   Prüfung der Account-Berechtigung und konkreten Stripe-Kosten konfigurieren.
 
 ### Zahlarten
 
-Checkout zeigt automatisch alle Zahlarten, die unter **Settings → Payment methods**
-aktiviert sind:
-
-- **Karte** – immer aktiv
-- **Apple Pay / Google Pay** – aktivieren; bei Stripe Checkout ist keine eigene
-  Domain-Verifizierung nötig
-- **PayPal** – später; für diesen Release weder aktivieren noch voraussetzen.
-- **Link** – optional, beschleunigt wiederkehrende Kunden
+Checkout fordert `card` an; geeignete Geräte können Apple Pay/Google Pay anzeigen.
+PayPal ist absichtlich nicht eingerichtet. Die tatsächliche Wallet-Anzeige hängt von
+Gerät, Browser, Stripe-Account und Dashboard-Einstellungen ab.
 
 ### Webhooks
 
-**Developers → Webhooks**, zwei Endpunkte auf dieselbe URL
-`https://lieferdank.de/api/webhooks/stripe`:
+**Stripe Dashboard → Developers → Webhooks**: zwei Ziele unter
+`https://lieferdank.de/api/webhooks/stripe` mit **unterschiedlichen Secrets**.
 
-| Endpunkt       | „Listen to“             | Ereignisse                                                                                                                    | Secret → Variable               |
-| -------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| Plattform      | Your account            | `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded` | `STRIPE_WEBHOOK_SECRET`         |
-| Connect        | Connected accounts      | `account.updated`                                                                                                             | `STRIPE_CONNECT_WEBHOOK_SECRET` |
+- **Your account / Plattform**: bestehende neun Checkout-, Refund- und Dispute-Ereignisse
+  für Lieferdanks eigene Kartenkäufe. Secret: `STRIPE_WEBHOOK_SECRET`.
+- **Connected accounts / Connect**: `account.updated`,
+  `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+  `checkout.session.async_payment_failed`, `checkout.session.expired`,
+  `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`,
+  `charge.dispute.funds_withdrawn`, `charge.dispute.funds_reinstated`.
+  Secret: `STRIPE_CONNECT_WEBHOOK_SECRET`. **Das Connect-Ziel mit nur
+  `account.updated` ist für Direct Charges unvollständig und muss vor Go-live
+  erweitert werden.**
 
-Lokal testen:
+Signatur, Webhook-Quelle, Connect-Konto, Checkout-ID, Betrag, Währung,
+PaymentIntent, Application Fee und Server-Metadaten werden geprüft.
+Der signierte Webhook – niemals die Browser-Rückkehr –
+bucht eine Zahlung. Rückerstattungen über die API setzen
+`refund_application_fee=true`; bei Teilrefund erstattet Stripe die Fee proportional.
+Dashboard-Refunds können die Application Fee stehen lassen. Jede Refund-/Dispute-
+Korrektur bleibt deshalb sichtbar als `review_required`, zählt nicht als bestätigter
+Umsatz und muss anhand von Stripe abgeglichen werden. Doppelte Webhooks ändern den
+kumulativen Refundbetrag nicht rückwärts.
+Die Admin-KPIs zeigen vorgesehene Application Fees aus bestätigten Zahlungen;
+Stripe kann die tatsächlichen Fee-Objekte asynchron erzeugen. Für Buchhaltung und
+Refund-Abgleich sind die Stripe-Berichte maßgeblich.
 
-```bash
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
-```
-
-**Wichtig:** Eine Zahlung gilt ausschließlich dann als bezahlt, wenn der signierte Webhook
-sie meldet. Die Rückkehr-URL des Kunden ändert nichts. Doppelte Zustellungen werden
-erkannt und nur einmal gebucht.
-
-### Live gehen
-
-Testflow komplett durchspielen (Schritt 8), dann Live-Schlüssel (auch ein
-eingeschränkter `rk_live_…`-Schlüssel mit den benötigten Berechtigungen) und die
-Live-Webhook-Secrets in Vercel eintragen, neu deployen. Der Admin zeigt oben „Live“ statt
-„Sandbox“.
-
-Der eingeschränkte Schlüssel muss Checkout-Sessions, PaymentIntents, Express-Accounts,
-Account-Links und Transfers erstellen bzw. lesen können. Refunds benötigen eigene
-Berechtigung; eine Teil-Erstattung wird im aktuellen MVP konservativ als vollständig
-erstattet verbucht und muss im Admin/Stripe manuell abgestimmt werden. Erstattungen
-nach einem bereits ausgeführten Transfer ebenfalls manuell mit dem Stripe-Konto
-abgleichen. Keine Teil-Erstattungen ohne diesen Abgleich auslösen.
-
----
+Ein eingeschränkter `rk_live_…`-Schlüssel benötigt die Rechte für Checkout Sessions,
+Accounts/Account Links, PaymentIntents/Charges auf Connected Accounts, Refunds und
+Application Fees. Transfer-Schreibrechte sind für den neuen Fahrerfluss nicht nötig.
+Keine Live-Schlüssel in Preview verwenden.
 
 ## 6. Resend (E-Mail)
 
@@ -188,7 +206,7 @@ abgleichen. Keine Teil-Erstattungen ohne diesen Abgleich auslösen.
 3. **API Keys** → Key mit „Sending access“ → `RESEND_API_KEY`.
 
 Versendet werden: Willkommen (Lieferant und Kunde), Passwort vergessen, Trinkgeld erhalten
-(abschaltbar), Auszahlung, Kartenbestellung eingegangen, Karte versendet. Ohne Key wird
+(abschaltbar), Kartenbestellung eingegangen, Karte versendet. Ohne Key wird
 nichts verschickt – Fehlversuche stehen im Admin unter **System**.
 
 ---
@@ -215,11 +233,11 @@ Admins können sich nicht selbst registrieren.
 - [ ] `/dashboard/karte` zeigt **keinen** Hinweis auf eine lokale Adresse, Link beginnt mit `https://lieferdank.de/danke/`
 - [ ] QR-Code mit **iPhone** und **Android** scannen (von Bildschirm und Ausdruck)
 - [ ] Kostenlos Danke → erscheint im Dashboard
-- [ ] 2 €, 3 €, 5 € mit Testkarte `4242 4242 4242 4242` → 1,50 / 2,50 / 4,50 € im Guthaben
+- [ ] 2 €, 3 €, 5 € in Stripe-Testumgebung testen → 0,50 / 0,60 / 1,00 € Application Fee; 1,50 / 2,40 / 4,00 € vor Stripe-Kosten beim Connected Account
 - [ ] Apple Pay (Safari/iPhone) und Google Pay (Chrome/Android) erscheinen im Checkout
 - [ ] Zahlung abbrechen → zurück auf der Danke-Seite, nichts gebucht
 - [ ] Auszahlungskonto einrichten → Status „bereit“
-- [ ] Admin: Transaktion mit Nettomarge sichtbar, Auszahlung auslösen
+- [ ] Admin: Direct Charge und Application Fee sichtbar; keine Lieferdank-Auszahlungsaktion
 - [ ] Profilfoto „nur im Dashboard“ → auf der Kundenseite nicht sichtbar
 - [ ] Passwort vergessen → Mail kommt an, Link funktioniert einmal
 - [ ] Kartenbestellung → Admin setzt „Versendet“ → Versandmail kommt an
@@ -235,6 +253,6 @@ Admins können sich nicht selbst registrieren.
 - **Uptime**: `/api/health` in einen Monitoring-Dienst eintragen.
 - **Backups**: Supabase erstellt tägliche Backups (Pro-Plan: Point-in-Time-Recovery).
 - **Rollback**: Vercel → Deployments → letztes funktionierendes → **Promote to Production**.
-  Die Datenbank bleibt davon unberührt.
+  Achtung: vor einem Rollback Datenbankschema- und Webhook-Kompatibilität prüfen.
 - **Rate Limiting** läuft im Arbeitsspeicher pro Instanz. Bei viel Verkehr auf Upstash
   Redis umstellen (siehe DECISIONS.md).

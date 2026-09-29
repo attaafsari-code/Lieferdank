@@ -56,7 +56,7 @@ export default async function DashboardPage({
         <div className="grid gap-3 sm:grid-cols-3">
           <StatTile tone="coral" icon={<Heart className="h-5 w-5" />} value={String(stats.today.thanks)} label="Danke" />
           <StatTile icon={<Euro className="h-5 w-5" />} value={formatEuro(stats.today.driverCents)} label="Trinkgeld" />
-          <StatTile icon={<Check className="h-5 w-5" />} value={formatEuro(stats.balanceCents)} label="Guthaben" />
+          <StatTile icon={<Check className="h-5 w-5" />} value={formatEuro(stats.total.driverCents)} label="Insgesamt vor Stripe-Kosten" />
         </div>
       </section>
 

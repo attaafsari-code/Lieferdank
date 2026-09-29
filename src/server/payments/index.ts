@@ -3,17 +3,9 @@ import { demoPaymentProvider } from "./demo";
 import { stripePaymentProvider } from "./stripe";
 import type { PaymentProvider } from "./types";
 
-let cached: PaymentProvider | null = null;
-
 /** Wählt den Anbieter über PAYMENT_PROVIDER (demo | stripe). */
 export function getPaymentProvider(): PaymentProvider {
-  if (cached) return cached;
-  if (isDemoPayment()) {
-    cached = demoPaymentProvider;
-  } else {
-    cached = stripePaymentProvider;
-  }
-  return cached;
+  return isDemoPayment() ? demoPaymentProvider : stripePaymentProvider;
 }
 
 export function isDemoPayment(): boolean {

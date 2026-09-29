@@ -1,8 +1,9 @@
 import "server-only";
-import { getDb } from "@/lib/db";
+import { getDb, isDemoDatabase } from "@/lib/db";
 import type { Payment, Tip } from "@/lib/db/types";
 import { newId } from "@/lib/id";
 import { CURRENCY, isAllowedTipAmount, splitTip } from "@/lib/money";
+import { isProductionRuntime } from "@/lib/runtime";
 import { MAX_CUSTOM_MESSAGE_LENGTH, presetById } from "@/lib/messages";
 import { ServiceError, notFound } from "../errors";
 import { getPaymentProvider, isDemoPayment } from "../payments";
@@ -47,8 +48,16 @@ export async function startTip(
   amountCents: number,
   customerId: string | null,
 ): Promise<{ tipId: string; paymentId: string; redirectUrl: string }> {
-  if (process.env.VERCEL_ENV === "production" && isDemoPayment()) {
+  if (isProductionRuntime() && isDemoPayment()) {
     throw new ServiceError("payment_not_configured", "Trinkgeld ist gerade nicht verfügbar. Danke sagen geht weiterhin kostenlos.", 503);
+  }
+  if (process.env.VERCEL_ENV === "preview" && !isDemoPayment() &&
+      /^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY ?? "")) {
+    throw new ServiceError("payment_not_configured", "Trinkgeld ist in dieser Vorschau deaktiviert.", 503);
+  }
+  if (isDemoPayment() && !isDemoDatabase() &&
+      process.env.ALLOW_DEMO_SUPABASE_TEST_PROJECT !== "true") {
+    throw new ServiceError("payment_not_configured", "Testzahlungen benötigen ein getrenntes Testprojekt.", 503);
   }
   if (!isAllowedTipAmount(amountCents)) {
     throw new ServiceError(
@@ -69,10 +78,24 @@ export async function startTip(
   const now = new Date().toISOString();
   const tipId = newId();
   const paymentId = newId();
-  // Der gespeicherte Connect-Status kann zwischen zwei Webhooks veralten.
-  // Vor einem Destination Charge muss Stripe die Bereitschaft bestätigen.
-  const destinationAccountId = driver.payoutReady && driver.payoutAccountId &&
-    await provider.isAccountReady(driver.payoutAccountId) ? driver.payoutAccountId : null;
+  // Niemals Fahrergeld auf dem Plattformkonto halten. Stripe-Status live prüfen.
+  // Demo ist ausschließlich in isolierten Testumgebungen erlaubt.
+  let destinationAccountId: string;
+  if (provider.id === "demo") {
+    destinationAccountId = `demo_acct_${driver.id.slice(0, 8)}`;
+  } else {
+    if (!driver.payoutAccountId) {
+      throw new ServiceError("connect_required", "Dieser Zusteller kann noch kein Trinkgeld empfangen. Kostenlos Danke sagen geht weiterhin.", 409);
+    }
+    let ready = false;
+    try { ready = await provider.isAccountReady(driver.payoutAccountId, driver.id); } catch {
+      throw new ServiceError("connect_unavailable", "Trinkgeld ist gerade nicht verfügbar. Kostenlos Danke sagen geht weiterhin.", 503);
+    }
+    if (!ready) {
+      throw new ServiceError("connect_required", "Dieser Zusteller muss seine Stripe-Einrichtung abschließen. Kostenlos Danke sagen geht weiterhin.", 409);
+    }
+    destinationAccountId = driver.payoutAccountId;
+  }
 
   await db.payments.insert({
     id: paymentId,
@@ -82,6 +105,7 @@ export async function startTip(
     providerPaymentId: null,
     providerIntentId: null,
     amountCents: split.grossCents,
+    refundedAmountCents: 0,
     currency: CURRENCY,
     status: "pending",
     method: null,
@@ -112,6 +136,7 @@ export async function startTip(
       amountCents: split.grossCents,
       applicationFeeCents: split.platformGrossFeeCents,
       destinationAccountId,
+      driverId: driver.id,
       description: `Danke an ${driverPublicName(driver, user)} (Lieferdank)`,
       returnUrl: `${baseUrl()}/danke/${driver.code}/erfolg?zahlung=${paymentId}`,
       cancelUrl: `${baseUrl()}/danke/${driver.code}?abgebrochen=1`,
@@ -142,7 +167,7 @@ export async function confirmPayment(
   const db = getDb();
   const payment = await db.payments.get(paymentId);
   if (!payment) return null;
-  if (payment.status === "refunded") return payment;
+  if (payment.status === "refunded" || payment.status === "review_required") return payment;
 
   const now = new Date().toISOString();
   if (payment.status !== "succeeded") {
@@ -159,9 +184,17 @@ export async function confirmPayment(
     const tip = await db.tips.get(payment.referenceId);
     if (tip) await settleTip(tip, now);
   } else if (payment.purpose === "card_order") {
-    await db.cardOrders.updateIf(payment.referenceId, { paymentStatus: "pending" }, { paymentStatus: "paid", updatedAt: now });
-    if ((await db.payments.get(payment.id))?.status === "refunded") {
-      await db.cardOrders.updateIf(payment.referenceId, { paymentStatus: "paid" }, { paymentStatus: "refunded", updatedAt: now });
+    const order = await db.cardOrders.get(payment.referenceId);
+    if (order?.status === "cancelled") {
+      await markPaymentAdjustment(details.providerIntentId ?? payment.providerIntentId ?? "", payment.id, "cancelled_order");
+      return (await db.payments.get(payment.id)) ?? payment;
+    }
+    for (const expected of ["pending", "failed"] as const) {
+      await db.cardOrders.updateIf(payment.referenceId, { paymentStatus: expected }, { paymentStatus: "paid", updatedAt: now });
+    }
+    const currentStatus = (await db.payments.get(payment.id))?.status;
+    if (currentStatus === "refunded" || currentStatus === "review_required") {
+      await db.cardOrders.updateIf(payment.referenceId, { paymentStatus: "paid" }, { paymentStatus: currentStatus, updatedAt: now });
     }
   }
   return { ...payment, status: "succeeded" };
@@ -169,7 +202,7 @@ export async function confirmPayment(
 
 async function settleTip(tip: Tip, now: string): Promise<void> {
   const db = getDb();
-  if (tip.paymentStatus === "refunded") return;
+  if (tip.paymentStatus === "refunded" || tip.paymentStatus === "review_required") return;
   const newlySettled = tip.paymentStatus !== "succeeded" && await db.tips.updateIf(
     tip.id, { paymentStatus: tip.paymentStatus }, { paymentStatus: "succeeded", payoutStatus: "in_balance" },
   );
@@ -211,56 +244,106 @@ export async function failPayment(paymentId: string, reason: string): Promise<vo
   const now = new Date().toISOString();
   if (!await db.payments.updateIf(payment.id, { status: "pending" }, { status: "failed", failureReason: reason, updatedAt: now })) return;
   if (payment.purpose === "tip") await db.tips.updateIf(payment.referenceId, { paymentStatus: "pending" }, { paymentStatus: "failed" });
+  if (payment.purpose === "card_order") await db.cardOrders.updateIf(payment.referenceId, { paymentStatus: "pending" }, { paymentStatus: "failed", updatedAt: now });
 }
 
-export async function markRefunded(providerIntentId: string, fallbackPaymentId?: string): Promise<void> {
+export async function markRefunded(
+  providerIntentId: string,
+  fallbackPaymentId?: string,
+  amountRefundedCents?: number,
+): Promise<void> {
+  await markPaymentAdjustment(providerIntentId, fallbackPaymentId, "refund", amountRefundedCents);
+}
+
+/** Disputes remain excluded from earnings until an operator checks the Stripe outcome. */
+export async function markDisputed(providerIntentId: string, fallbackPaymentId?: string): Promise<void> {
+  await markPaymentAdjustment(providerIntentId, fallbackPaymentId, "dispute");
+}
+
+async function markPaymentAdjustment(
+  providerIntentId: string,
+  fallbackPaymentId: string | undefined,
+  kind: "refund" | "dispute" | "cancelled_order",
+  amountRefundedCents?: number,
+): Promise<void> {
   const db = getDb();
-  const payment = await db.payments.findOne({ providerIntentId }) ??
+  const payment = (providerIntentId ? await db.payments.findOne({ providerIntentId }) : null) ??
     (fallbackPaymentId ? await db.payments.get(fallbackPaymentId) : null);
-  if (!payment) return;
-  if (payment.providerIntentId && payment.providerIntentId !== providerIntentId) {
+  if (!payment) throw new Error("Zahlung für Stripe-Korrektur fehlt.");
+  if (providerIntentId && payment.providerIntentId && payment.providerIntentId !== providerIntentId) {
     throw new Error("Erstattung gehört zu einer anderen Zahlung.");
   }
+  if (amountRefundedCents !== undefined &&
+      (!Number.isSafeInteger(amountRefundedCents) || amountRefundedCents < 0 || amountRefundedCents > payment.amountCents)) {
+    throw new Error("Ungültiger Erstattungsbetrag.");
+  }
+  if (kind === "refund" && amountRefundedCents === 0) return;
+
+  const tip = payment.purpose === "tip" ? await db.tips.get(payment.referenceId) : null;
+  const order = payment.purpose === "card_order" ? await db.cardOrders.get(payment.referenceId) : null;
+  if (payment.purpose === "tip" && !tip) throw new Error("Trinkgeld für Stripe-Korrektur fehlt.");
+  if (payment.purpose === "card_order" && !order) throw new Error("Kartenbestellung für Stripe-Korrektur fehlt.");
+  // Direct Charges liegen bei Stripe auf dem Connected Account. Jede Erstattung
+  // muss dort und bezüglich der Application Fee nachvollzogen werden.
+  const transferred = Boolean(tip?.destinationAccountId || tip?.payoutStatus === "paid_out");
+  const shipped = Boolean(order && ["in_production", "shipped", "delivered"].includes(order.status));
   const now = new Date().toISOString();
   for (let attempt = 0; attempt < 3; attempt++) {
     const current = await db.payments.get(payment.id);
     if (!current) throw new Error("Zahlung für Erstattung fehlt.");
-    if (current.providerIntentId && current.providerIntentId !== providerIntentId) {
+    if (providerIntentId && current.providerIntentId && current.providerIntentId !== providerIntentId) {
       throw new Error("Erstattung gehört zu einer anderen Zahlung.");
     }
-    if (current.status === "refunded") break;
-    if (await db.payments.updateIf(current.id, { status: current.status }, {
-      status: "refunded", providerIntentId, updatedAt: now,
+    const previousRefunded = current.refundedAmountCents ?? 0;
+    const refundedAmountCents = kind === "refund"
+      ? Math.max(previousRefunded, amountRefundedCents ?? current.amountCents)
+      : previousRefunded;
+    const partial = kind === "refund" && refundedAmountCents < current.amountCents;
+    const requestedStatus = kind !== "refund" || partial || transferred || shipped ? "review_required" : "refunded";
+    const nextStatus = current.status === "review_required" ? "review_required" : requestedStatus;
+    const reason = kind === "dispute" ? "Stripe-Streitfall: manuelle Abstimmung erforderlich" :
+      kind === "cancelled_order" ? "Zahlung nach stornierter Kartenbestellung: manuelle Abstimmung erforderlich" :
+      partial ? `Teil-Erstattung ${refundedAmountCents}/${current.amountCents} Cent: manuelle Abstimmung erforderlich` :
+        transferred ? "Direct-Charge-Erstattung: Abgleich von Application Fee und Stripe-Status erforderlich" :
+          shipped ? "Erstattung nach Kartenproduktion: manuelle Abstimmung erforderlich" : null;
+    if (current.status === nextStatus && previousRefunded === refundedAmountCents && current.refundedAmountCents !== undefined) break;
+    if (await db.payments.updateIf(current.id, {
+      status: current.status,
+      ...(current.refundedAmountCents === undefined ? {} : { refundedAmountCents: current.refundedAmountCents }),
+    }, {
+      status: nextStatus, providerIntentId: providerIntentId || current.providerIntentId,
+      refundedAmountCents,
+      failureReason: nextStatus === "review_required"
+        ? (current.failureReason?.startsWith("Stripe-Streitfall") ? current.failureReason : reason ?? current.failureReason ?? "Manueller Stripe-Abgleich erforderlich")
+        : null,
+      updatedAt: now,
     })) break;
   }
-  if ((await db.payments.get(payment.id))?.status !== "refunded") throw new Error("Erstattung konnte nicht verbucht werden.");
+  const finalStatus = (await db.payments.get(payment.id))?.status;
+  if (finalStatus !== "refunded" && finalStatus !== "review_required") throw new Error("Stripe-Korrektur konnte nicht verbucht werden.");
   if (payment.purpose === "tip") {
-    const before = await db.tips.get(payment.referenceId);
     for (let attempt = 0; attempt < 3; attempt++) {
-      const tip = await db.tips.get(payment.referenceId);
-      if (!tip || tip.paymentStatus === "refunded") break;
-      if (await db.tips.updateIf(tip.id, { paymentStatus: tip.paymentStatus }, { paymentStatus: "refunded" })) break;
+      const current = await db.tips.get(payment.referenceId);
+      if (!current) throw new Error("Trinkgeld für Stripe-Korrektur fehlt.");
+      if (current.paymentStatus === finalStatus) break;
+      if (await db.tips.updateIf(current.id, { paymentStatus: current.paymentStatus }, { paymentStatus: finalStatus })) break;
     }
-    if ((await db.tips.get(payment.referenceId))?.paymentStatus !== "refunded") {
-      throw new Error("Trinkgeld-Erstattung konnte nicht verbucht werden.");
-    }
-    await logEvent("warning", "payment", "Trinkgeld wurde erstattet", { paymentId: payment.id });
-    if (before?.paymentStatus !== "refunded" && (before?.destinationAccountId || before?.payoutStatus === "paid_out")) {
-      await logEvent("error", "payment", "Erstattung nach Connect-Transfer benötigt Stripe-Abgleich", {
-        paymentId: payment.id, payoutId: before.payoutId,
-      });
-    }
+    if ((await db.tips.get(payment.referenceId))?.paymentStatus !== finalStatus) throw new Error("Trinkgeld-Korrektur konnte nicht verbucht werden.");
   } else if (payment.purpose === "card_order") {
     for (let attempt = 0; attempt < 3; attempt++) {
-      const order = await db.cardOrders.get(payment.referenceId);
-      if (!order || order.paymentStatus === "refunded" || order.paymentStatus === "not_required") break;
-      if (await db.cardOrders.updateIf(order.id, { paymentStatus: order.paymentStatus }, {
-        paymentStatus: "refunded", updatedAt: now,
+      const current = await db.cardOrders.get(payment.referenceId);
+      if (!current || current.paymentStatus === "not_required") throw new Error("Karten-Zahlung für Stripe-Korrektur fehlt.");
+      if (current.paymentStatus === finalStatus) break;
+      if (await db.cardOrders.updateIf(current.id, { paymentStatus: current.paymentStatus }, {
+        paymentStatus: finalStatus, updatedAt: now,
       })) break;
     }
-    if ((await db.cardOrders.get(payment.referenceId))?.paymentStatus !== "refunded") {
-      throw new Error("Karten-Erstattung konnte nicht verbucht werden.");
-    }
+    if ((await db.cardOrders.get(payment.referenceId))?.paymentStatus !== finalStatus) throw new Error("Karten-Korrektur konnte nicht verbucht werden.");
+  }
+  if (finalStatus === "review_required") {
+    await logEvent("error", "payment", "Stripe-Korrektur benötigt manuellen Abgleich", {
+      paymentId: payment.id, payoutId: tip?.payoutId ?? null, kind, amountRefundedCents: amountRefundedCents ?? null,
+    });
   }
 }
 

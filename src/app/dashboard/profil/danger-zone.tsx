@@ -51,9 +51,10 @@ export function DeleteAccount() {
       <p className="font-bold text-coral-600">Konto wirklich löschen?</p>
       <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink">
         Dein Profil und dein Danke-Code werden dauerhaft deaktiviert und deine persönlichen
-        Daten entfernt. Bereits abgeschlossene Zahlungen bleiben aus buchhalterischen Gründen
-        anonymisiert gespeichert. Vorhandenes Guthaben zahlen wir vorher aus – melde dich
-        dafür beim Support.
+        Profildaten entfernt. Zahlungsdaten und die Stripe-Konto-Zuordnung bleiben
+        für Erstattungen, Streitfälle und gesetzliche Aufbewahrung erhalten. Offene
+        Zahlungen und Auszahlungen
+        verwaltet Stripe weiterhin auf deinem verbundenen Konto.
       </p>
       <div className="mt-5 flex flex-wrap gap-2.5">
         <button

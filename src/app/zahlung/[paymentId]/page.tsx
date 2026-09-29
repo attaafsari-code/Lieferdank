@@ -12,7 +12,7 @@ export const metadata = { title: "Testzahlung", robots: { index: false, follow: 
 /**
  * Nachgebaute Bezahlmaske für den Testmodus. Im Echtbetrieb gibt es diese
  * Seite nicht – dort übernimmt Stripe Checkout mit Apple Pay, Google Pay,
- * PayPal und Karte.
+ * und Karte.
  */
 export default async function DemoPaymentPage({ params }: { params: Promise<{ paymentId: string }> }) {
   if (!isDemoPayment()) notFound();
@@ -105,7 +105,7 @@ function DemoSheet({
           </div>
 
           <p className="mt-6 text-center text-xs leading-relaxed text-ink-faint">
-            Im Echtbetrieb stehen hier Apple&nbsp;Pay, Google&nbsp;Pay, PayPal und Karte.
+            Im Echtbetrieb stehen Karte sowie je nach Gerät Apple&nbsp;Pay und Google&nbsp;Pay bereit.
             <br />
             Es wird kein echtes Geld bewegt.
           </p>

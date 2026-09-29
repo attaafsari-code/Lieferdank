@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/server/guards";
 import { getDb } from "@/lib/db";
 import { CARD_ORDER_STATUS_LABELS } from "@/server/services/cards";
 import { CARD_PRODUCT_LABELS } from "@/lib/pricing";
@@ -8,6 +9,7 @@ import { OrderControls } from "../admin-controls";
 export const dynamic = "force-dynamic";
 
 export default async function AdminCardOrders() {
+  await requireAdmin();
   const orders = await getDb().cardOrders.findMany({ orderBy: "createdAt", desc: true, limit: 200 });
 
   return (
@@ -27,7 +29,7 @@ export default async function AdminCardOrders() {
                 <Badge tone={order.status === "cancelled" ? "gray" : order.status === "shipped" || order.status === "delivered" ? "blue" : "coral"}>
                   {CARD_ORDER_STATUS_LABELS[order.status]}
                 </Badge>
-                <Badge>{order.paymentStatus === "not_required" ? "kostenlos" : order.paymentStatus === "paid" ? "bezahlt" : order.paymentStatus === "refunded" ? "erstattet" : "Zahlung offen"}</Badge>
+                <Badge>{order.paymentStatus === "not_required" ? "kostenlos" : order.paymentStatus === "paid" ? "bezahlt" : order.paymentStatus === "failed" ? "fehlgeschlagen" : order.paymentStatus === "refunded" ? "erstattet" : order.paymentStatus === "review_required" ? "Abgleich nötig" : "Zahlung offen"}</Badge>
               </div>
               <p className="mt-1.5 text-sm text-ink-soft">
                 {formatDateTime(order.createdAt)} · {order.totalCents ? formatEuro(order.totalCents) : "0,00 €"} · Layout {order.design.layout} ·

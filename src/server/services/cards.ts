@@ -2,11 +2,11 @@ import "server-only";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import type { CardDesign, CardOrder, CardOrderStatus, CardSnapshot, DriverProfile, User } from "@/lib/db/types";
-import { newId } from "@/lib/id";
+import { isUuid, newId } from "@/lib/id";
 import { initials } from "@/lib/names";
 import { providerLabel } from "@/lib/providers";
 import { CURRENCY } from "@/lib/money";
-import { CARD_QUANTITIES, cardProductFor, quoteCardOrder } from "@/lib/pricing";
+import { CARD_QUANTITIES, cardOrdersArePaid, cardProductFor, quoteCardOrder } from "@/lib/pricing";
 import { DEFAULT_HEADLINE, MAX_HEADLINE_LENGTH, defaultCardDesign } from "@/lib/card/design";
 import { renderCardSvg } from "@/lib/card/svg";
 import { ServiceError, notFound } from "../errors";
@@ -16,6 +16,7 @@ import { emails } from "../emails";
 import { baseUrl } from "../site";
 import { avatarUrl, driverPublicName } from "./drivers";
 import { getPaymentProvider } from "../payments";
+import { isProductionRuntime } from "@/lib/runtime";
 
 /* ---------- Design ---------- */
 
@@ -97,11 +98,22 @@ export async function createCardOrder(
   driver: DriverProfile,
   input: z.infer<typeof cardOrderSchema>,
 ): Promise<{ order: CardOrder; paymentUrl: string | null }> {
+  if (user.role !== "driver" || driver.userId !== user.id) {
+    throw new ServiceError("forbidden", "Diese Karte gehört nicht zu deinem Profil.", 403);
+  }
   const db = getDb();
+  if (isProductionRuntime() && !cardOrdersArePaid()) {
+    throw new ServiceError("card_orders_unavailable", "Physische Karten können derzeit nicht bestellt werden.", 503);
+  }
+  if (input.reorderOf) {
+    if (!isUuid(input.reorderOf)) throw new ServiceError("invalid_order", "Ungültige Vorbestellung.", 400);
+    const original = await db.cardOrders.get(input.reorderOf);
+    if (!original || original.driverId !== driver.id) throw notFound("Vorbestellung nicht gefunden.");
+  }
 
   // Schutz vor versehentlichen Mehrfachbestellungen.
   const open = await db.cardOrders.findMany({ where: { driverId: driver.id } });
-  if (open.filter((o) => ["requested", "confirmed", "in_production"].includes(o.status)).length >= 3) {
+  if (open.filter((o) => ["requested", "confirmed", "in_production"].includes(o.status) && o.paymentStatus !== "failed").length >= 3) {
     throw new ServiceError("too_many_orders", "Du hast bereits mehrere offene Bestellungen.", 409);
   }
 
@@ -160,6 +172,7 @@ export async function createCardOrder(
       providerPaymentId: null,
       providerIntentId: null,
       amountCents: order.totalCents,
+      refundedAmountCents: 0,
       currency: CURRENCY,
       status: "pending",
       method: null,
@@ -167,7 +180,9 @@ export async function createCardOrder(
       createdAt: now,
       updatedAt: now,
     });
-    const result = await provider.createPayment({
+    let result;
+    try {
+      result = await provider.createPayment({
       paymentId,
       purpose: "card_order",
       referenceId: order.id,
@@ -177,7 +192,12 @@ export async function createCardOrder(
       description: `${order.quantity}× Lieferdank-Karte`,
       returnUrl: `${baseUrl()}/dashboard/karte/bestellen?bestellt=1`,
       cancelUrl: `${baseUrl()}/dashboard/karte/bestellen?abgebrochen=1`,
-    });
+      });
+    } catch {
+      const { failPayment } = await import("./thanks");
+      await failPayment(paymentId, "Checkout konnte nicht gestartet werden");
+      throw new ServiceError("payment_unavailable", "Die Karten-Zahlung konnte nicht gestartet werden. Bitte versuche es erneut.", 502);
+    }
     await db.payments.update(paymentId, { providerPaymentId: result.providerPaymentId });
     await db.cardOrders.update(order.id, { paymentId });
     paymentUrl = result.redirectUrl;
@@ -194,10 +214,14 @@ export async function cancelCardOrder(driverId: string, orderId: string): Promis
   if (order.status !== "requested") {
     throw new ServiceError("not_cancellable", "Diese Bestellung ist schon in Bearbeitung.", 409);
   }
-  if (order.totalCents > 0 && order.paymentStatus === "paid") {
-    throw new ServiceError("refund_required", "Bezahlte Bestellungen können nur über den Support storniert und erstattet werden.", 409);
+  if (order.totalCents > 0 && !["failed", "refunded"].includes(order.paymentStatus)) {
+    throw new ServiceError("refund_required", "Diese Bestellung kann erst nach Klärung der Zahlung storniert werden.", 409);
   }
-  await db.cardOrders.update(order.id, { status: "cancelled", updatedAt: new Date().toISOString() });
+  if (!await db.cardOrders.updateIf(order.id, { status: "requested", paymentStatus: order.paymentStatus }, {
+    status: "cancelled", updatedAt: new Date().toISOString(),
+  })) {
+    throw new ServiceError("order_changed", "Die Bestellung hat sich geändert. Bitte lade die Seite neu.", 409);
+  }
 }
 
 export const CARD_ORDER_STATUS_LABELS: Record<CardOrderStatus, string> = {
@@ -218,6 +242,9 @@ export async function updateCardOrderStatus(
   const db = getDb();
   const order = await db.cardOrders.get(orderId);
   if (!order) throw notFound();
+  if (status === "cancelled" && order.totalCents > 0 && !["failed", "refunded"].includes(order.paymentStatus)) {
+    throw new ServiceError("refund_required", "Diese Bestellung kann erst nach Klärung der Zahlung storniert werden.", 409);
+  }
   if (order.totalCents > 0 && order.paymentStatus !== "paid" && !["requested", "cancelled"].includes(status)) {
     throw new ServiceError("payment_required", "Diese Bestellung ist noch nicht bezahlt.", 409);
   }
@@ -230,7 +257,9 @@ export async function updateCardOrderStatus(
     updatedAt: now,
   };
   if (status === "shipped" && !order.shippedAt) patch.shippedAt = now;
-  await db.cardOrders.update(order.id, patch);
+  if (!await db.cardOrders.updateIf(order.id, { status: order.status, paymentStatus: order.paymentStatus }, patch)) {
+    throw new ServiceError("order_changed", "Die Bestellung oder Zahlung hat sich geändert. Bitte lade die Seite neu.", 409);
+  }
 
   const updated = { ...order, ...patch } as CardOrder;
   if (status === "shipped" && order.status !== "shipped") {

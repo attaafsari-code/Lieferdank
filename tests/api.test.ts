@@ -79,7 +79,22 @@ describe("API v1 – öffentlich", () => {
     );
     expect(response.status).toBe(400);
   });
+
+  it("bricht übergroße JSON-Anfragen vor dem Parsen und vor Stripe ab", async () => {
+    const { driver } = await makeDriver();
+    const response = await postTip(
+      request(`/api/v1/drivers/${driver.code}/tips`, { method: "POST", body: JSON.stringify({ amountCents: 300, padding: "x".repeat(21_000) }) }),
+      params({ code: driver.code }),
+    );
+    expect(response.status).toBe(400);
+    expect(await getDriverTipCount(driver.id)).toBe(0);
+  });
 });
+
+async function getDriverTipCount(driverId: string) {
+  const { getDb } = await import("@/lib/db");
+  return getDb().tips.count({ where: { driverId } });
+}
 
 describe("API v1 – angemeldet", () => {
   it("verlangt ein Token", async () => {

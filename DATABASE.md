@@ -22,7 +22,7 @@ der Test fehl, nicht die Produktion.
 | Geld                | Integer in **Cent**, Spalten enden auf `_cents`. Niemals Fließkomma       |
 | Zeit                | `timestamptz`, im Code ISO-8601 in UTC                                    |
 | E-Mail              | immer kleingeschrieben (per `check`-Constraint erzwungen)                |
-| Lieferdank-Code     | immer großgeschrieben, z. B. `LD-84K2P`; ohne verwechselbare Zeichen      |
+| Lieferdank-Code     | immer großgeschrieben, z. B. `LD-84K2P7WQ9A`; ohne verwechselbare Zeichen      |
 | Status              | Text mit `check`-Constraint statt Enum-Typ – leichter zu erweitern        |
 
 ---
@@ -49,39 +49,36 @@ Der Code in `driver_profiles.code` ändert sich dadurch nie.
 
 ### Geld
 
-```
-payments ──1:1── tips ──1:1── thank_yous
-    │              │
-    │              └──n:1── payouts
-    └──1:1── card_orders
-```
+Neue Trinkgelder werden als **Direct Charge auf dem Stripe-Standard-Konto des Zustellers**
+angelegt. Stripe belastet dieses Konto mit Processing-/gegebenenfalls Payout-Kosten,
+führt KYC und reguläre Auszahlungen aus. Lieferdank erhält nur die Application Fee.
+Es gibt keinen Platform-Hold, keine Lieferdank-Wallet und keine eigene Auszahlung.
+`payouts` bleibt nur für historische Datensätze lesbar; neue Zeilen entstehen nicht.
 
-| Tabelle    | Zweck                                                                             |
-| ---------- | --------------------------------------------------------------------------------- |
-| `payments` | Eine Transaktion beim Zahlungsdienstleister. Quelle der Wahrheit für „bezahlt“    |
-| `tips`     | Ein Trinkgeld mit vollständiger Aufteilung                                        |
-| `payouts`  | Eine Sammelauszahlung an einen Lieferanten                                        |
+| Kundenzahlung | Application Fee | Fahreranteil vor Stripe-Kosten |
+| ---: | ---: | ---: |
+| 200 Cent | 50 Cent | 150 Cent |
+| 300 Cent | 60 Cent | 240 Cent |
+| 500 Cent | 100 Cent | 400 Cent |
 
-**Aufteilung eines Trinkgelds** (`tips`):
+`tips.destination_account_id` enthält das Connect-Konto, auf dem die Direct Charge
+angelegt wurde. Die Datenbank-Constraint `tips_direct_charge_model` erzwingt Zielkonto
+und genau diese drei Aufteilungen. `driver_cents` ist **kein Bankguthaben** und keine
+Zusage des Auszahlungsbetrags: Stripe zieht seine eigenen Gebühren separat ab.
+`payment_provider_fee_cents`/`payout_fee_cents` bleiben aus historischen Gründen im
+Schema, sind für neue Direct Charges aus Lieferdank-Sicht null. Die tatsächliche
+vorgesehene Application Fee vor eigenen Betriebskosten steht in
+`platform_gross_fee_cents`. Der tatsächliche Geldeingang ist in Stripe zu prüfen:
+Application Fees können asynchron entstehen und später erstattet werden.
 
-| Spalte                        | 3 €-Beispiel | Bedeutung                                              |
-| ----------------------------- | -----------: | ------------------------------------------------------ |
-| `gross_cents`                 |          300 | Was der Kunde zahlt                                    |
-| `driver_cents`                |          250 | Gehört dem Lieferanten                                 |
-| `platform_gross_fee_cents`    |           50 | Fester Plattformanteil                                 |
-| `payment_provider_fee_cents`  |           30 | Kalkulierte Stripe-Kosten (1,5 % + 0,25 €)             |
-| `payout_fee_cents`            |    0 → z. B. 1 | Anteil der Auszahlungsgebühr, gesetzt bei Auszahlung |
-| `platform_net_revenue_cents`  |      20 → 19 | Brutto − Payment − Auszahlung = echte Marge            |
-
-`check (driver_cents + platform_gross_fee_cents = gross_cents)` garantiert, dass der Kunde
-nie mehr zahlt als gewählt.
-
-**`destination_account_id`**: Ist beim Zahlen schon ein Stripe-Konto des Lieferanten
-einsatzbereit, fließt sein Anteil direkt dorthin (Destination Charge). Sonst hält die
-Plattform das Geld, und die Auszahlung überweist es. So wird nie doppelt gezahlt.
-
-**Idempotenz**: `payments.provider_payment_id` und `tips.payment_id` sind eindeutig. Stripe
-stellt Webhooks mehrfach zu – gebucht wird trotzdem nur einmal.
+Nur signierte Stripe-Connect-Webhooks bestätigen Fahrerzahlungen. Checkout-, Refund-
+und Dispute-Ereignisse müssen vom Connect-Webhook kommen und werden gegen das im Tip
+gespeicherte Stripe-Konto geprüft. Kartenkäufe sind separate Plattformzahlungen und
+kommen nur vom Plattform-Webhook. `provider_payment_id`, `provider_intent_id` und
+`tips.payment_id` sind eindeutig. Replay und verspätete Ereignisse dürfen weder ein
+zweites Danke noch eine zweite Gutschrift erzeugen. Erstattungen und Disputes werden
+mit kumulativem `refunded_amount_cents` in `review_required` aus den positiven
+Statistiken herausgenommen, bis der Stripe-Fee-/Refund-Status geklärt ist.
 
 ### Karten
 
@@ -109,7 +106,7 @@ gibt – für seinen Verlauf. Die API entfernt diesen Bezug in allem, was Liefer
 | `milestones`    | Erreichte Meilensteine (eindeutig pro Typ und Wert)                   |
 | `scans`         | Aufrufe der Kundenseite – Basis der Scan-to-Payment-Conversion         |
 | `admin_actions` | Protokoll jeder Adminaktion                                            |
-| `system_events` | Technische Fehler: Zahlung, Webhook, Mail, Auszahlung                  |
+| `system_events` | Technische Fehler: Zahlung, Webhook, Mail, Connect                  |
 
 ---
 
@@ -120,10 +117,12 @@ gibt – für seinen Verlauf. Die API entfernt diesen Bezug in allem, was Liefer
 - **Kein Supabase-Client im Browser.** Jeder Zugriff läuft über Server Actions oder `/api/v1`,
   wo Rolle und Besitz geprüft werden.
 - **Fotos** liegen im privaten Bucket `media` unter zufälligen Schlüsseln. Ausgeliefert nur
-  über `/api/media/avatar/[driverId]`, das „öffentlich / nur Dashboard“ prüft. Max. 2 MB,
+  über `/api/media/avatar/[code]`, das „öffentlich / nur Dashboard“ prüft. Max. 2 MB,
   nur JPEG/PNG/WebP (geprüft anhand der Dateisignatur).
-- **Löschung (DSGVO)**: Persönliche Daten werden entfernt, Zahlungsdatensätze bleiben
-  anonymisiert (Aufbewahrungspflichten). Export: `/api/datenexport`.
+- **Kontodeaktivierung und Datenminimierung**: Profilinhalte werden entfernt;
+  Zahlungsdatensätze und Stripe-Konto-ID bleiben für Erstattungen, Streitfälle und
+  Aufbewahrungspflichten zuordenbar. Ob der Löschprozess alle rechtlichen
+  Anforderungen erfüllt, muss vor Go-live fachlich geprüft werden. Export: `/api/datenexport`.
 
 ---
 
@@ -138,8 +137,14 @@ gibt – für seinen Verlauf. Die API entfernt diesen Bezug in allem, was Liefer
 3. Seed (`scripts/seed.mjs`) und die Schlüsselliste in `tests/schema.test.ts` anpassen.
 4. `npm test`.
 
-Für Produktion empfiehlt sich ab dem ersten echten Nutzer die Supabase CLI mit
-versionierten Migrationen (`supabase/migrations/`).
+Für das bestehende Produktionsprojekt zuerst
+[`supabase/preflight_20260928.sql`](supabase/preflight_20260928.sql) read-only ausführen.
+Konflikte anhand von Stripe und Datenbestand klären; keine Zeilen automatisch löschen.
+Danach `20260927_payout_lock.sql` (historische Sicherheit und privater Bucket) und
+`20260928_payment_reconciliation.sql` (Direct-Charge-Constraint und Refund-Spalte) in
+dieser Reihenfolge ausführen. Beide laufen in einer Transaktion; ein Constraint-Konflikt
+rollt die jeweilige Migration zurück. Den aktuellen Live-Schemastand konnten lokale
+Tests nicht verifizieren.
 
 ---
 

@@ -27,10 +27,16 @@ export async function logEvent(
       createdAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[events] Ereignis konnte nicht gespeichert werden:", error);
+    console.error("[events] Ereignis konnte nicht gespeichert werden:", error instanceof Error ? error.name : "unknown");
   }
 }
 
 export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (!(error instanceof Error)) return "unknown";
+  // Provider and database error messages may contain request bodies, emails,
+  // account identifiers or even credentials. Keep only safe diagnostic codes.
+  const coded = error as Error & { code?: unknown; type?: unknown; requestId?: unknown };
+  const safe = (value: unknown) => typeof value === "string" && /^[a-zA-Z0-9_.-]{1,80}$/.test(value) ? value : null;
+  return [safe(coded.type) ?? safe(error.name) ?? "Error", safe(coded.code), safe(coded.requestId)]
+    .filter(Boolean).join(":");
 }

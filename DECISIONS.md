@@ -1,10 +1,18 @@
 # Produktentscheidungen
 
+**Aktueller Stand:** Die Aussagen zu eigenen Guthaben, fixer 0,50-€-Gebühr,
+kostenlosen physischen Karten und erweiterter Zielgruppe in §1, §7, §14 und
+§17 sind historisch. Die verbindliche Zahlungsentscheidung steht in §21;
+der erste Markttest bleibt auf Paketzusteller begrenzt. Für den Betrieb
+gelten zusätzlich [DATABASE.md](DATABASE.md) und [DEPLOYMENT.md](DEPLOYMENT.md).
+
 Format je Eintrag: **Entscheidung · Grund · Vorteil · Risiko · Status**.
 
 ---
 
 ## 1. Trinkgeld beginnt bei 2 €, feste Gebühr von 0,50 €
+
+**Historisch, durch §21 ersetzt.**
 
 **Entscheidung:** Die Buttons lauten 2 €, 3 €, 5 €. Frei gewählte Beträge sind ab 2 €
 möglich. Pro Zahlung werden 0,50 € einbehalten, der Rest geht an den Zusteller. Der Kunde
@@ -293,6 +301,8 @@ erscheint erst nach einem Danke oder einer Zahlung, dezent, als Klick auf „spe
 
 ## 17. Physische Karten zunächst kostenlos
 
+**Historisch für lokale Tests; Produktion ist ohne kostenpflichtige Kartenfunktion gesperrt.**
+
 **Entscheidung:** Bestellungen laufen komplett durch (Adresse, Status, Versandmail), kosten
 im Testbetrieb aber nichts. `CARD_ORDERS_PAID=true` schaltet die Bezahlung über Stripe ein.
 
@@ -361,3 +371,27 @@ den Buttons. Ob er entfallen kann, sollte eine Rechtsberatung entscheiden; Entfe
 Zeile in `thank-you-screen.tsx`. Die Werbeaussage „100 % für den Zusteller“ bleibt unzulässig.
 
 **Status:** Umgesetzt.
+
+---
+
+## 21. Direct Charges auf Stripe-Standard-Konten
+
+**Entscheidung:** Nur 2 €, 3 € und 5 € Trinkgeld. Application Fees betragen
+0,50 €, 0,60 € und 1,00 €; Fahreranteile vor Stripe-Kosten 1,50 €, 2,40 € und
+4,00 €. Stripe Checkout erstellt einen Direct Charge auf dem empfangsbereiten
+Standard Connected Account. Stripe führt Onboarding, KYC, Processing und normale
+Auszahlungen aus. Lieferdank hält keine Fahrergelder und startet keine Transfers.
+
+**Grund:** Plattform-Hold und eigene Sammelauszahlungen erzeugen unnötige
+Haftungs-, Reconciliation- und Operationsrisiken. Die Account-Konfiguration muss
+Stripe als Gebühren- und Negativsaldo-Träger ausweisen; andernfalls wird Checkout
+gesperrt.
+
+**Vorteil:** Ein Geldfluss, keine Lieferdank-Wallet, klarer Verantwortungsbereich.
+
+**Risiko:** Stripe-Kosten mindern den Fahreranteil nach Application Fee. Bereits
+angelegte Express-Konten können nicht still umgestellt werden. Refunds/Disputes
+bleiben bis zur Stripe-Abstimmung als `review_required` aus den positiven Zahlen.
+
+**Status:** Lokal implementiert und getestet. Vor Go-live Migrationen, Connect-
+Webhook-Ereignisse, Resend, Konfiguration und Stripe-Sandbox-Abnahme nötig.

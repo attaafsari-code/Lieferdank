@@ -71,6 +71,12 @@ export function resolveBaseUrl(env: BaseUrlEnv, lanAddress: string | null): Reso
     };
   }
 
+  // Ein an Preview vererbtes Production-NEXT_PUBLIC_BASE_URL darf keine
+  // Testkarte auf die Live-Kundenseite schicken.
+  if (env.VERCEL_ENV === "preview" && env.VERCEL_URL) {
+    return { url: `https://${env.VERCEL_URL}`, source: "Vercel Preview", warning: null };
+  }
+
   if (explicit) {
     if (!production || isProductionSafe(explicit)) {
       return { url: explicit, source: "NEXT_PUBLIC_BASE_URL", warning: null };
@@ -82,9 +88,6 @@ export function resolveBaseUrl(env: BaseUrlEnv, lanAddress: string | null): Reso
     };
   }
 
-  if (env.VERCEL_ENV === "preview" && env.VERCEL_URL) {
-    return { url: `https://${env.VERCEL_URL}`, source: "Vercel Preview", warning: null };
-  }
   if (production) return { url: PRODUCTION_URL, source: "Produktion", warning: null };
 
   const port = env.PORT ?? "3000";

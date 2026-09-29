@@ -14,7 +14,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cod
   const driver = await getDb().driverProfiles.findOne({ code: normalizeCode(code) });
   if (!driver?.photoKey) return new Response("Nicht gefunden", { status: 404 });
 
-  let allowed = driver.photoPublic && driver.active;
+  const owner = await getDb().users.get(driver.userId);
+  let allowed = driver.photoPublic && driver.active && Boolean(owner && !owner.blockedAt);
   if (!allowed) {
     const session = await getSession();
     allowed = session?.user.role === "admin" || session?.driver?.id === driver.id;
@@ -27,7 +28,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cod
   return new Response(Buffer.from(file.bytes), {
     headers: {
       "content-type": file.contentType,
-      "cache-control": driver.photoPublic ? "public, max-age=300" : "private, no-store",
+      // A photo may become private or the account may be blocked at any time.
+      "cache-control": "private, no-store",
       "x-content-type-options": "nosniff",
       "content-security-policy": "default-src 'none'",
     },

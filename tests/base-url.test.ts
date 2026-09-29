@@ -44,6 +44,12 @@ describe("Basis-URL der QR-Codes", () => {
     );
   });
 
+  it("ignoriert eine aus Production geerbte Live-URL im Preview-QR", () => {
+    expect(resolveBaseUrl({ NODE_ENV: "production", VERCEL_ENV: "preview",
+      VERCEL_URL: "lieferdank-git-x.vercel.app", NEXT_PUBLIC_BASE_URL: "https://lieferdank.de" }, null).url)
+      .toBe("https://lieferdank-git-x.vercel.app");
+  });
+
   it("fällt in Produktion ohne Angaben auf lieferdank.de zurück", () => {
     expect(resolveBaseUrl({ NODE_ENV: "production" }, "192.168.1.5").url).toBe(PRODUCTION_URL);
   });

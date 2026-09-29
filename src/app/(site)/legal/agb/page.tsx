@@ -1,7 +1,5 @@
 import { PageHeader, Prose } from "@/components/page-shell";
 import { DraftNotice } from "@/components/legal-notice";
-import { formatEuro } from "@/lib/format";
-import { PLATFORM_GROSS_FEE_CENTS } from "@/lib/money";
 
 export const metadata = {
   title: "AGB",
@@ -26,7 +24,7 @@ export default function TermsPage() {
         <h2>2. Leistung von Lieferdank</h2>
         <p>
           Lieferdank stellt eine technische Plattform bereit, über die Sender einem
-          verifizierten Zusteller ein kostenloses Danke oder ein freiwilliges Trinkgeld
+          Zusteller ein kostenloses Danke oder ein freiwilliges Trinkgeld
           zukommen lassen können. Lieferdank erbringt selbst keine Zustellleistung und ist
           nicht Vertragspartner des Transportvertrags.
         </p>
@@ -43,25 +41,25 @@ export default function TermsPage() {
           aufgeschlagen. Vom ausgewählten Betrag werden Zahlungs- und Plattformkosten abgezogen.
         </p>
         <p>
-          Für Zusteller gilt: Von jeder Trinkgeldzahlung behält Lieferdank{" "}
-          {formatEuro(PLATFORM_GROSS_FEE_CENTS)} ein; dieser Anteil deckt Zahlungsabwicklung,
-          Betrieb, Support und Betrugsprävention. Der verbleibende Betrag wird dem Zusteller
-          gutgeschrieben.
+          Lieferdank erhält je nach Trinkgeldbetrag 0,50 € (2 €), 0,60 € (3 €) oder 1,00 € (5 €)
+          als Application Fee. Stripe zieht seine Zahlungs- und gegebenenfalls Auszahlungskosten
+          separat vom Stripe-Konto des Zustellers ab. Der tatsächliche Auszahlungsbetrag ist daher geringer.
         </p>
 
         <h2>5. Auszahlung</h2>
         <p>
-          Gutschriften werden als Guthaben gesammelt und gebündelt ausgezahlt. Voraussetzung
-          sind eine abgeschlossene Verifizierung und ein eingerichtetes Auszahlungskonto beim
-          Zahlungsdienstleister. Lieferdank verwahrt keine Kundengelder auf eigenen
-          Geschäftskonten.
+          Trinkgelder werden direkt auf dem verbundenen Stripe-Konto des Zustellers verarbeitet.
+          Stripe verwaltet dieses Konto und dessen reguläre Auszahlungen. Voraussetzung ist
+          ein für Zahlungen und Auszahlungen freigeschaltetes Stripe-Konto.
         </p>
 
         <h2>6. Verifizierung und Sperrung</h2>
         <p>
-          Lieferdank prüft Identität und Zustellertätigkeit. Bei begründetem Verdacht auf
+          Stripe prüft die für Zahlungsannahme und Auszahlung erforderlichen Kontoinformationen.
+          Ein optionales Lieferdank-Abzeichen für die Zustellertätigkeit ist davon getrennt.
+          Bei begründetem Verdacht auf
           Missbrauch, falsche Angaben oder betrügerische Zahlungen kann Lieferdank Konten
-          sperren, Codes neu vergeben und Auszahlungen zurückhalten.
+          sperren, Codes neu vergeben und die Annahme neuer Trinkgelder unterbinden.
         </p>
 
         <h2>7. Rückerstattungen</h2>
@@ -97,8 +95,9 @@ export default function TermsPage() {
 
         <h2>11. Änderungen und Kündigung</h2>
         <p>
-          Zusteller können ihr Konto jederzeit löschen. Vorhandenes Guthaben wird vor der
-          Löschung ausgezahlt. Änderungen dieser Bedingungen werden rechtzeitig angekündigt.
+          Zusteller können ihr Lieferdank-Konto löschen. Bereits eingegangene Zahlungen,
+          Erstattungen und Auszahlungen bleiben bei Stripe zu klären und unterliegen
+          dessen Kontobedingungen. Änderungen dieser Bedingungen werden rechtzeitig angekündigt.
         </p>
 
         <h2>12. Schlussbestimmungen</h2>

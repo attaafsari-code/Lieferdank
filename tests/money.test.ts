@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { allocateFee, isAllowedTipAmount, splitTip, TIP_OPTIONS_CENTS } from "@/lib/money";
+import { isAllowedTipAmount, splitTip, TIP_OPTIONS_CENTS } from "@/lib/money";
 
 describe("Trinkgeld-Aufteilung", () => {
   it.each([
-    [200, 150],
-    [300, 250],
-    [500, 450],
-  ])("%i Cent → Lieferant erhält %i Cent", (gross, driver) => {
+    [200, 150, 50],
+    [300, 240, 60],
+    [500, 400, 100],
+  ])("%i Cent → %i Cent vor Stripe-Kosten, %i Cent Application Fee", (gross, driver, fee) => {
     const split = splitTip(gross);
     expect(split.grossCents).toBe(gross);
     expect(split.driverCents).toBe(driver);
-    expect(split.platformGrossFeeCents).toBe(50);
+    expect(split.platformGrossFeeCents).toBe(fee);
     expect(split.driverCents + split.platformGrossFeeCents).toBe(gross);
   });
 
@@ -18,10 +18,10 @@ describe("Trinkgeld-Aufteilung", () => {
     expect([...TIP_OPTIONS_CENTS]).toEqual([200, 300, 500]);
   });
 
-  it("trennt Bruttogebühr, Paymentkosten und Nettomarge", () => {
+  it("belastet Stripe-Kosten nicht planmäßig der Lieferdank-Gebühr", () => {
     const split = splitTip(300);
-    expect(split.paymentProviderFeeCents).toBe(30); // 1,5 % + 25 Cent
-    expect(split.platformNetRevenueCents).toBe(20);
+    expect(split.paymentProviderFeeCents).toBe(0);
+    expect(split.platformNetRevenueCents).toBe(60);
     expect(split.payoutFeeCents).toBe(0);
   });
 
@@ -36,20 +36,17 @@ describe("Trinkgeld-Aufteilung", () => {
     expect(() => splitTip(0)).toThrow();
     expect(() => splitTip(-100)).toThrow();
     expect(() => splitTip(1.5)).toThrow();
+    expect(() => splitTip(Number.MAX_SAFE_INTEGER + 1)).toThrow();
   });
-});
 
-describe("Verteilung der Auszahlungsgebühr", () => {
-  it("verteilt cent-genau und verliert keinen Cent", () => {
-    for (const [fee, count] of [[10, 3], [37, 7], [0, 4], [5, 5], [1, 9]]) {
-      const shares = allocateFee(fee, count);
-      expect(shares).toHaveLength(count);
-      expect(shares.reduce((a, b) => a + b, 0)).toBe(fee);
-      expect(Math.max(...shares) - Math.min(...shares)).toBeLessThanOrEqual(1);
+  it("hält die Finanzinvarianten für alle unterstützten Beträge und Cent-Grenzwerte ein", () => {
+    for (const gross of TIP_OPTIONS_CENTS) {
+      const split = splitTip(gross);
+      expect(Number.isSafeInteger(split.driverCents)).toBe(true);
+      expect(split.driverCents).toBeGreaterThanOrEqual(0);
+      expect(split.platformGrossFeeCents).toBeGreaterThanOrEqual(0);
+      expect(split.driverCents + split.platformGrossFeeCents).toBe(gross);
+      expect(isAllowedTipAmount(gross)).toBe(true);
     }
-  });
-
-  it("gibt bei null Trinkgeldern eine leere Liste zurück", () => {
-    expect(allocateFee(10, 0)).toEqual([]);
   });
 });

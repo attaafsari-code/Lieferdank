@@ -89,7 +89,8 @@ export type CardSnapshot = {
 };
 
 export type PaymentPurpose = "tip" | "card_order";
-export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded";
+/** review_required excludes money from balances until Stripe and Connect are reconciled. */
+export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded" | "review_required";
 
 /** Eine Transaktion beim Zahlungsdienstleister. Quelle der Wahrheit für den Zahlungsstatus. */
 export type Payment = {
@@ -103,6 +104,8 @@ export type Payment = {
   /** PaymentIntent o. ä. – wird für Rückerstattungen gebraucht. */
   providerIntentId: string | null;
   amountCents: number;
+  /** Cumulative amount reported by Stripe charge.refunded; never decreases. */
+  refundedAmountCents: number;
   currency: string;
   status: PaymentStatus;
   /** card, apple_pay, google_pay, paypal … sofern der Provider es meldet. */
@@ -124,7 +127,7 @@ export type Tip = {
   driverCents: number;
   platformGrossFeeCents: number;
   paymentProviderFeeCents: number;
-  /** Anteil der Auszahlungsgebühr, wird bei der Auszahlung verteilt. */
+  /** Historische DB-Spalte; neue Direct Charges tragen hier 0. */
   payoutFeeCents: number;
   platformNetRevenueCents: number;
   currency: string;
@@ -133,8 +136,8 @@ export type Tip = {
   payoutStatus: PayoutStatus;
   payoutId: string | null;
   /**
-   * Konto des Zustellers, falls der Anteil direkt dorthin floss (Destination Charge).
-   * null = die Plattform hält das Geld und überweist bei der Auszahlung.
+   * Konto des Zustellers für den Direct Charge. Null ist nur historisch möglich;
+   * neue Trinkgelder ohne Stripe-Zielkonto sind verboten.
    */
   destinationAccountId: string | null;
   createdAt: string;
@@ -192,7 +195,7 @@ export type CardOrder = {
   unitPriceCents: number;
   totalCents: number;
   currency: string;
-  paymentStatus: "not_required" | "pending" | "paid" | "refunded";
+  paymentStatus: "not_required" | "pending" | "paid" | "failed" | "refunded" | "review_required";
   paymentId: string | null;
   design: CardSnapshot;
   shippingName: string;

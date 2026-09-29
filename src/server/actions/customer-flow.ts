@@ -8,6 +8,7 @@ import { isServiceError } from "../errors";
 import { attachMessage, confirmPayment, failPayment, sendFreeThankYou, startTip } from "../services/thanks";
 import { addFavoriteByCode } from "../services/favorites";
 import { getDb } from "@/lib/db";
+import { isProductionRuntime } from "@/lib/runtime";
 import { errorMessage, logEvent } from "../events";
 
 /**
@@ -84,7 +85,7 @@ export async function saveDriverAction(code: string): Promise<FlowResult & { nee
  * bestätigt allein der signierte Webhook des Zahlungsdienstleisters.
  */
 export async function confirmDemoPaymentAction(paymentId: string, succeed: boolean): Promise<void> {
-  if (!isDemoPayment() || process.env.VERCEL_ENV === "production") throw new Error("Testzahlungen sind deaktiviert.");
+  if (!isDemoPayment() || isProductionRuntime()) throw new Error("Testzahlungen sind deaktiviert.");
   await enforceRateLimit("demo-pay", 20, 60_000);
 
   const db = getDb();

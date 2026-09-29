@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check, Heart } from "@/components/icons";
 import { Avatar } from "@/components/avatar";
@@ -21,15 +21,24 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
+  const active = useRef(false);
 
   function run(action: () => Promise<FlowResult>, marker: number) {
+    if (active.current) return;
+    active.current = true;
     setError(null);
     setBusy(marker);
     startTransition(async () => {
-      // Bei Erfolg leitet die Aktion weiter – hier landen wir nur im Fehlerfall.
-      const result = await action();
-      if (result && !result.ok) setError(result.error ?? "Das hat leider nicht geklappt.");
-      setBusy(null);
+      try {
+        // Bei Erfolg leitet die Aktion weiter – hier landen wir nur im Fehlerfall.
+        const result = await action();
+        if (result && !result.ok) setError(result.error ?? "Das hat leider nicht geklappt.");
+      } catch {
+        setError("Die Verbindung ist unterbrochen. Bitte versuch es erneut.");
+      } finally {
+        active.current = false;
+        setBusy(null);
+      }
     });
   }
 
@@ -98,13 +107,18 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
           <span className="h-px flex-1 bg-line" />
         </div>
 
+        {!driver.tipReady && (
+          <p className="mt-4 rounded-xl bg-brand-50 px-4 py-3 text-center text-sm text-brand-900">
+            Trinkgeld ist für diesen Zusteller noch nicht eingerichtet. Kostenlos Danke sagen funktioniert schon.
+          </p>
+        )}
         <div className="mt-4 grid grid-cols-3 gap-2.5">
           {TIP_OPTIONS_CENTS.map((cents) => (
             <button
               key={cents}
               type="button"
               onClick={() => run(() => startTipAction(driver.code, cents), cents)}
-              disabled={pending}
+              disabled={pending || !driver.tipReady}
               className="group flex min-h-[4.5rem] items-center justify-center rounded-2xl border-[1.5px] border-line bg-white py-3 shadow-xs transition hover:border-brand hover:shadow-sm disabled:opacity-50"
             >
               {busy === cents ? (

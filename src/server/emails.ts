@@ -100,13 +100,13 @@ export const emails = {
 
   tipReceived(firstName: string, driverCents: number, grossCents: number, dashboardUrl: string): MailContent {
     return mail(
-      `Du hast ${formatEuro(driverCents)} Trinkgeld erhalten`,
+      `Ein neues Trinkgeld für dich`,
       "Jemand hat dir Danke gesagt",
       "Jemand hat dir Danke gesagt ❤",
       [
         {
           kind: "p",
-          text: `Hallo ${firstName}, ein Kunde hat dir ${formatEuro(grossCents)} Trinkgeld gegeben. ${formatEuro(driverCents)} sind in deinem Guthaben.`,
+          text: `Hallo ${firstName}, ein Kunde hat dir ${formatEuro(grossCents)} Trinkgeld gegeben. Dein Anteil vor Stripe-Kosten beträgt ${formatEuro(driverCents)}. Den tatsächlichen Auszahlungsbetrag zeigt Stripe.`,
         },
         { kind: "button", label: "Nachricht ansehen", href: dashboardUrl },
         { kind: "note", text: "Du kannst diese Benachrichtigung im Profil abschalten." },

@@ -32,7 +32,7 @@ const KEYS: { [K in TableName]: Keys<Tables[K]> } = {
     shippingCountry: true, status: true, carrier: true, trackingNumber: true, reorderOf: true, createdAt: true, updatedAt: true, shippedAt: true,
   },
   payments: {
-    id: true, purpose: true, referenceId: true, provider: true, providerPaymentId: true, providerIntentId: true, amountCents: true,
+    id: true, purpose: true, referenceId: true, provider: true, providerPaymentId: true, providerIntentId: true, amountCents: true, refundedAmountCents: true,
     currency: true, status: true, method: true, failureReason: true, createdAt: true, updatedAt: true,
   },
   tips: {
@@ -84,6 +84,13 @@ describe("Schema-Konsistenz", () => {
     }
     expect(sql).toMatch(/revoke all on all tables in schema public from anon, authenticated;/);
     expect(sql).not.toMatch(/create\s+policy\s+/i);
+  });
+
+  it("schützt jede Admin-Seite serverseitig", () => {
+    for (const route of ["", "nutzer", "zahlungen", "auszahlungen", "karten", "system"]) {
+      const source = readFileSync(join(process.cwd(), "src", "app", "admin", route, "page.tsx"), "utf8");
+      expect(source, `Admin-Guard fehlt auf /admin/${route}`).toMatch(/await\s+requireAdmin\s*\(\s*\)/);
+    }
   });
 
   it.each(TABLE_NAMES)("Spalten von %s passen zum TypeScript-Typ", (name) => {

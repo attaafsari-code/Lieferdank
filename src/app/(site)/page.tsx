@@ -135,7 +135,7 @@ function CustomerSection() {
             {[
               "Kein Konto, keine App, keine Daten eingeben",
               "Danke sagen ist immer kostenlos",
-              "Trinkgeld mit Apple Pay, Google Pay, PayPal oder Karte",
+              "Trinkgeld mit Karte, Apple Pay oder Google Pay",
               "Du zahlst genau den Betrag, den du auswählst",
             ].map((item) => (
               <li key={item} className="flex items-start gap-3 text-ink">

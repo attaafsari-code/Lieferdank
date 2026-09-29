@@ -24,7 +24,7 @@ describe("QR-Code Ende-zu-Ende", () => {
   });
 
   it("ist in Kartengröße (28 mm bei 300 dpi) noch lesbar", async () => {
-    const url = "https://lieferdank.de/danke/LD-DEMO01";
+    const url = "https://lieferdank.de/danke/LD-84K2P7WQ9A";
     // 28 mm ≈ 331 px bei 300 dpi; der weiße Kartenrand ergibt die Ruhezone.
     const png = await QRCode.toBuffer(url, { errorCorrectionLevel: "Q", margin: 2, width: 331, color: { dark: "#0b2545", light: "#ffffff" } });
     expect(decode(png)).toBe(url);
