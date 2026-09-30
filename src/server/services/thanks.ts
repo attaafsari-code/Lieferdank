@@ -13,6 +13,8 @@ import { emails } from "../emails";
 import { logEvent, errorMessage } from "../events";
 import { driverPublicName, findReceivingDriver } from "./drivers";
 import { refreshMilestones } from "./milestones";
+import { dayKey } from "@/lib/time";
+import { dailyVisitorHash } from "../visitor";
 
 /**
  * Der Kernablauf: Danke sagen und Trinkgeld geben.
@@ -25,22 +27,47 @@ export async function recordScan(driverId: string): Promise<void> {
   await getDb().scans.insert({ id: newId(), driverId, createdAt: new Date().toISOString() });
 }
 
-export async function sendFreeThankYou(code: string, customerId: string | null): Promise<{ thankYouId: string; code: string }> {
+export async function sendFreeThankYou(
+  code: string,
+  customerId: string | null,
+  visitorId: string,
+  now = new Date(),
+): Promise<{ thankYouId: string; code: string; alreadySent: boolean }> {
   const found = await findReceivingDriver(code);
   if (!found) throw inactive();
+  const db = getDb();
+  const freeDay = dayKey(now);
+  const visitorHash = dailyVisitorHash(visitorId, found.driver.id, freeDay);
+  const existingThankYou = async () =>
+    (await db.thankYous.findOne({ driverId: found.driver.id, tipId: null, freeDay, visitorHash })) ??
+    (customerId ? await db.thankYous.findOne({ driverId: found.driver.id, tipId: null, freeDay, customerId }) : null);
+  const existing = await existingThankYou();
+  if (existing) return { thankYouId: existing.id, code: found.driver.code, alreadySent: true };
 
-  const thankYou = await getDb().thankYous.insert({
-    id: newId(),
-    driverId: found.driver.id,
-    tipId: null,
-    customerId,
-    presetId: null,
-    message: null,
-    createdAt: new Date().toISOString(),
-  });
+  let thankYou;
+  try {
+    thankYou = await db.thankYous.insert({
+      id: newId(),
+      driverId: found.driver.id,
+      tipId: null,
+      customerId,
+      freeDay,
+      visitorHash,
+      presetId: null,
+      message: null,
+      createdAt: now.toISOString(),
+    });
+  } catch (error) {
+    // Der UNIQUE-Index entscheidet auch bei parallelen Requests/mehreren Workern.
+    if (error instanceof Error && error.message.includes("thank_yous_free_daily_")) {
+      const winner = await existingThankYou();
+      if (winner) return { thankYouId: winner.id, code: found.driver.code, alreadySent: true };
+    }
+    throw error;
+  }
 
   await refreshMilestones(found.driver.id);
-  return { thankYouId: thankYou.id, code: found.driver.code };
+  return { thankYouId: thankYou.id, code: found.driver.code, alreadySent: false };
 }
 
 export async function startTip(

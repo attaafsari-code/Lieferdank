@@ -45,7 +45,7 @@ describe("Registrierung", () => {
     expect(driver.active).toBe(true);
     expect(await getDb().cardDesigns.findOne({ driverId: driver.id })).not.toBeNull();
 
-    const result = await sendFreeThankYou(driver.code, null);
+    const result = await sendFreeThankYou(driver.code, null, "a".repeat(32));
     expect(result.thankYouId).toBeTruthy();
   });
 
@@ -85,10 +85,43 @@ describe("Registrierung", () => {
 });
 
 describe("Danke und Trinkgeld", () => {
+  it("begrenzt dasselbe kostenlose Danke auch bei parallelen Anfragen auf einen Eintrag pro Berliner Tag", async () => {
+    const { driver } = await makeDriver();
+    const id = "a".repeat(32);
+    const firstDay = new Date("2026-09-30T21:59:59Z");
+    const nextDay = new Date("2026-09-30T22:00:01Z");
+    const [a, b] = await Promise.all([
+      sendFreeThankYou(driver.code, null, id, firstDay),
+      sendFreeThankYou(driver.code, null, id, firstDay),
+    ]);
+    expect(a.thankYouId).toBe(b.thankYouId);
+    expect([a.alreadySent, b.alreadySent].sort()).toEqual([false, true]);
+    expect((await sendFreeThankYou(driver.code, null, id, firstDay)).alreadySent).toBe(true);
+    expect((await sendFreeThankYou(driver.code, null, id, nextDay)).alreadySent).toBe(false);
+    expect(await getDb().thankYous.count({ where: { driverId: driver.id, tipId: null } })).toBe(2);
+  });
+
+  it("begrenzt angemeldete Kunden auch nach Wechsel des Browser-Cookies", async () => {
+    const { driver } = await makeDriver();
+    const customer = await makeCustomer();
+    const first = await sendFreeThankYou(driver.code, customer.id, "a".repeat(32));
+    const again = await sendFreeThankYou(driver.code, customer.id, "b".repeat(32));
+    expect(again).toEqual({ ...first, alreadySent: true });
+    expect(await getDb().thankYous.count({ where: { driverId: driver.id, tipId: null } })).toBe(1);
+  });
+
+  it("begrenzt pro Fahrer, nicht über verschiedene Zusteller hinweg", async () => {
+    const a = await makeDriver();
+    const b = await makeDriver();
+    const id = "a".repeat(32);
+    expect((await sendFreeThankYou(a.driver.code, null, id)).alreadySent).toBe(false);
+    expect((await sendFreeThankYou(b.driver.code, null, id)).alreadySent).toBe(false);
+  });
+
   it("zählt kostenlose Danke getrennt und nur bestätigte Fahreranteile als Gesamteinnahmen", async () => {
     const { driver } = await makeDriver();
-    await sendFreeThankYou(driver.code, null);
-    await sendFreeThankYou(driver.code, null);
+    await sendFreeThankYou(driver.code, null, "a".repeat(32));
+    await sendFreeThankYou(driver.code, null, "b".repeat(32));
     const paid = await startTip(driver.code, 200, null);
     const refunded = await startTip(driver.code, 300, null);
     await confirmPayment(paid.paymentId);
@@ -138,7 +171,7 @@ describe("Danke und Trinkgeld", () => {
   it("nimmt bei pausierten oder gesperrten Zustellern nichts an", async () => {
     const { user, driver } = await makeDriver();
     await setDriverActive(driver, false);
-    await expect(sendFreeThankYou(driver.code, null)).rejects.toThrow(/nicht aktiv/);
+    await expect(sendFreeThankYou(driver.code, null, "a".repeat(32))).rejects.toThrow(/nicht aktiv/);
 
     await setDriverActive({ ...driver, active: false }, true);
     await getDb().users.update(user.id, { blockedAt: new Date().toISOString() });
@@ -147,7 +180,7 @@ describe("Danke und Trinkgeld", () => {
 
   it("speichert genau eine Nachricht pro Danke", async () => {
     const { driver } = await makeDriver();
-    const { thankYouId } = await sendFreeThankYou(driver.code, null);
+    const { thankYouId } = await sendFreeThankYou(driver.code, null, "a".repeat(32));
     await attachMessage(thankYouId, "hochtragen", null);
     await attachMessage(thankYouId, "wetter", "Überschreiben?");
     const thankYou = await getDb().thankYous.get(thankYouId);
@@ -249,7 +282,7 @@ describe("Privatsphäre", () => {
   it("entfernt beim Kundenlöschen die Verknüpfung zu Dankes- und Zahlungsdaten", async () => {
     const { driver } = await makeDriver();
     const customer = await makeCustomer();
-    const thanks = await sendFreeThankYou(driver.code, customer.id);
+    const thanks = await sendFreeThankYou(driver.code, customer.id, "a".repeat(32));
     const tip = await startTip(driver.code, 200, customer.id);
     await deleteAccount(customer);
     expect((await getDb().thankYous.get(thanks.thankYouId))?.customerId).toBeNull();
@@ -348,7 +381,7 @@ describe("Kundenkonto und Favoriten", () => {
   it("verknüpft Danke mit dem Kundenkonto, nie umgekehrt sichtbar für den Zusteller", async () => {
     const { driver } = await makeDriver();
     const customer = await makeCustomer();
-    await sendFreeThankYou(driver.code, customer.id);
+    await sendFreeThankYou(driver.code, customer.id, "a".repeat(32));
     const stats = await getDriverStats(driver.id);
     expect(stats.recentThankYous[0].customerId).toBe(customer.id); // intern gespeichert …
     // … aber die API entfernt den Bezug (siehe api.test.ts).

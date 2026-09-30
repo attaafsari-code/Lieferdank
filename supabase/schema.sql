@@ -161,9 +161,15 @@ create table if not exists public.thank_yous (
   driver_id    uuid not null references public.driver_profiles (id) on delete cascade,
   tip_id       uuid unique references public.tips (id) on delete set null,
   customer_id  uuid references public.users (id) on delete set null,
+  free_day     text,
+  visitor_hash text,
   preset_id    text,
   message      text check (char_length(message) <= 140),
-  created_at   timestamptz not null default now()
+  created_at   timestamptz not null default now(),
+  constraint thank_yous_free_identity_check check (
+    (free_day is null and visitor_hash is null) or
+    (tip_id is null and free_day ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' and visitor_hash ~ '^[0-9a-f]{64}$')
+  )
 );
 
 create table if not exists public.card_orders (
@@ -248,6 +254,10 @@ create index if not exists tips_created_idx               on public.tips (create
 create index if not exists thank_yous_driver_created_idx  on public.thank_yous (driver_id, created_at desc);
 create index if not exists thank_yous_customer_idx        on public.thank_yous (customer_id) where customer_id is not null;
 create index if not exists thank_yous_created_idx         on public.thank_yous (created_at desc);
+create unique index if not exists thank_yous_free_daily_visitor_idx on public.thank_yous (driver_id, free_day, visitor_hash)
+  where tip_id is null and visitor_hash is not null;
+create unique index if not exists thank_yous_free_daily_customer_idx on public.thank_yous (driver_id, free_day, customer_id)
+  where tip_id is null and customer_id is not null and free_day is not null;
 create index if not exists scans_driver_created_idx       on public.scans (driver_id, created_at desc);
 create index if not exists scans_created_idx              on public.scans (created_at desc);
 create unique index if not exists payments_intent_idx     on public.payments (provider_intent_id) where provider_intent_id is not null;

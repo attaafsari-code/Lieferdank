@@ -40,7 +40,7 @@ const KEYS: { [K in TableName]: Keys<Tables[K]> } = {
     paymentProviderFeeCents: true, payoutFeeCents: true, platformNetRevenueCents: true, currency: true, paymentStatus: true,
     payoutStatus: true, payoutId: true, destinationAccountId: true, createdAt: true,
   },
-  thankYous: { id: true, driverId: true, tipId: true, customerId: true, presetId: true, message: true, createdAt: true },
+  thankYous: { id: true, driverId: true, tipId: true, customerId: true, freeDay: true, visitorHash: true, presetId: true, message: true, createdAt: true },
   payouts: {
     id: true, driverId: true, amountCents: true, transferredCents: true, feeCents: true, status: true, provider: true,
     providerTransferId: true, tipIds: true, failureReason: true, createdAt: true, completedAt: true,

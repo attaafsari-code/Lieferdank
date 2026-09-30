@@ -85,6 +85,17 @@ function memoryTable<N extends TableName>(name: N): Table<Tables[N]> {
         (existing as unknown as { status: string }).status === "pending")) {
         throw new Error("payouts: offene Auszahlung für diesen Zusteller existiert bereits");
       }
+      if (name === "thankYous") {
+        const incoming = row as unknown as { driverId: string; tipId: string | null; freeDay?: string | null; visitorHash?: string | null; customerId: string | null };
+        if (!incoming.tipId && incoming.freeDay && rows().some((existing) => {
+          const previous = existing as typeof incoming;
+          return !previous.tipId && previous.driverId === incoming.driverId && previous.freeDay === incoming.freeDay &&
+            (Boolean(incoming.visitorHash && previous.visitorHash === incoming.visitorHash) ||
+              Boolean(incoming.customerId && previous.customerId === incoming.customerId));
+        })) {
+          throw new Error("thank_yous_free_daily_visitor_idx: Danke für diesen Tag existiert bereits");
+        }
+      }
       rows().push(clone(row));
       persist();
       return clone(row);

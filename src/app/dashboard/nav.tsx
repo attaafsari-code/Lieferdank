@@ -24,15 +24,17 @@ export function DashboardTabs() {
       <div className="mx-auto flex max-w-4xl gap-1 px-3.5 py-2">
         {ITEMS.map((item) => {
           const active = isActive(pathname, item.href);
+          const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`rounded-xl px-3.5 py-2 text-[0.9375rem] font-semibold transition ${
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-[0.9375rem] font-semibold transition ${
                 active ? "bg-brand-50 text-brand" : "text-ink-soft hover:bg-canvas hover:text-ink"
               }`}
             >
+              <Icon className="h-4 w-4 shrink-0" />
               {item.label}
             </Link>
           );

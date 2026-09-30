@@ -7,6 +7,8 @@ import { dativeName } from "@/lib/names";
 import { ArrowRight, Check, Euro, Heart } from "@/components/icons";
 import { CardPreview } from "@/components/card-preview";
 import { EmptyState, MilestoneList, SectionTitle, StatTile, ThankYouList } from "@/components/dashboard-ui";
+import { nextThankYouMilestone } from "@/lib/milestone-rules";
+import { PayoutSetup } from "./einnahmen/payout-setup";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,7 @@ export default async function DashboardPage({
     { done: driver.payoutReady, label: "Auszahlungskonto einrichten", href: "/dashboard/einnahmen" },
   ];
   const openSteps = steps.filter((step) => !step.done).length;
+  const nextMilestone = nextThankYouMilestone(stats.total.thanks);
 
   return (
     <div className="space-y-12">
@@ -50,6 +53,12 @@ export default async function DashboardPage({
           <p className="mt-1 text-sm leading-relaxed text-coral-600">
             Richte dein Auszahlungskonto ein, damit du Trinkgelder empfangen kannst. Dein QR-Code und kostenlose Danksagungen funktionieren bereits.
           </p>
+          <p className="mt-2 text-sm leading-relaxed text-coral-600">
+            Stripe ist unser Zahlungs- und Auszahlungspartner. Du brauchst noch kein Stripe-Konto. Die Einrichtung erfolgt im nächsten Schritt direkt bei Stripe.
+          </p>
+          <div className="mt-4 max-w-sm">
+            <PayoutSetup hasAccount={Boolean(driver.payoutAccountId)} ready={false} buttonLabel="Auszahlung einrichten" />
+          </div>
         </aside>
       )}
 
@@ -187,6 +196,15 @@ export default async function DashboardPage({
       <section>
         <SectionTitle action={{ href: "/dashboard/danke", label: "Alle" }}>Meilensteine</SectionTitle>
         <MilestoneList items={stats.milestones.slice(0, 4)} />
+        {nextMilestone !== null && (
+          <div className="mt-4 rounded-2xl border border-line bg-white px-5 py-4 shadow-xs">
+            <p className="font-bold text-brand-900">Nächster Meilenstein: {nextMilestone} Danke</p>
+            <p className="mt-1 text-sm text-ink-soft">{stats.total.thanks} von {nextMilestone} erreicht</p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-50" role="progressbar" aria-label={`Fortschritt bis ${nextMilestone} Danke`} aria-valuenow={stats.total.thanks} aria-valuemin={0} aria-valuemax={nextMilestone}>
+              <div className="h-full rounded-full bg-brand" style={{ width: `${Math.min(100, (stats.total.thanks / nextMilestone) * 100)}%` }} />
+            </div>
+          </div>
+        )}
       </section>
 
       <p className="text-center text-xs text-ink-faint">

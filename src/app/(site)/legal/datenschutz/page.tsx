@@ -83,9 +83,13 @@ export default function PrivacyPage() {
 
         <h2>Cookies</h2>
         <p>
-          Wir setzen ausschließlich ein technisch notwendiges Cookie für die Anmeldung von
-          Zustellern. Für Kunden ist keine Anmeldung nötig. Wir verwenden kein Tracking und
-          keine Werbecookies.
+          Wir setzen technisch notwendige Cookies für die Anmeldung von Zustellern und für die
+          Begrenzung kostenloser Danksagungen auf einmal pro Zusteller und Tag. Das anonyme
+          Besucher-Cookie enthält eine zufällige, signierte Kennung (Speicherdauer: 90 Tage).
+          In der Datenbank speichern wir nur einen pro Zusteller und Tag abgeleiteten Hash,
+          keine Besucherkennung im Klartext. Für Kunden ist keine Anmeldung nötig. Wir verwenden
+          kein Tracking und keine Werbecookies. Durch Löschen des Cookies lässt sich die
+          Begrenzung umgehen.
         </p>
       </Prose>
     </>

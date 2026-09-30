@@ -148,6 +148,10 @@ export type ThankYou = {
   driverId: string;
   tipId: string | null;
   customerId: string | null;
+  /** Nur bei kostenlosen Danksagungen; Berliner Kalendertag. */
+  freeDay?: string | null;
+  /** Pro Fahrer und Tag abgeleiteter Hash, kein roher Cookie-Wert. */
+  visitorHash?: string | null;
   presetId: string | null;
   message: string | null;
   createdAt: string;

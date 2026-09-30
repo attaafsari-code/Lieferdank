@@ -10,6 +10,7 @@ import { addFavoriteByCode } from "../services/favorites";
 import { getDb } from "@/lib/db";
 import { isProductionRuntime } from "@/lib/runtime";
 import { errorMessage, logEvent } from "../events";
+import { visitorId } from "../visitor";
 
 /**
  * Aktionen der Kundenseite. Nie an ein Konto gebunden – ein angemeldeter
@@ -33,8 +34,8 @@ export async function sendThanksAction(code: string): Promise<FlowResult> {
   let target: string;
   try {
     await enforceRateLimit("thanks", 10, 60_000);
-    const result = await sendFreeThankYou(code, await customerIdIfAny());
-    target = `/danke/${result.code}/erfolg?danke=${result.thankYouId}`;
+    const result = await sendFreeThankYou(code, await customerIdIfAny(), await visitorId());
+    target = `/danke/${result.code}/erfolg?danke=${result.thankYouId}${result.alreadySent ? "&bereits=1" : ""}`;
   } catch (error) {
     return toResult(error);
   }

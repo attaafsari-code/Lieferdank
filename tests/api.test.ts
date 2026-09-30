@@ -51,6 +51,20 @@ describe("API v1 – öffentlich", () => {
     expect((await response.json()).thankYouId).toBeTruthy();
   });
 
+  it("setzt eine signierte Besuchskennung und zählt erneute QR-Anfragen am selben Tag nicht doppelt", async () => {
+    const { driver } = await makeDriver();
+    const path = `/api/v1/drivers/${driver.code}/thanks`;
+    const first = await postThanks(request(path, { method: "POST" }), params({ code: driver.code }));
+    const firstBody = await first.json();
+    const cookie = first.headers.get("set-cookie")?.split(";")[0];
+    expect(cookie).toMatch(/^ld_visitor=/);
+    expect(firstBody.alreadySent).toBe(false);
+    const second = await postThanks(request(path, { method: "POST", headers: { cookie: cookie! } }), params({ code: driver.code }));
+    expect(await second.json()).toEqual({ thankYouId: firstBody.thankYouId, alreadySent: true });
+    const { getDb } = await import("@/lib/db");
+    expect(await getDb().thankYous.count({ where: { driverId: driver.id, tipId: null } })).toBe(1);
+  });
+
   it("startet eine Zahlung und liefert die Checkout-URL", async () => {
     const { driver } = await makeDriver();
     const response = await postTip(
@@ -111,7 +125,7 @@ describe("API v1 – angemeldet", () => {
     const customer = await makeCustomer();
     await postThanks(request(`/api/v1/drivers/${driver.code}/thanks`, { method: "POST" }), params({ code: driver.code }));
     const { sendFreeThankYou } = await import("@/server/services/thanks");
-    await sendFreeThankYou(driver.code, customer.id);
+    await sendFreeThankYou(driver.code, customer.id, "a".repeat(32));
 
     const loginResponse = await login(
       request("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ email: user.email, password: "sicheres-passwort" }) }),

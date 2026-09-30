@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { describeMilestone, reachedMilestones } from "@/lib/milestone-rules";
+import { describeMilestone, nextThankYouMilestone, reachedMilestones } from "@/lib/milestone-rules";
 import { computeStreak } from "@/server/services/stats";
 
 describe("Meilensteine", () => {
+  it("zeigt immer die nächste vorhandene Danke-Stufe", () => {
+    expect(nextThankYouMilestone(0)).toBe(1);
+    expect(nextThankYouMilestone(1)).toBe(10);
+    expect(nextThankYouMilestone(9)).toBe(10);
+    expect(nextThankYouMilestone(10)).toBe(50);
+    expect(nextThankYouMilestone(1000)).toBeNull();
+  });
   it("vergibt nichts ohne Danke", () => {
     expect(reachedMilestones({ thankYouCount: 0, streakDays: 0, tipCount: 0, receivedCents: 0 })).toEqual([]);
   });

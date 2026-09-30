@@ -9,6 +9,7 @@ import { paymentOutcome } from "@/server/services/thanks";
 import { isFavorite } from "@/server/services/favorites";
 import { MessageForm } from "./message-form";
 import { SaveDriver } from "./save-driver";
+import { OptionalTip } from "./optional-tip";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Danke!", robots: { index: false, follow: false } };
@@ -30,6 +31,7 @@ export default async function SuccessPage({ params, searchParams }: Props) {
   let tipCents: number | null = null;
   let paymentPending = false;
   let paymentProblem = false;
+  const freeThanks = Boolean(query.danke && !query.zahlung);
 
   if (query.zahlung && found) {
     const outcome = await paymentOutcome(query.zahlung, found.driver.id);
@@ -70,7 +72,9 @@ export default async function SuccessPage({ params, searchParams }: Props) {
             </span>
           </div>
 
-          <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-brand-900">Danke!</h1>
+          <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-brand-900">
+            {freeThanks && thankYouId && query.bereits !== "1" ? "Danke! Deine Wertschätzung wurde übermittelt." : "Danke!"}
+          </h1>
           <p className="mt-3 text-[1.0625rem] leading-relaxed text-ink-soft">
             {paymentProblem ? (
               <>Diese Zahlung konnte noch nicht bestätigt werden. Bitte prüfe deinen Zahlungsstatus oder wende dich an den Support.</>
@@ -84,6 +88,8 @@ export default async function SuccessPage({ params, searchParams }: Props) {
                 <span className="font-semibold text-ink">{name}</span> hat deine Wertschätzung
                 erhalten. Deine Zahlung über {formatEuro(tipCents)} war erfolgreich.
               </>
+            ) : freeThanks && query.bereits === "1" && thankYouId ? (
+              <>Du hast {name} heute bereits Danke gesagt.</>
             ) : (
               <>
                 <span className="font-semibold text-ink">{name}</span> hat deine Wertschätzung
@@ -93,6 +99,7 @@ export default async function SuccessPage({ params, searchParams }: Props) {
           </p>
         </header>
 
+        {freeThanks && thankYouId && driver && <OptionalTip code={driver.code} tipReady={driver.tipReady} />}
         {thankYouId && <MessageForm thankYouId={thankYouId} />}
 
         {/* Erst nach dem Danke, dezent und nie Voraussetzung für irgendetwas. */}

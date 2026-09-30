@@ -16,6 +16,11 @@ const THANK_YOU_STEPS = [1, 10, 50, 100, 500, 1000];
 const STREAK_STEPS = [5];
 const RECEIVED_STEPS_CENTS = [10_000];
 
+/** Verwendet genau dieselben Danke-Stufen wie die Vergabe. */
+export function nextThankYouMilestone(thankYouCount: number): number | null {
+  return THANK_YOU_STEPS.find((step) => thankYouCount < step) ?? null;
+}
+
 export function reachedMilestones(progress: MilestoneProgress): MilestoneKey[] {
   const reached: MilestoneKey[] = [];
   for (const step of THANK_YOU_STEPS) {

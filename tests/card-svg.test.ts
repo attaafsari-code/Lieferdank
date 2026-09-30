@@ -1,4 +1,5 @@
 import QRCode from "qrcode";
+import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { escapeXml, renderCardSvg, wrapText } from "@/lib/card/svg";
 import type { CardLayout } from "@/lib/db/types";
@@ -8,6 +9,24 @@ async function qr() {
 }
 
 describe("Karten-SVG", () => {
+  it("behält die feste Coral-Markenfarbe bei allen Kartenvarianten", async () => {
+    for (const layout of ["classic", "brand", "personal"] as const) {
+      const svg = renderCardSvg({ layout, headline: "Danke ❤", publicName: "Max", providerLabel: null, code: "LD-TEST1", qrSvg: await qr(), avatar: null });
+      expect(svg).toContain('<tspan fill="#ff4d4a">dank</tspan>');
+      expect(svg).toContain('fill="#ff4d4a">❤</tspan>');
+      expect(svg).not.toContain("#ffc2c0");
+    }
+  });
+
+  it("rastert die blaue Karte mit unverfälschtem Coral ins PNG", async () => {
+    const svg = renderCardSvg({ layout: "brand", headline: "Danke ❤", publicName: "Max", providerLabel: null, code: "LD-TEST1", qrSvg: await qr(), avatar: null });
+    const { data, info } = await sharp(Buffer.from(svg)).resize(856, 540).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    let coralPixels = 0;
+    for (let i = 0; i < data.length; i += info.channels) {
+      if (data[i] === 255 && data[i + 1] === 77 && data[i + 2] === 74 && data[i + 3] === 255) coralPixels++;
+    }
+    expect(coralPixels).toBeGreaterThan(10);
+  });
   it.each<CardLayout>(["classic", "brand", "personal"])("rendert Layout %s im Scheckkartenformat", async (layout) => {
     const svg = renderCardSvg({
       layout,

@@ -43,7 +43,6 @@ const COLORS = {
   brand50: "#edf4ff",
   brand900: "#0b2545",
   coral: "#ff4d4a",
-  coralLight: "#ffc2c0",
   white: "#ffffff",
 };
 
@@ -131,7 +130,7 @@ function logoMark(x: number, y: number, size: number, onDark: boolean): string {
 
 function wordmark(x: number, baseline: number, size: number, onDark: boolean): string {
   const liefer = onDark ? COLORS.white : COLORS.brand900;
-  const dank = onDark ? COLORS.coralLight : COLORS.coral;
+  const dank = COLORS.coral;
   return `<text x="${x}" y="${baseline}" font-family="${SANS}" font-size="${size}" font-weight="800" letter-spacing="-0.08"><tspan fill="${liefer}">Liefer</tspan><tspan fill="${dank}">dank</tspan></text>`;
 }
 
@@ -205,7 +204,7 @@ function textBlock(opts: {
   let y = opts.top + (opts.bottom - opts.top - total) / 2;
 
   const colors = opts.onDark
-    ? { headline: COLORS.white, name: COLORS.white, provider: "rgba(255,255,255,0.78)", heart: COLORS.coralLight }
+    ? { headline: COLORS.white, name: COLORS.white, provider: "rgba(255,255,255,0.78)", heart: COLORS.coral }
     : { headline: COLORS.brand900, name: COLORS.ink, provider: COLORS.inkSoft, heart: COLORS.coral };
 
   const parts: string[] = [];

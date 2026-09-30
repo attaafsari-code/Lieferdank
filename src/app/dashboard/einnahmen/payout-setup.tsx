@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Check } from "@/components/icons";
 import { refreshPayoutStatusAction, startPayoutOnboardingAction } from "@/server/actions/driver";
 
-export function PayoutSetup({ hasAccount, ready }: { hasAccount: boolean; ready: boolean }) {
+export function PayoutSetup({ hasAccount, ready, buttonLabel }: { hasAccount: boolean; ready: boolean; buttonLabel?: string }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +28,7 @@ export function PayoutSetup({ hasAccount, ready }: { hasAccount: boolean; ready:
     <div>
       <div className="flex flex-col gap-2.5 sm:flex-row">
         <button type="button" disabled={pending} onClick={() => run(startPayoutOnboardingAction)} className="btn btn-primary flex-1">
-          {pending ? "Einen Moment …" : hasAccount ? "Einrichtung fortsetzen" : "Auszahlungskonto einrichten"}
+          {pending ? "Einen Moment …" : buttonLabel ?? (hasAccount ? "Einrichtung fortsetzen" : "Auszahlungskonto einrichten")}
         </button>
         {hasAccount && (
           <button type="button" disabled={pending} onClick={() => run(refreshPayoutStatusAction)} className="btn btn-ghost">
