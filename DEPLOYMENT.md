@@ -47,7 +47,8 @@ Keine Secrets im Repo: `.env*` (außer `.env.example`), `data/`, `.claude/` und 
    Vor dem Deployment der Version mit versioniertem Stripe-Abgleich zusätzlich
    [`supabase/migrations/20261002_payout_sync_version.sql`](supabase/migrations/20261002_payout_sync_version.sql)
    ausführen (rein additiv, mit der bisherigen Version verträglich). Ohne die Spalte
-   schlagen Registrierung und Kontoabgleich der neuen Version fehl.
+   schlagen Registrierung und Kontoabgleich der neuen Version fehl; `/api/health`
+   meldet dann `"database":"migration_required"` (HTTP 503).
 3. **Project Settings → API** notieren:
    - `Project URL` → `SUPABASE_URL`
    - `service_role` Secret → `SUPABASE_SERVICE_ROLE_KEY`

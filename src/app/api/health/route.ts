@@ -18,9 +18,14 @@ export async function GET() {
   let schemaReady = !production;
   if (production && databaseReady) {
     try {
-      // Supabase prüft auch ohne Datensätze, ob die neue Spalte existiert.
-      const { error } = await supabaseClient().from("payments").select("refunded_amount_cents").limit(1);
-      schemaReady = !error;
+      // Supabase prüft auch ohne Datensätze, ob die Spalten der letzten Migrationen über die API
+      // erreichbar sind. Ohne payout_sync_version scheitern Registrierung und Stripe-Kontoabgleich.
+      const client = supabaseClient();
+      const [payments, drivers] = await Promise.all([
+        client.from("payments").select("refunded_amount_cents").limit(1),
+        client.from("driver_profiles").select("payout_sync_version").limit(1),
+      ]);
+      schemaReady = !payments.error && !drivers.error;
     } catch { schemaReady = false; }
   }
   const ready = !production || (paymentReady && databaseReady && schemaReady && authReady && mailConfigured());
