@@ -5,6 +5,7 @@ import { getDriverStats } from "@/server/services/stats";
 import { payoutReadinessAfterReturn, payoutsAreManual } from "@/server/services/payouts";
 import { isDemoPayment } from "@/server/payments";
 import { formatDateTime, formatEuro } from "@/lib/format";
+import { effectiveTip } from "@/lib/money";
 import { EmptyState, PageTitle, SectionTitle } from "@/components/dashboard-ui";
 import { Check } from "@/components/icons";
 import { PayoutSetup } from "./payout-setup";
@@ -151,9 +152,10 @@ export default async function EarningsPage({
             {stats.recentTips.map((tip) => (
               <li key={tip.id} className="flex items-center justify-between gap-4 px-5 py-4">
                 <span className="min-w-0">
-                  <span className="block font-bold text-ink">{formatEuro(tip.driverCents)} vor Stripe-Kosten</span>
+                  <span className="block font-bold text-ink">{formatEuro(effectiveTip(tip).driverCents)} vor Stripe-Kosten</span>
                   <span className="mt-0.5 block text-xs text-ink-faint">
                     {formatDateTime(tip.createdAt)} · Kunde zahlte {formatEuro(tip.grossCents)}
+                    {(tip.refundedCents ?? 0) > 0 && ` · ${formatEuro(tip.refundedCents)} erstattet`}
                   </span>
                 </span>
                 <span className={`chip shrink-0 ${tip.paymentStatus === "succeeded" ? "bg-brand-50 text-brand" : "bg-canvas text-ink-soft"}`}>

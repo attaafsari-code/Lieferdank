@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "../guards";
 import { logAdminAction, regenerateCode, reviewBadge, setProviderVerified, setUserBlocked } from "../services/admin";
 import { updateCardOrderStatus } from "../services/cards";
+import { refundTip } from "../services/refunds";
 import { formAction, type FormState } from "./form-state";
 import type { CardOrderStatus } from "@/lib/db/types";
 import { ServiceError } from "../errors";
@@ -60,6 +61,23 @@ export async function updateCardOrderAction(
     // Audit-Log, darf auch der Kartenstatus nicht verändert werden.
     await logAdminAction(user, orderId, "card_order_status_requested", `${status}: ${reason.trim().slice(0, 250)}`);
     await updateCardOrderStatus(orderId, status, { carrier, trackingNumber });
+    refresh();
+  });
+}
+
+/**
+ * Trinkgeld erstatten – vollständig (amountCents = null) oder mit explizitem Teilbetrag.
+ * expectedRefundedCents ist der Erstattungsstand aus der bestätigten Zusammenfassung.
+ */
+export async function refundTipAction(
+  tipId: string,
+  amountCents: number | null,
+  expectedRefundedCents: number,
+  reason: string,
+): Promise<FormState> {
+  return formAction(async () => {
+    const { user } = await requireAdmin();
+    await refundTip(user, tipId, { amountCents, expectedRefundedCents, reason });
     refresh();
   });
 }

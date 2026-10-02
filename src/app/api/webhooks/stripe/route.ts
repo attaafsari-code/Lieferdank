@@ -5,6 +5,7 @@ import { confirmPayment, failPayment, markDisputed, markRefunded } from "@/serve
 import { errorMessage, logEvent } from "@/server/events";
 import { stripeAccountCompatible, stripeAccountReady } from "@/server/payments/stripe";
 import { syncPayoutReadiness } from "@/server/services/payouts";
+import { reconcileTipRefund } from "@/server/services/refunds";
 import type { Payment } from "@/lib/db/types";
 import { isUuid } from "@/lib/id";
 import { splitTip } from "@/lib/money";
@@ -207,7 +208,10 @@ async function handle(event: Stripe.Event): Promise<void> {
             payment.purpose !== paymentIntent.metadata?.purpose || payment.referenceId !== paymentIntent.metadata?.referenceId) {
           throw new Error("Erstattung stimmt nicht mit der vorgemerkten Zahlung überein.");
         }
-        await markRefunded(intent, paymentId, charge.amount_refunded);
+        // Trinkgelder: Das Ereignis ist nur der Anlass. Verbucht wird der Stand, den Stripe jetzt
+        // führt – und die Lieferdank-Gebühr folgt anteilig, egal wer die Erstattung ausgelöst hat.
+        if (payment.purpose === "tip") await reconcileTipRefund(payment.id, intent);
+        else await markRefunded(intent, paymentId, charge.amount_refunded);
       }
       return;
     }

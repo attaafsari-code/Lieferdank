@@ -49,6 +49,10 @@ Keine Secrets im Repo: `.env*` (außer `.env.example`), `data/`, `.claude/` und 
    ausführen (rein additiv, mit der bisherigen Version verträglich). Ohne die Spalte
    schlagen Registrierung und Kontoabgleich der neuen Version fehl; `/api/health`
    meldet dann `"database":"migration_required"` (HTTP 503).
+   Vor dem Deployment der Version mit Erstattungen ebenso
+   [`supabase/migrations/20261002_tip_refunds.sql`](supabase/migrations/20261002_tip_refunds.sql)
+   ausführen (rein additiv). Ohne die beiden Spalten kann die neue Version keine Trinkgelder
+   anlegen; auch das meldet `/api/health` als `migration_required`.
 3. **Project Settings → API** notieren:
    - `Project URL` → `SUPABASE_URL`
    - `service_role` Secret → `SUPABASE_SERVICE_ROLE_KEY`

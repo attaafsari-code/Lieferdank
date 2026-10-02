@@ -2,7 +2,10 @@
 
 import { useState, useTransition } from "react";
 import type { CardOrderStatus } from "@/lib/db/types";
+import { formatEuro } from "@/lib/format";
+import { parseEuroToCents, refundPreview } from "@/lib/money";
 import {
+  refundTipAction,
   regenerateCodeAction,
   reviewBadgeAction,
   setUserBlockedAction,
@@ -153,6 +156,105 @@ export function OrderControls({ orderId, status, carrier, trackingNumber }: { or
       <label className="mt-2 block text-xs font-semibold text-ink-soft">Grund der Statusänderung
         <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={250} className="field mt-1 !py-2.5 text-sm" />
       </label>
+      <Feedback error={error} done={done} />
+    </div>
+  );
+}
+
+type RefundableTip = { id: string; grossCents: number; driverCents: number; platformGrossFeeCents: number; refundedCents: number; feeRefundedCents: number };
+
+/**
+ * Trinkgeld erstatten: Betrag wählen, Zusammenfassung prüfen, ausdrücklich bestätigen.
+ * Der Auftrag gilt nur für den hier angezeigten Erstattungsstand – ein zweiter Klick oder ein
+ * erneutes Absenden kann deshalb nicht doppelt erstatten.
+ */
+export function TipRefund({ tip }: { tip: RefundableTip }) {
+  const remaining = tip.grossCents - tip.refundedCents;
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"full" | "partial">("full");
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const { pending, error, done, run } = useAction();
+
+  const parsed = mode === "full" ? remaining : parseEuroToCents(amount);
+  const valid = parsed !== null && parsed > 0 && parsed <= remaining;
+  const preview = valid ? refundPreview(tip, parsed) : null;
+
+  if (!open) {
+    return (
+      <div>
+        <Small disabled={pending} onClick={() => setOpen(true)}>Erstatten</Small>
+        <Feedback error={error} done={done} />
+      </div>
+    );
+  }
+  return (
+    <div className="w-72 rounded-2xl bg-canvas p-4 whitespace-normal">
+      <p className="text-sm font-semibold text-ink">Trinkgeld erstatten</p>
+      <p className="mt-1 text-xs text-ink-soft">
+        Gezahlt {formatEuro(tip.grossCents)}, bisher erstattet {formatEuro(tip.refundedCents)}, offen {formatEuro(remaining)}.
+      </p>
+      <div className="mt-3 flex gap-2">
+        <Small disabled={pending || confirming} onClick={() => setMode("full")}>{mode === "full" ? "● " : ""}Alles ({formatEuro(remaining)})</Small>
+        <Small disabled={pending || confirming} onClick={() => setMode("partial")}>{mode === "partial" ? "● " : ""}Teilbetrag</Small>
+      </div>
+      {mode === "partial" && (
+        <label className="mt-3 block text-xs font-semibold text-ink-soft">Betrag in Euro
+          <input value={amount} onChange={(e) => setAmount(e.target.value)} disabled={confirming} inputMode="decimal" placeholder="z. B. 1,50" className="field mt-1 !py-2.5 text-sm" />
+        </label>
+      )}
+      <label className="mt-3 block text-xs font-semibold text-ink-soft">Grund (Pflicht, wird protokolliert)
+        <input value={reason} onChange={(e) => setReason(e.target.value)} disabled={confirming} maxLength={250} className="field mt-1 !py-2.5 text-sm" />
+      </label>
+
+      {mode === "partial" && amount.trim() !== "" && !valid && (
+        <p className="mt-2 text-xs font-semibold text-coral-600">Bitte einen Betrag zwischen 0,01 € und {formatEuro(remaining)} angeben.</p>
+      )}
+      {preview && (
+        <dl className="mt-3 space-y-1 rounded-xl bg-white p-3 text-xs text-ink">
+          <div className="flex justify-between gap-3"><dt>Kunde erhält zurück</dt><dd className="font-bold">{formatEuro(preview.customerCents)}</dd></div>
+          <div className="flex justify-between gap-3"><dt>davon gibt Lieferdank Gebühr zurück</dt><dd className="font-bold">{formatEuro(preview.feeBackCents)}</dd></div>
+          <div className="flex justify-between gap-3"><dt>trägt der Zusteller (Stripe-Guthaben)</dt><dd className="font-bold">{formatEuro(preview.driverBearsCents)}</dd></div>
+          <div className="flex justify-between gap-3 border-t border-line pt-1"><dt>bleibt dem Zusteller vor Stripe-Kosten</dt><dd className="font-bold">{formatEuro(preview.after.driverCents)}</dd></div>
+          <div className="flex justify-between gap-3"><dt>bleibt Lieferdank als Gebühr</dt><dd className="font-bold">{formatEuro(preview.after.platformFeeCents)}</dd></div>
+        </dl>
+      )}
+      {preview && (
+        <p className="mt-2 text-[0.6875rem] leading-relaxed text-ink-soft">
+          Die Erstattung läuft über Stripe aus dem Guthaben des Zustellers. Stripes Zahlungskosten der ursprünglichen Zahlung werden nicht
+          erstattet. {preview.complete ? "Das Trinkgeld ist danach vollständig erstattet." : "Das Trinkgeld bleibt teilweise bestehen."}
+        </p>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {!confirming ? (
+          <button type="button" disabled={pending || !preview || !reason.trim()} onClick={() => setConfirming(true)} className="btn btn-primary btn-sm">
+            Zusammenfassung prüfen
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={pending || !preview || !reason.trim()}
+            onClick={() => {
+              const cents = mode === "full" ? null : parsed;
+              run(() => refundTipAction(tip.id, cents, tip.refundedCents, reason), "Erstattung ausgelöst");
+              // Ein weiterer Auftrag wird bewusst neu ausgefüllt – nichts bleibt zum schnellen Wiederholen stehen.
+              setMode("full");
+              setAmount("");
+              setReason("");
+              setConfirming(false);
+              setOpen(false);
+            }}
+            className="btn btn-coral btn-sm"
+          >
+            {pending ? "Einen Moment …" : `Jetzt ${formatEuro(preview?.customerCents ?? 0)} erstatten`}
+          </button>
+        )}
+        <button type="button" disabled={pending} onClick={() => { setConfirming(false); setOpen(false); }} className="btn btn-ghost btn-sm">
+          Abbrechen
+        </button>
+      </div>
       <Feedback error={error} done={done} />
     </div>
   );

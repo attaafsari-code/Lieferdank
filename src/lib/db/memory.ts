@@ -31,6 +31,10 @@ function load(): Database {
   }
   // Ältere lokale Dateien kennen die Spalte noch nicht; Postgres füllt sie per Default mit 0.
   for (const driver of db.driverProfiles) driver.payoutSyncVersion ??= 0;
+  for (const tip of db.tips) {
+    tip.refundedCents ??= 0;
+    tip.feeRefundedCents ??= 0;
+  }
   g.__lieferdankDb = db;
   return db;
 }

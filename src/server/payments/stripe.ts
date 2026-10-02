@@ -132,6 +132,17 @@ export function stripeAccountCompatible(account: Stripe.Account, driverId?: stri
     (!driverId || account.metadata?.driverId === driverId);
 }
 
+/** Zahlung und – bei Trinkgeldern – das Konto des Lieferanten, auf dem die Buchung liegt. */
+async function refundContext(providerIntentId: string) {
+  const payment = await getDb().payments.findOne({ providerIntentId });
+  if (!payment || payment.provider !== "stripe") throw new Error("Zahlung für Erstattung nicht gefunden.");
+  const tip = payment.purpose === "tip" ? await getDb().tips.get(payment.referenceId) : null;
+  if (payment.purpose === "tip" && !tip?.destinationAccountId) {
+    throw new Error("Direct-Charge-Konto für Erstattung fehlt.");
+  }
+  return { payment, stripeAccount: tip?.destinationAccountId ?? null };
+}
+
 export const stripePaymentProvider: PaymentProvider = {
   id: "stripe",
   get isSandbox() {
@@ -176,20 +187,62 @@ export const stripePaymentProvider: PaymentProvider = {
     return { providerPaymentId: session.id, redirectUrl: session.url };
   },
 
-  async refundPayment(providerIntentId) {
+  async refundPayment({ providerIntentId, amountCents, expectedRefundedCents }) {
     assertKeyMatchesEnvironment();
-    const payment = await getDb().payments.findOne({ providerIntentId });
-    if (!payment || payment.provider !== "stripe") throw new Error("Zahlung für Erstattung nicht gefunden.");
-    const tip = payment.purpose === "tip" ? await getDb().tips.get(payment.referenceId) : null;
-    if (payment.purpose === "tip" && !tip?.destinationAccountId) {
-      throw new Error("Direct-Charge-Konto für Erstattung fehlt.");
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || !Number.isSafeInteger(expectedRefundedCents) || expectedRefundedCents < 0) {
+      throw new Error("Ungültiger Erstattungsbetrag.");
     }
+    const { payment, stripeAccount } = await refundContext(providerIntentId);
     await stripeClient().refunds.create({
       payment_intent: providerIntentId,
-      ...(tip ? { refund_application_fee: true } : {}),
+      amount: amountCents,
+      // Stripe gibt die Application Fee nie von selbst zurück. Mit diesem Schalter anteilig zum
+      // erstatteten Betrag – und vollständig, sobald die Zahlung ganz erstattet ist.
+      ...(stripeAccount ? { refund_application_fee: true } : {}),
+      metadata: { paymentId: payment.id, source: "lieferdank" },
     }, {
-      idempotencyKey: `full_refund_${payment.id}`,
-      ...(tip ? { stripeAccount: tip.destinationAccountId! } : {}),
+      // Pro gesehenem Erstattungsstand höchstens eine Erstattung: Mehrfachklick und Wiederholung
+      // liefern bei Stripe dieselbe Erstattung, ein zweiter Auftrag mit anderem Betrag zum selben
+      // Stand wird von Stripe abgewiesen. Der Schlüssel enthält deshalb bewusst keinen Betrag.
+      idempotencyKey: `ld_refund_${payment.id}_from_${expectedRefundedCents}`,
+      ...(stripeAccount ? { stripeAccount } : {}),
+    });
+  },
+
+  async refundState(providerIntentId) {
+    const { stripeAccount } = await refundContext(providerIntentId);
+    const intent = await stripeClient().paymentIntents.retrieve(
+      providerIntentId, { expand: ["latest_charge"] }, stripeAccount ? { stripeAccount } : {},
+    );
+    const charge = intent.latest_charge;
+    if (!charge || typeof charge === "string") throw new Error("Stripe hat zur Zahlung keine Buchung geliefert.");
+    const feeReference = typeof charge.application_fee === "string" ? charge.application_fee : charge.application_fee?.id ?? null;
+    // Die Gebühr liegt auf dem Plattformkonto, nicht auf dem Konto des Lieferanten. Sie wird nach
+    // der Buchung gelesen: Ihr Rückgabestand ist damit mindestens so aktuell wie die Erstattung.
+    const fee = feeReference ? await stripeClient().applicationFees.retrieve(feeReference) : null;
+    return {
+      amountCents: charge.amount,
+      refundedCents: charge.amount_refunded,
+      feeCents: fee?.amount ?? charge.application_fee_amount ?? 0,
+      feeRefundedCents: fee?.amount_refunded ?? 0,
+      feeReference,
+      disputed: charge.disputed === true,
+    };
+  },
+
+  async refundPlatformFee({ paymentId, feeReference, amountCents, alreadyRefundedCents }) {
+    assertKeyMatchesEnvironment();
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || !Number.isSafeInteger(alreadyRefundedCents) || alreadyRefundedCents < 0) {
+      throw new Error("Ungültiger Gebührenbetrag.");
+    }
+    await stripeClient().applicationFees.createRefund(feeReference, {
+      amount: amountCents,
+      metadata: { paymentId, source: "lieferdank" },
+    }, {
+      // Der Schlüssel hängt am zuvor gelesenen Rückgabestand. Zwei gleichzeitige Abgleiche lesen
+      // denselben Stand: Stripe führt dann genau eine Rückgabe aus und weist die andere ab.
+      // Nach jeder Rückgabe ist der Stand ein anderer – der Schlüssel wiederholt sich nie.
+      idempotencyKey: `ld_fee_refund_${paymentId}_from_${alreadyRefundedCents}`,
     });
   },
 

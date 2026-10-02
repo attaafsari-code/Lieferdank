@@ -163,6 +163,8 @@ function addTip(driver, grossCents, createdAt, customerId = null) {
     paymentProviderFeeCents,
     payoutFeeCents: 0,
     platformNetRevenueCents: platformGrossFeeCents - paymentProviderFeeCents,
+    refundedCents: 0,
+    feeRefundedCents: 0,
     currency: "EUR",
     paymentStatus: "succeeded",
     payoutStatus: "in_balance",

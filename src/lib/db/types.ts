@@ -135,6 +135,10 @@ export type Tip = {
   /** Historische DB-Spalte; neue Direct Charges tragen hier 0. */
   payoutFeeCents: number;
   platformNetRevenueCents: number;
+  /** Bisher an den Kunden erstattet (kumulativ, laut Stripe). */
+  refundedCents: number;
+  /** Bisher von Lieferdank zurückgegebene Gebühr (kumulativ, laut Stripe). */
+  feeRefundedCents: number;
   currency: string;
   /** Spiegel von Payment.status für schnelle Auswertungen. */
   paymentStatus: PaymentStatus;

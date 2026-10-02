@@ -80,7 +80,7 @@ describe("Produktions-Health-Check", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
-  it("meldet ohne die Spalte für den versionierten Stripe-Abgleich keine Bereitschaft", async () => {
+  it("meldet ohne eine der Spalten der letzten Migrationen keine Bereitschaft", async () => {
     vi.stubEnv("VERCEL_ENV", "production");
     vi.stubEnv("LIEFERDANK_DB", "supabase");
     vi.stubEnv("SUPABASE_URL", "https://project.supabase.co");
@@ -91,18 +91,21 @@ describe("Produktions-Health-Check", () => {
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "local-test-value");
     vi.stubEnv("STRIPE_CONNECT_WEBHOOK_SECRET", "local-test-connect-value");
     vi.stubEnv("RESEND_API_KEY", "local-test-value");
-    // Nur driver_profiles.payout_sync_version fehlt (Migration 20261002 nicht ausgeführt oder für die API noch unsichtbar).
-    const checked: string[] = [];
-    const client = (missing: string | null) => ({ from: (table: string) => ({ select: (column: string) => ({ limit: async () => {
+    // Jeweils genau eine Migration fehlt (nicht ausgeführt oder für die API noch unsichtbar).
+    const columns = ["driver_profiles.payout_sync_version", "payments.refunded_amount_cents", "tips.refunded_cents, fee_refunded_cents"];
+    const client = (missing: string | null, checked: string[] = []) => ({ from: (table: string) => ({ select: (column: string) => ({ limit: async () => {
       checked.push(`${table}.${column}`);
       return { error: `${table}.${column}` === missing ? { message: "column does not exist" } : null };
     } }) }) }) as never;
-    vi.mocked(supabaseClient).mockReturnValueOnce(client("driver_profiles.payout_sync_version"));
-    const response = await GET();
-    expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ ok: false, database: "migration_required", payments: "stripe" });
-    expect(checked.sort()).toEqual(["driver_profiles.payout_sync_version", "payments.refunded_amount_cents"]);
-    // Sind beide Spalten erreichbar, ist der Stand bereit.
+    for (const missing of columns) {
+      const checked: string[] = [];
+      vi.mocked(supabaseClient).mockReturnValueOnce(client(missing, checked));
+      const response = await GET();
+      expect(response.status, missing).toBe(503);
+      expect(await response.json()).toMatchObject({ ok: false, database: "migration_required", payments: "stripe" });
+      expect(checked.sort()).toEqual(columns);
+    }
+    // Sind alle Spalten erreichbar, ist der Stand bereit.
     vi.mocked(supabaseClient).mockReturnValueOnce(client(null));
     const ready = await GET();
     expect(ready.status).toBe(200);

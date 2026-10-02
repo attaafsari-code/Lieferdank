@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { searchUsers } from "@/server/services/admin";
 import { driverPublicName } from "@/server/services/drivers";
 import { formatDateTime, formatEuro } from "@/lib/format";
+import { effectiveTip } from "@/lib/money";
 import { AdminTitle, Badge, Empty } from "../ui";
 import { BadgeReview, UserControls } from "../admin-controls";
 
@@ -28,7 +29,7 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
   ]);
 
   const balance = new Map<string, number>();
-  for (const tip of tips) balance.set(tip.driverId, (balance.get(tip.driverId) ?? 0) + tip.driverCents);
+  for (const tip of tips) balance.set(tip.driverId, (balance.get(tip.driverId) ?? 0) + effectiveTip(tip).driverCents);
   const notes = new Map(verifications.map((v) => [v.userId, v]));
 
   const filtered = results.filter(({ user, driver }) => {

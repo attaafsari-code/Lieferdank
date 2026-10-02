@@ -147,6 +147,8 @@ export async function startTip(
     paymentId,
     customerId,
     ...split,
+    refundedCents: 0,
+    feeRefundedCents: 0,
     currency: CURRENCY,
     paymentStatus: "pending",
     payoutStatus: "pending",

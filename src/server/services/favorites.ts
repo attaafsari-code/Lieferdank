@@ -2,6 +2,7 @@ import "server-only";
 import { getDb } from "@/lib/db";
 import type { DriverFavorite } from "@/lib/db/types";
 import { newId, normalizeCode } from "@/lib/id";
+import { effectiveTip } from "@/lib/money";
 import { ServiceError, notFound } from "../errors";
 import { toPublicDriver, type PublicDriver } from "./drivers";
 
@@ -86,7 +87,8 @@ export async function customerHistory(customerId: string) {
 
   return {
     thankYous: thankYous.map((t) => ({ ...t, driver: drivers.get(t.driverId) ?? null })),
-    totalTipCents: tips.reduce((sum, tip) => sum + tip.grossCents, 0),
+    // Erstattete Beträge hat der Kunde zurückbekommen.
+    totalTipCents: tips.reduce((sum, tip) => sum + effectiveTip(tip).grossCents, 0),
     tipCount: tips.length,
   };
 }

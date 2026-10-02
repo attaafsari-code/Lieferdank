@@ -37,7 +37,8 @@ const KEYS: { [K in TableName]: Keys<Tables[K]> } = {
   },
   tips: {
     id: true, driverId: true, paymentId: true, customerId: true, grossCents: true, driverCents: true, platformGrossFeeCents: true,
-    paymentProviderFeeCents: true, payoutFeeCents: true, platformNetRevenueCents: true, currency: true, paymentStatus: true,
+    paymentProviderFeeCents: true, payoutFeeCents: true, platformNetRevenueCents: true, refundedCents: true, feeRefundedCents: true,
+    currency: true, paymentStatus: true,
     payoutStatus: true, payoutId: true, destinationAccountId: true, createdAt: true,
   },
   thankYous: { id: true, driverId: true, tipId: true, customerId: true, freeDay: true, visitorHash: true, presetId: true, message: true, createdAt: true },

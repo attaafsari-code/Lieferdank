@@ -1,6 +1,7 @@
 import "server-only";
 import { getDb } from "@/lib/db";
 import { newId } from "@/lib/id";
+import { effectiveTip } from "@/lib/money";
 import { reachedMilestones } from "@/lib/milestone-rules";
 import { computeStreak } from "./stats";
 
@@ -17,7 +18,7 @@ export async function refreshMilestones(driverId: string): Promise<void> {
     thankYouCount: thankYous.length,
     streakDays: computeStreak(thankYous.map((t) => t.createdAt)),
     tipCount: tips.length,
-    receivedCents: tips.reduce((sum, tip) => sum + tip.driverCents, 0),
+    receivedCents: tips.reduce((sum, tip) => sum + effectiveTip(tip).driverCents, 0),
   });
 
   const has = new Set(existing.map((m) => `${m.type}:${m.value}`));

@@ -4,6 +4,7 @@ import { getDriverStats } from "@/server/services/stats";
 import { cardContext } from "@/server/services/cards";
 import { isDemoPayment } from "@/server/payments";
 import { formatDateTime, formatEuro } from "@/lib/format";
+import { effectiveTip } from "@/lib/money";
 import { dativeName } from "@/lib/names";
 import { ArrowRight, Check, Euro, Heart } from "@/components/icons";
 import { CardPreview } from "@/components/card-preview";
@@ -187,7 +188,7 @@ export default async function DashboardPage({
             {stats.recentTips.slice(0, 4).map((tip) => (
               <li key={tip.id} className="flex items-center justify-between gap-4 px-5 py-3.5">
                 <span className="text-sm text-ink-soft">{formatDateTime(tip.createdAt)}</span>
-                <span className="font-bold text-ink">+ {formatEuro(tip.driverCents)}</span>
+                <span className="font-bold text-ink">+ {formatEuro(effectiveTip(tip).driverCents)}</span>
               </li>
             ))}
           </ul>

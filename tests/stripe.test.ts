@@ -85,7 +85,7 @@ describe("Stripe Direct Charges", () => {
         profileUrl: "https://lieferdank.de/danke/LD-ABCDE" })).rejects.toThrow(/Deployment-Umgebung/);
       await expect(stripePaymentProvider.onboardDriver({ accountId: "acct_driver", driverId: "driver-id",
         returnUrl: "https://lieferdank.de", refreshUrl: "https://lieferdank.de" })).rejects.toThrow(/Deployment-Umgebung/);
-      await expect(stripePaymentProvider.refundPayment("pi_live")).rejects.toThrow(/Deployment-Umgebung/);
+      await expect(stripePaymentProvider.refundPayment({ providerIntentId: "pi_live", amountCents: 300, expectedRefundedCents: 0 })).rejects.toThrow(/Deployment-Umgebung/);
     }
     expect(accounts).not.toHaveBeenCalled();
     expect(retrieve).not.toHaveBeenCalled();
@@ -580,10 +580,10 @@ describe("Stripe Direct Charges", () => {
     await getDb().tips.update(tipId, { destinationAccountId: "acct_driver" });
     await confirmPayment(paymentId, { providerIntentId: "pi_direct" });
     const refund = vi.spyOn(stripeClient().refunds, "create").mockResolvedValue({ id: "re_1" } as Stripe.Response<Stripe.Refund>);
-    await stripePaymentProvider.refundPayment("pi_direct");
+    await stripePaymentProvider.refundPayment({ providerIntentId: "pi_direct", amountCents: 300, expectedRefundedCents: 0 });
     expect(refund).toHaveBeenCalledWith(
-      { payment_intent: "pi_direct", refund_application_fee: true },
-      { idempotencyKey: `full_refund_${paymentId}`, stripeAccount: "acct_driver" },
+      { payment_intent: "pi_direct", amount: 300, refund_application_fee: true, metadata: { paymentId, source: "lieferdank" } },
+      { idempotencyKey: `ld_refund_${paymentId}_from_0`, stripeAccount: "acct_driver" },
     );
   });
 });

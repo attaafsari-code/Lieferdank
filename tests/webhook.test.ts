@@ -7,6 +7,7 @@ import { getDriverStats } from "@/server/services/stats";
 import { stripeClient } from "@/server/payments/stripe";
 import { refreshPayoutReadiness } from "@/server/services/payouts";
 import { freshDb, makeDriver } from "./helpers";
+import { stripeRefundFake } from "./stripe-refund-fake";
 
 const PLATFORM_SECRET = "whsec_test_platform";
 const CONNECT_SECRET = "whsec_test_connect";
@@ -134,32 +135,47 @@ describe("Connect-Webhook für Direct Charges", () => {
     expect(retrieve).toHaveBeenCalledWith(`pi_${paymentId}`, {}, { stripeAccount: "acct_driver" });
   });
 
-  it("setzt vollständigen Refund vor Checkout-Erfolg in Prüfung und schreibt nie erneut gut", async () => {
+  it("verbucht vollständigen Refund vor Checkout-Erfolg als erstattet, gibt die Gebühr zurück und schreibt nie gut", async () => {
     const { driver, paymentId, tipId, event } = await directTip();
-    vi.spyOn(stripeClient().paymentIntents, "retrieve").mockResolvedValue({ id: `pi_${paymentId}`,
-      metadata: { paymentId, purpose: "tip", referenceId: tipId } } as unknown as Stripe.Response<Stripe.PaymentIntent>);
-    const refund = { id: "evt_refund", account: "acct_driver", type: "charge.refunded", data: { object: {
-      id: "ch_1", payment_intent: `pi_${paymentId}`, amount: 300, amount_refunded: 300, currency: "eur",
-    } } };
+    const intent = `pi_${paymentId}`;
+    const stripe = stripeRefundFake();
+    stripe.addCharge({ intentId: intent, account: "acct_driver", amount: 300, fee: 60, metadata: { paymentId, purpose: "tip", referenceId: tipId } });
+    const { feeRefund } = stripe.install();
+    // Der Zusteller erstattet im eigenen Stripe-Dashboard – Stripe gibt die Gebühr dabei nicht zurück.
+    stripe.externalRefund(intent, 300);
+    const refund = stripe.refundEvent(intent, "evt_refund");
     expect((await POST(signed(refund))).status).toBe(200);
     expect((await POST(signed(event))).status).toBe(200);
     expect((await POST(signed(refund))).status).toBe(200);
-    expect((await getDriverStats(driver.id)).driverShareBeforeStripeCents).toBe(0);
-    expect((await getDb().payments.get(paymentId))?.refundedAmountCents).toBe(300);
-    expect((await getDb().payments.get(paymentId))?.status).toBe("review_required");
+    expect(feeRefund).toHaveBeenCalledTimes(1);
+    expect(stripe.executed.feeRefunds).toEqual([{ intentId: intent, amount: 60 }]);
+    const stats = await getDriverStats(driver.id);
+    expect(stats.driverShareBeforeStripeCents).toBe(0);
+    expect(stats.total.thanks).toBe(0);
+    expect(await getDb().payments.get(paymentId)).toMatchObject({ status: "refunded", refundedAmountCents: 300, providerIntentId: intent });
+    expect(await getDb().tips.get(tipId)).toMatchObject({ paymentStatus: "refunded", refundedCents: 300, feeRefundedCents: 60 });
+    expect(stripe.balances(intent)).toEqual({ customerRefunded: 300, driver: 0, lieferdank: 0 });
   });
 
-  it("behandelt Teilrefund kumulativ und monoton", async () => {
-    const { paymentId, tipId, event } = await directTip();
-    await POST(signed(event));
-    vi.spyOn(stripeClient().paymentIntents, "retrieve").mockResolvedValue({ id: `pi_${paymentId}`,
-      metadata: { paymentId, purpose: "tip", referenceId: tipId } } as unknown as Stripe.Response<Stripe.PaymentIntent>);
-    for (const amount_refunded of [100, 200, 100, 200]) {
-      const refund = { id: `evt_refund_${amount_refunded}`, account: "acct_driver", type: "charge.refunded",
-        data: { object: { id: "ch_1", payment_intent: `pi_${paymentId}`, amount: 300, amount_refunded, currency: "eur" } } };
-      expect((await POST(signed(refund))).status).toBe(200);
-    }
-    expect((await getDb().payments.get(paymentId))?.refundedAmountCents).toBe(200);
+  it("behandelt Teilrefunds kumulativ und monoton – auch doppelt und in falscher Reihenfolge zugestellt", async () => {
+    const { driver, paymentId, tipId, event } = await directTip();
+    const intent = `pi_${paymentId}`;
+    const stripe = stripeRefundFake();
+    stripe.addCharge({ intentId: intent, account: "acct_driver", amount: 300, fee: 60, metadata: { paymentId, purpose: "tip", referenceId: tipId } });
+    stripe.install();
+    expect((await POST(signed(event))).status).toBe(200);
+    stripe.externalRefund(intent, 100);
+    const older = stripe.refundEvent(intent);
+    stripe.externalRefund(intent, 100);
+    const newer = stripe.refundEvent(intent);
+    // Das jüngere Ereignis kommt zuerst, das ältere (Snapshot 100) danach – und beide doppelt.
+    for (const refund of [newer, older, newer, older]) expect((await POST(signed(refund))).status).toBe(200);
+    expect(await getDb().tips.get(tipId)).toMatchObject({ paymentStatus: "succeeded", refundedCents: 200, feeRefundedCents: 40 });
+    expect(await getDb().payments.get(paymentId)).toMatchObject({ status: "succeeded", refundedAmountCents: 200 });
+    // 200 von 300 erstattet → 40 der 60 Cent Gebühr zurück, genau einmal.
+    expect(stripe.executed.feeRefunds).toEqual([{ intentId: intent, amount: 40 }]);
+    expect(stripe.balances(intent)).toEqual({ customerRefunded: 200, driver: 80, lieferdank: 20 });
+    expect((await getDriverStats(driver.id)).driverShareBeforeStripeCents).toBe(80);
   });
 
   it("markiert Dispute und ignoriert fremde Disputes", async () => {

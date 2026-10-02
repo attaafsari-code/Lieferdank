@@ -139,6 +139,8 @@ create table if not exists public.tips (
   payment_provider_fee_cents  integer not null default 0 check (payment_provider_fee_cents >= 0),
   payout_fee_cents            integer not null default 0 check (payout_fee_cents >= 0),
   platform_net_revenue_cents  integer not null default 0,
+  refunded_cents              integer not null default 0,
+  fee_refunded_cents          integer not null default 0,
   currency                    text not null default 'EUR' check (currency = 'EUR'),
   payment_status              text not null default 'pending'
                                 check (payment_status in ('pending', 'succeeded', 'failed', 'refunded', 'review_required')),
@@ -149,6 +151,11 @@ create table if not exists public.tips (
   created_at                  timestamptz not null default now(),
   -- Der Kunde zahlt exakt den Bruttobetrag: Anteil + Gebühr müssen aufgehen.
   constraint tips_split_consistent check (driver_cents + platform_gross_fee_cents = gross_cents),
+  -- Erstattet werden kann höchstens der gezahlte Betrag, zurückgegeben höchstens die Gebühr.
+  constraint tips_refund_bounds check (
+    refunded_cents >= 0 and refunded_cents <= gross_cents and
+    fee_refunded_cents >= 0 and fee_refunded_cents <= platform_gross_fee_cents
+  ),
   constraint tips_direct_charge_model check (
     destination_account_id is not null and
     ((gross_cents = 200 and platform_gross_fee_cents = 50 and driver_cents = 150) or

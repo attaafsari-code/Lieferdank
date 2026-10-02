@@ -1,6 +1,7 @@
 import "server-only";
 import { getDb } from "@/lib/db";
 import type { Milestone, ThankYou, Tip } from "@/lib/db/types";
+import { effectiveTip } from "@/lib/money";
 import { currentWeekKeys, dayKey, monthKey, previousDayKey, startOfTodayIso } from "@/lib/time";
 
 export type Period = { thanks: number; tipCount: number; driverCents: number };
@@ -29,7 +30,8 @@ function summarize(tips: Tip[], thankYous: ThankYou[]): Period {
   return {
     thanks: thankYous.length,
     tipCount: tips.length,
-    driverCents: tips.reduce((sum, tip) => sum + tip.driverCents, 0),
+    // Nach Erstattungen zählt nur, was dem Zusteller tatsächlich bleibt.
+    driverCents: tips.reduce((sum, tip) => sum + effectiveTip(tip).driverCents, 0),
   };
 }
 
@@ -72,8 +74,8 @@ export async function getDriverStats(driverId: string): Promise<DriverStats> {
     month: summarize(inMonth(tips), inMonth(thankYous)),
     total: summarize(tips, thankYous),
     freeThankYouTotal: thankYous.filter((thankYou) => !thankYou.tipId).length,
-    driverShareBeforeStripeCents: tips.reduce((s, t) => s + t.driverCents, 0),
-    inReviewCents: allTips.filter((t) => t.paymentStatus === "review_required").reduce((s, t) => s + t.driverCents, 0),
+    driverShareBeforeStripeCents: tips.reduce((s, t) => s + effectiveTip(t).driverCents, 0),
+    inReviewCents: allTips.filter((t) => t.paymentStatus === "review_required").reduce((s, t) => s + effectiveTip(t).driverCents, 0),
     streakDays: computeStreak(thankYous.map((t) => t.createdAt)),
     recentThankYous: newestFirst(thankYous).slice(0, 30),
     recentTips: newestFirst(tips).slice(0, 30),
@@ -117,14 +119,15 @@ export async function getPlatformStats(scope: "today" | "all" = "all"): Promise<
     ]);
 
   const sum = (pick: (tip: Tip) => number) => tips.reduce((total, tip) => total + pick(tip), 0);
-  const gross = sum((t) => t.grossCents);
-  const net = sum((t) => t.platformNetRevenueCents);
+  // Teilweise erstattete Trinkgelder zählen mit dem, was bleibt; vollständig erstattete gar nicht.
+  const gross = sum((t) => effectiveTip(t).grossCents);
+  const net = sum((t) => effectiveTip(t).platformFeeCents - t.paymentProviderFeeCents);
 
   return {
     grossTipVolumeCents: gross,
     tipCount: tips.length,
     averageTipCents: tips.length ? Math.round(gross / tips.length) : 0,
-    grossPlatformFeeCents: sum((t) => t.platformGrossFeeCents),
+    grossPlatformFeeCents: sum((t) => effectiveTip(t).platformFeeCents),
     paymentFeeCents: sum((t) => t.paymentProviderFeeCents),
     payoutFeeCents: sum((t) => t.payoutFeeCents),
     netRevenueCents: net,
