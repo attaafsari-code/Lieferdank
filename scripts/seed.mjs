@@ -100,6 +100,7 @@ function addDriver(user, options) {
     active: true,
     payoutAccountId: options.payoutReady ? `demo_acct_${user.id.slice(0, 8)}` : null,
     payoutReady: options.payoutReady ?? false,
+    payoutSyncVersion: 0,
     notifyOnTip: true,
     createdAt,
     updatedAt: createdAt,

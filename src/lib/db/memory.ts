@@ -29,6 +29,8 @@ function load(): Database {
       // Beschädigte Datei: mit leerem Bestand starten statt abzustürzen.
     }
   }
+  // Ältere lokale Dateien kennen die Spalte noch nicht; Postgres füllt sie per Default mit 0.
+  for (const driver of db.driverProfiles) driver.payoutSyncVersion ??= 0;
   g.__lieferdankDb = db;
   return db;
 }

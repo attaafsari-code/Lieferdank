@@ -20,6 +20,10 @@ export default function TermsPage() {
           („Empfänger“) und durch Kundinnen und Kunden, die ein Danke oder ein Trinkgeld
           senden („Sender“).
         </p>
+        <p>
+          Anbieter der Plattform ist Atta Afsari Gargari, Dürkheimerstraße 2, 76187 Karlsruhe,
+          Deutschland (E-Mail: <a href="mailto:info@lieferdank.de">info@lieferdank.de</a>).
+        </p>
 
         <h2>2. Leistung von Lieferdank</h2>
         <p>
@@ -62,12 +66,13 @@ export default function TermsPage() {
           sperren, Codes neu vergeben und die Annahme neuer Trinkgelder unterbinden.
         </p>
 
-        <h2>7. Rückerstattungen</h2>
+        <h2 id="rueckerstattungen" className="scroll-mt-24">7. Rückerstattungen</h2>
         <p>
-          Ein Trinkgeld ist eine freiwillige Zuwendung. Bei irrtümlichen oder betrügerischen
-          Zahlungen wende dich bitte innerhalb von [X] Tagen an [kontakt@lieferdank.de]. Die
-          Behandlung von Rückbuchungen richtet sich zusätzlich nach den Bedingungen des
-          Zahlungsdienstleisters.
+          Ein Trinkgeld ist eine freiwillige Zuwendung. Bei einer irrtümlichen oder betrügerischen
+          Zahlung wende dich bitte unverzüglich an{" "}
+          <a href="mailto:info@lieferdank.de">info@lieferdank.de</a>. Wir prüfen den konkreten
+          Erstattungsfall. Die Behandlung von Rückbuchungen richtet sich zusätzlich nach den
+          Bedingungen des Zahlungsdienstleisters.
         </p>
 
         <h2>8. Pflichten der Zusteller</h2>

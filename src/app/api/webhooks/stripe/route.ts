@@ -3,7 +3,8 @@ import type Stripe from "stripe";
 import { getDb } from "@/lib/db";
 import { confirmPayment, failPayment, markDisputed, markRefunded } from "@/server/services/thanks";
 import { errorMessage, logEvent } from "@/server/events";
-import { stripeAccountReady } from "@/server/payments/stripe";
+import { stripeAccountCompatible, stripeAccountReady } from "@/server/payments/stripe";
+import { syncPayoutReadiness } from "@/server/services/payouts";
 import type { Payment } from "@/lib/db/types";
 import { isUuid } from "@/lib/id";
 import { splitTip } from "@/lib/money";
@@ -120,6 +121,18 @@ async function paymentIntentForEvent(intent: string, event: Stripe.Event): Promi
     await logEvent("warning", "stripe-webhook", "Unbekannter PaymentIntent ignoriert", { eventId: event.id, type: event.type });
     return null;
   }
+}
+
+/**
+ * Liest den aktuellen Kontostand bei Stripe. Jeder Fehler wirft – auch 403, account_invalid
+ * oder resource_missing: Kein Stripe-Fehler beweist, dass das Konto dauerhaft fehlt (ein
+ * falscher Schlüssel sähe genauso aus). Der gespeicherte Stand bleibt dann unverändert und
+ * Stripe stellt das Ereignis erneut zu.
+ */
+async function currentAccountReadiness(accountId: string, driverId: string): Promise<boolean> {
+  const { stripeClient } = await import("@/server/payments/stripe");
+  const current = await stripeClient().accounts.retrieve(accountId);
+  return stripeAccountReady(current) && stripeAccountCompatible(current, driverId);
 }
 
 async function handle(event: Stripe.Event): Promise<void> {
@@ -239,10 +252,10 @@ async function handle(event: Stripe.Event): Promise<void> {
       if (isUuid(driverId)) {
         const driver = await getDb().driverProfiles.get(driverId);
         if (driver?.payoutAccountId === account.id) {
-          await getDb().driverProfiles.update(driverId, {
-            payoutReady: stripeAccountReady(account),
-            updatedAt: new Date().toISOString(),
-          });
+          // Stripe garantiert keine Reihenfolge: der Snapshot im Ereignis kann älter sein
+          // als der gespeicherte Stand. Das Ereignis ist nur der Anlass, den Live-Status zu lesen –
+          // und parallel laufende Ereignisse dürfen einander nicht mit Älterem überschreiben.
+          await syncPayoutReadiness(driverId, () => currentAccountReadiness(account.id, driverId));
         }
       }
       return;

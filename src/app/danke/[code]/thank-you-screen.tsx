@@ -155,18 +155,25 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
           </section>
         )}
 
-        <footer className="mt-auto pt-10 text-center text-xs text-ink-faint">
-          <Link href="/" className="transition hover:text-brand">
-            Was ist Lieferdank?
-          </Link>
-          <span className="mx-2">·</span>
-          <Link href="/legal/datenschutz" className="transition hover:text-brand">
-            Datenschutz
-          </Link>
-          <span className="mx-2">·</span>
-          <Link href="/legal/impressum" className="transition hover:text-brand">
-            Impressum
-          </Link>
+        {/* Diese Seite ist die bei Stripe hinterlegte Website des Lieferanten: Anbieter, Kontakt und Bedingungen müssen von hier erreichbar sein. */}
+        <footer className="mt-auto pt-10 text-xs text-ink-faint">
+          <nav aria-label="Rechtliches und Kontakt" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+            <Link href="/" className="transition hover:text-brand">
+              Was ist Lieferdank?
+            </Link>
+            <Link href="/legal/agb" className="transition hover:text-brand">
+              AGB
+            </Link>
+            <Link href="/legal/agb#rueckerstattungen" className="transition hover:text-brand">
+              Erstattungen
+            </Link>
+            <Link href="/legal/datenschutz" className="transition hover:text-brand">
+              Datenschutz
+            </Link>
+            <Link href="/legal/impressum" className="transition hover:text-brand">
+              Impressum &amp; Kontakt
+            </Link>
+          </nav>
         </footer>
       </div>
     </div>

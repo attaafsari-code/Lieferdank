@@ -44,6 +44,10 @@ Keine Secrets im Repo: `.env*` (außer `.env.example`), `data/`, `.claude/` und 
    im SQL Editor ausführen. Beide Migrationen sind transaktional. Vorhandene
    `pending`-Auszahlungen vor dem Release mit Stripe manuell abgleichen; die App
    startet keine eigenen Transfers mehr.
+   Vor dem Deployment der Version mit versioniertem Stripe-Abgleich zusätzlich
+   [`supabase/migrations/20261002_payout_sync_version.sql`](supabase/migrations/20261002_payout_sync_version.sql)
+   ausführen (rein additiv, mit der bisherigen Version verträglich). Ohne die Spalte
+   schlagen Registrierung und Kontoabgleich der neuen Version fehl.
 3. **Project Settings → API** notieren:
    - `Project URL` → `SUPABASE_URL`
    - `service_role` Secret → `SUPABASE_SERVICE_ROLE_KEY`

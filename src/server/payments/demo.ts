@@ -35,4 +35,7 @@ export const demoPaymentProvider: PaymentProvider = {
   async isAccountReady() {
     return true;
   },
+  async payoutInterval() {
+    return "automatic";
+  },
 };

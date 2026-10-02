@@ -1,5 +1,4 @@
 import { PageHeader, Prose } from "@/components/page-shell";
-import { DraftNotice } from "@/components/legal-notice";
 
 export const metadata = {
   title: "Impressum",
@@ -12,40 +11,24 @@ export default function ImprintPage() {
     <>
       <PageHeader title="Impressum" />
       <Prose>
-        <DraftNotice />
-
         <h2>Angaben gemäß § 5 DDG</h2>
         <p>
-          [Firmenname]
+          Atta Afsari Gargari
           <br />
-          [Straße und Hausnummer]
+          Dürkheimerstraße 2
           <br />
-          [PLZ Ort]
+          76187 Karlsruhe
           <br />
           Deutschland
         </p>
 
-        <h2>Vertreten durch</h2>
-        <p>[Vor- und Nachname der vertretungsberechtigten Person]</p>
-
         <h2>Kontakt</h2>
         <p>
-          E-Mail: [kontakt@lieferdank.de]
-          <br />
-          Telefon: [Telefonnummer]
+          E-Mail: <a href="mailto:info@lieferdank.de">info@lieferdank.de</a>
         </p>
-
-        <h2>Registereintrag</h2>
-        <p>
-          [Registergericht, Registernummer – entfällt bei Einzelunternehmen ohne
-          Handelsregistereintrag]
-        </p>
-
-        <h2>Umsatzsteuer-Identifikationsnummer</h2>
-        <p>[USt-IdNr. gemäß § 27 a UStG, sofern vorhanden]</p>
 
         <h2>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h2>
-        <p>[Name, Anschrift]</p>
+        <p>Atta Afsari Gargari, Anschrift wie oben</p>
 
         <h2>Verbraucherstreitbeilegung</h2>
         <p>

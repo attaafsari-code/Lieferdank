@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireDriver } from "@/server/guards";
 import { getDriverStats } from "@/server/services/stats";
 import { cardContext } from "@/server/services/cards";
+import { isDemoPayment } from "@/server/payments";
 import { formatDateTime, formatEuro } from "@/lib/format";
 import { dativeName } from "@/lib/names";
 import { ArrowRight, Check, Euro, Heart } from "@/components/icons";
@@ -57,7 +58,7 @@ export default async function DashboardPage({
             Stripe ist unser Zahlungs- und Auszahlungspartner. Du brauchst noch kein Stripe-Konto. Die Einrichtung erfolgt im nächsten Schritt direkt bei Stripe.
           </p>
           <div className="mt-4 max-w-sm">
-            <PayoutSetup hasAccount={Boolean(driver.payoutAccountId)} ready={false} buttonLabel="Auszahlung einrichten" />
+            <PayoutSetup hasAccount={Boolean(driver.payoutAccountId)} ready={false} buttonLabel="Auszahlung einrichten" hints={!isDemoPayment()} />
           </div>
         </aside>
       )}

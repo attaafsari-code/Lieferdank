@@ -50,6 +50,7 @@ create table if not exists public.driver_profiles (
   active             boolean not null default true,
   payout_account_id  text,
   payout_ready       boolean not null default false,
+  payout_sync_version integer not null default 0 check (payout_sync_version >= 0),
   notify_on_tip      boolean not null default true,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()

@@ -22,7 +22,17 @@ export default function PrivacyPage() {
         </p>
 
         <h2>Verantwortlicher</h2>
-        <p>[Firmenname, Anschrift, E-Mail – siehe Impressum]</p>
+        <p>
+          Atta Afsari Gargari
+          <br />
+          Dürkheimerstraße 2
+          <br />
+          76187 Karlsruhe
+          <br />
+          Deutschland
+          <br />
+          E-Mail: <a href="mailto:info@lieferdank.de">info@lieferdank.de</a>
+        </p>
 
         <h2>Welche Daten wir verarbeiten</h2>
         <h3>Kunden (Danke sagen und Trinkgeld)</h3>
@@ -33,14 +43,22 @@ export default function PrivacyPage() {
           <li>technische Zugriffsdaten (IP-Adresse) zur Abwehr von Missbrauch</li>
         </ul>
         <p>
-          Wir speichern keine Kundenprofile und ordnen einzelne Zahlungen keiner
+          Ohne Kundenkonto speichern wir kein Kundenprofil und ordnen einzelne Zahlungen keiner
           identifizierbaren Person zu.
         </p>
+
+        <h3>Kundenkonto (freiwillig)</h3>
+        <ul>
+          <li>E-Mail-Adresse, optional Vorname, Passwort (nur als Hash)</li>
+          <li>gespeicherte Lieblingslieferanten</li>
+          <li>Danke und Trinkgelder, die du angemeldet sendest, werden deinem Konto zugeordnet</li>
+        </ul>
 
         <h3>Zusteller</h3>
         <ul>
           <li>Name, E-Mail-Adresse, optional Telefonnummer</li>
           <li>Anzeigename, Zustelldienst und optional Stadt</li>
+          <li>optional Profilfoto und Profiltext</li>
           <li>Angaben zur Verifizierung der Zustellertätigkeit</li>
           <li>erhaltene Danke, Nachrichten und Trinkgeldbeträge</li>
           <li>Auszahlungsdaten ausschließlich beim Zahlungsdienstleister</li>
@@ -58,12 +76,34 @@ export default function PrivacyPage() {
 
         <h2>Empfänger</h2>
         <ul>
-          <li>Zahlungsdienstleister [Anbieter] für Zahlungsabwicklung und Auszahlungen</li>
-          <li>Hosting- und Datenbankdienstleister [Anbieter]</li>
+          <li>
+            Stripe (Stripe Payments Europe, Limited, Irland) als Zahlungsdienstleister für
+            Zahlungsabwicklung und Auszahlungen
+          </li>
+          <li>Vercel (Vercel Inc., USA) für das Hosting der Website</li>
+          <li>Supabase (Supabase Pte. Ltd., Singapur) für Datenbank und Dateispeicher (Profilfotos)</li>
+          <li>
+            Resend (Plus Five Five, Inc., USA) für den Versand von E-Mails, etwa Bestätigungen und
+            Passwort-Links
+          </li>
+          <li>IONOS (IONOS SE, Deutschland) für das E-Mail-Postfach, über das wir Anfragen beantworten</li>
         </ul>
         <p>
           Arbeitgeber und Zustelldienste erhalten keine personenbezogenen Auswertungen über
           einzelne Zusteller.
+        </p>
+
+        <h2>Übermittlung in Länder außerhalb der EU</h2>
+        <p>
+          Stripe, Vercel, Supabase und Resend haben ihren Sitz außerhalb der EU oder gehören zu
+          Unternehmensgruppen mit Sitz in den USA. Bei der Nutzung dieser Dienste können
+          personenbezogene Daten in Länder außerhalb der Europäischen Union übermittelt werden,
+          insbesondere in die USA.
+        </p>
+        <p>
+          Nach eigenen Angaben stützen diese Anbieter solche Übermittlungen auf die
+          Standardvertragsklauseln der EU-Kommission. Stripe, Vercel und Resend geben zusätzlich
+          an, am EU-U.S. Data Privacy Framework teilzunehmen.
         </p>
 
         <h2>Speicherdauer</h2>
@@ -77,13 +117,15 @@ export default function PrivacyPage() {
         <p>
           Auskunft, Berichtigung, Löschung, Einschränkung, Datenübertragbarkeit und
           Widerspruch. Zusteller können ihre Daten jederzeit im Profil als Datei exportieren
-          und ihr Konto selbst löschen. Es besteht ein Beschwerderecht bei einer
-          Datenschutzaufsichtsbehörde.
+          und ihr Konto selbst löschen. Für alle Anliegen genügt eine E-Mail an{" "}
+          <a href="mailto:info@lieferdank.de">info@lieferdank.de</a>. Es besteht ein
+          Beschwerderecht bei einer Datenschutzaufsichtsbehörde.
         </p>
 
         <h2>Cookies</h2>
         <p>
-          Wir setzen technisch notwendige Cookies für die Anmeldung von Zustellern und für die
+          Wir setzen technisch notwendige Cookies für die Anmeldung (Zusteller und freiwillige
+          Kundenkonten) und für die
           Begrenzung kostenloser Danksagungen auf einmal pro Zusteller und Tag. Das anonyme
           Besucher-Cookie enthält eine zufällige, signierte Kennung (Speicherdauer: 90 Tage).
           In der Datenbank speichern wir nur einen pro Zusteller und Tag abgeleiteten Hash,

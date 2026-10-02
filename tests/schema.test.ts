@@ -22,7 +22,7 @@ const KEYS: { [K in TableName]: Keys<Tables[K]> } = {
   driverProfiles: {
     id: true, userId: true, code: true, nameDisplay: true, customName: true, photoKey: true, photoPublic: true, providerId: true,
     providerPublic: true, tagline: true, bio: true, city: true, verification: true, providerVerified: true, active: true,
-    payoutAccountId: true, payoutReady: true, notifyOnTip: true, createdAt: true, updatedAt: true,
+    payoutAccountId: true, payoutReady: true, payoutSyncVersion: true, notifyOnTip: true, createdAt: true, updatedAt: true,
   },
   customerProfiles: { id: true, userId: true, createdAt: true },
   cardDesigns: { id: true, driverId: true, layout: true, headline: true, showPhoto: true, showProvider: true, updatedAt: true },

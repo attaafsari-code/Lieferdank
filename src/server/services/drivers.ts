@@ -98,6 +98,7 @@ export async function createDriverProfile(userId: string, now: string): Promise<
     active: true,
     payoutAccountId: null,
     payoutReady: false,
+    payoutSyncVersion: 0,
     notifyOnTip: true,
     createdAt: now,
     updatedAt: now,

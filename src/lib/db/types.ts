@@ -53,6 +53,11 @@ export type DriverProfile = {
   active: boolean;
   payoutAccountId: string | null;
   payoutReady: boolean;
+  /**
+   * Zählt jeden gespeicherten Stripe-Abgleich von payoutReady. Nur dafür da:
+   * ein paralleler, älterer Abgleich erkennt daran, dass er überholt wurde.
+   */
+  payoutSyncVersion: number;
   notifyOnTip: boolean;
   createdAt: string;
   updatedAt: string;

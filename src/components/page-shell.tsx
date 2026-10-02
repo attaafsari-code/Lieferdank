@@ -10,7 +10,7 @@ export function PageHeader({
   return (
     <div className="container-page max-w-3xl pt-16 pb-10 text-center sm:pt-20">
       {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-      <h1 className="mt-3 text-4xl font-extrabold text-brand-900 sm:text-5xl">{title}</h1>
+      <h1 className="mt-3 text-4xl font-extrabold break-words hyphens-auto text-brand-900 sm:text-5xl">{title}</h1>
       {lead && (
         <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-ink-soft">{lead}</p>
       )}
