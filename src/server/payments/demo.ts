@@ -35,6 +35,9 @@ export const demoPaymentProvider: PaymentProvider = {
   async isAccountReady() {
     return true;
   },
+  async isReplaceableLegacyAccount() {
+    return false;
+  },
   async payoutInterval() {
     return "automatic";
   },

@@ -40,8 +40,19 @@ export interface PaymentProvider {
   createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult>;
   refundPayment(providerIntentId: string): Promise<void>;
 
-  /** profileUrl: öffentliche Lieferdank-Seite des Lieferanten, Stripe schlägt sie als Website vor. */
-  createConnectedAccount(input: { email: string; driverId: string; profileUrl?: string | null }): Promise<string>;
+  /**
+   * profileUrl: öffentliche Lieferdank-Seite des Lieferanten, Stripe schlägt sie als Website vor.
+   * Name und Telefon stammen aus dem Lieferdank-Profil und ersparen dem Lieferanten Tipparbeit.
+   */
+  createConnectedAccount(input: {
+    email: string; driverId: string; profileUrl?: string | null;
+    firstName?: string | null; lastName?: string | null; phone?: string | null;
+  }): Promise<string>;
+  /**
+   * true nur für ein eigenes, noch unberührtes Konto aus der Zeit vor der Vorbelegung, das ohne
+   * Verlust durch ein vorbelegtes ersetzt werden darf. Im Zweifel false.
+   */
+  isReplaceableLegacyAccount(accountId: string, driverId: string): Promise<boolean>;
   onboardDriver(input: { accountId: string; driverId: string; returnUrl: string; refreshUrl: string }): Promise<OnboardingLink>;
   isAccountReady(accountId: string, driverId: string): Promise<boolean>;
   /** "manual": Stripe überweist das Guthaben nicht von selbst aufs Bankkonto. */

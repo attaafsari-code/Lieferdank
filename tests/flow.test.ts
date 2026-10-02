@@ -441,12 +441,156 @@ describe("Stripe-Onboarding", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("schlägt Stripe die eigene Lieferdank-Seite als Website vor", async () => {
+  it("übergibt Stripe für ein neues Konto die Profilseite und die Angaben aus dem Lieferdank-Profil", async () => {
     const { user, driver } = await makeDriver();
-    const create = vi.spyOn(getPaymentProvider(), "createConnectedAccount");
+    const provider = getPaymentProvider();
+    const create = vi.spyOn(provider, "createConnectedAccount");
+    const legacy = vi.spyOn(provider, "isReplaceableLegacyAccount");
     await startPayoutOnboarding(user, driver);
-    expect(create).toHaveBeenCalledWith({ email: user.email, driverId: driver.id, profileUrl: thankYouUrl(driver.code) });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledWith({
+      email: user.email, driverId: driver.id, profileUrl: thankYouUrl(driver.code),
+      firstName: "Max", lastName: "Müller", phone: "+49 170 0000000",
+    });
     expect(thankYouUrl(driver.code)).toMatch(new RegExp(`/danke/${driver.code}$`));
+    // Für ein frisch angelegtes Konto gibt es nichts zu ersetzen.
+    expect(legacy).not.toHaveBeenCalled();
+  });
+
+  describe("unberührtes Altkonto", () => {
+    async function driverWithOldAccount() {
+      const { user, driver } = await makeDriver();
+      await getDb().driverProfiles.update(driver.id, { payoutAccountId: "acct_alt" });
+      const provider = getPaymentProvider();
+      return {
+        user, driverId: driver.id,
+        stored: (await getDb().driverProfiles.get(driver.id))!,
+        current: async () => (await getDb().driverProfiles.get(driver.id))!,
+        ready: vi.spyOn(provider, "isAccountReady").mockResolvedValue(false),
+        legacy: vi.spyOn(provider, "isReplaceableLegacyAccount").mockResolvedValue(true),
+        create: vi.spyOn(provider, "createConnectedAccount").mockResolvedValue("acct_neu"),
+        onboard: vi.spyOn(provider, "onboardDriver"),
+        events: () => getDb().systemEvents.findMany({ where: { source: "stripe-connect" } }),
+      };
+    }
+
+    it("wird beim nächsten Klick durch ein vorbelegtes Konto ersetzt – genau einmal", async () => {
+      const t = await driverWithOldAccount();
+      expect(await startPayoutOnboarding(t.user, t.stored)).toMatch(/demo_onboarding=ok$/);
+      expect(t.legacy).toHaveBeenCalledWith("acct_alt", t.driverId);
+      expect(t.create).toHaveBeenCalledTimes(1);
+      expect(t.create).toHaveBeenCalledWith(expect.objectContaining({ driverId: t.driverId, firstName: "Max", lastName: "Müller", email: t.user.email }));
+      expect(await t.current()).toMatchObject({ payoutAccountId: "acct_neu", payoutReady: false });
+      // Das Onboarding läuft im neuen Konto, das alte wird nicht mehr angefasst.
+      expect(t.onboard).toHaveBeenCalledTimes(1);
+      expect(t.onboard).toHaveBeenCalledWith(expect.objectContaining({ accountId: "acct_neu", driverId: t.driverId }));
+      const events = await t.events();
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({ level: "info", context: { driverId: t.driverId, replacedAccountId: "acct_alt", accountId: "acct_neu" } });
+
+      // Nächster Klick: Das neue Konto trägt die Vorbelegung, es wird nichts mehr angelegt oder getauscht.
+      t.legacy.mockResolvedValue(false);
+      expect(await startPayoutOnboarding(t.user, await t.current())).toMatch(/demo_onboarding=ok$/);
+      expect(t.legacy).toHaveBeenLastCalledWith("acct_neu", t.driverId);
+      expect(t.create).toHaveBeenCalledTimes(1);
+      expect((await t.current()).payoutAccountId).toBe("acct_neu");
+      expect(t.onboard).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "acct_neu" }));
+      expect(await t.events()).toHaveLength(1);
+    });
+
+    it("bleibt bestehen, wenn es fertig ist – ohne die Ersetzbarkeit überhaupt zu prüfen", async () => {
+      const t = await driverWithOldAccount();
+      t.ready.mockResolvedValue(true);
+      expect(await startPayoutOnboarding(t.user, t.stored)).toBe("/dashboard/einnahmen?konto=fertig");
+      expect(t.legacy).not.toHaveBeenCalled();
+      expect(t.create).not.toHaveBeenCalled();
+      expect(t.onboard).not.toHaveBeenCalled();
+      expect(await t.current()).toMatchObject({ payoutAccountId: "acct_alt", payoutReady: true });
+    });
+
+    it("bleibt bestehen, wenn Stripe es nicht als unberührtes Altkonto ausweist", async () => {
+      const t = await driverWithOldAccount();
+      t.legacy.mockResolvedValue(false);
+      expect(await startPayoutOnboarding(t.user, t.stored)).toMatch(/demo_onboarding=ok$/);
+      expect(t.create).not.toHaveBeenCalled();
+      expect((await t.current()).payoutAccountId).toBe("acct_alt");
+      expect(t.onboard).toHaveBeenCalledWith(expect.objectContaining({ accountId: "acct_alt" }));
+      expect(await t.events()).toHaveLength(0);
+    });
+
+    it("bleibt bestehen, wenn Stripe bei der Status- oder Ersetzbarkeitsprüfung nicht antwortet", async () => {
+      const t = await driverWithOldAccount();
+      // Statusprüfung gestört: Es wird gar nicht erst gefragt, ob ersetzt werden darf.
+      t.ready.mockRejectedValueOnce(new Error("Stripe nicht erreichbar"));
+      expect(await startPayoutOnboarding(t.user, t.stored)).toMatch(/demo_onboarding=ok$/);
+      expect(t.legacy).not.toHaveBeenCalled();
+      // Ersetzbarkeitsprüfung gestört (auch 403/account_invalid): im Zweifel behalten.
+      t.legacy.mockRejectedValueOnce(new Error("Stripe nicht erreichbar"));
+      expect(await startPayoutOnboarding(t.user, t.stored)).toMatch(/demo_onboarding=ok$/);
+      expect(t.create).not.toHaveBeenCalled();
+      expect((await t.current()).payoutAccountId).toBe("acct_alt");
+      expect(t.onboard).toHaveBeenCalledTimes(2);
+      expect(t.onboard).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "acct_alt" }));
+    });
+
+    it("behält die gespeicherte Konto-ID, wenn das Ersatzkonto nicht angelegt werden kann", async () => {
+      const t = await driverWithOldAccount();
+      t.create.mockRejectedValueOnce(new Error("Stripe nicht erreichbar: geheim@beispiel.de"));
+      await expect(startPayoutOnboarding(t.user, t.stored)).rejects.toThrow(/in einem Moment noch einmal/);
+      expect((await t.current()).payoutAccountId).toBe("acct_alt");
+      // Kein Onboarding-Link fürs alte Konto: zwei Klicks dürfen nie in zwei verschiedenen Konten landen.
+      expect(t.onboard).not.toHaveBeenCalled();
+      const events = await t.events();
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({ level: "warning", context: { driverId: t.driverId, accountId: "acct_alt" } });
+      expect(JSON.stringify(events)).not.toContain("geheim@beispiel.de");
+
+      // Der nächste Versuch gelingt und tauscht.
+      expect(await startPayoutOnboarding(t.user, await t.current())).toMatch(/demo_onboarding=ok$/);
+      expect((await t.current()).payoutAccountId).toBe("acct_neu");
+      expect(t.onboard).toHaveBeenCalledWith(expect.objectContaining({ accountId: "acct_neu" }));
+    });
+
+    it("behält die gespeicherte Konto-ID, wenn das Speichern des Tauschs scheitert, und holt ihn beim nächsten Klick nach", async () => {
+      const t = await driverWithOldAccount();
+      const updateIf = vi.spyOn(getDb().driverProfiles, "updateIf");
+      // Erster updateIf ist der Statusabgleich, der zweite der Tausch.
+      updateIf.mockImplementationOnce(async () => true).mockRejectedValueOnce(new Error("Datenbankfehler"));
+      await expect(startPayoutOnboarding(t.user, t.stored)).rejects.toThrow("Datenbankfehler");
+      expect((await t.current()).payoutAccountId).toBe("acct_alt");
+      expect(t.onboard).not.toHaveBeenCalled();
+      // Stripe liefert für denselben Idempotency-Key dasselbe Konto – kein zweites Ersatzkonto.
+      expect(await startPayoutOnboarding(t.user, await t.current())).toMatch(/demo_onboarding=ok$/);
+      expect(t.create).toHaveBeenCalledTimes(2);
+      expect(t.create.mock.calls[1]).toEqual(t.create.mock.calls[0]);
+      expect((await t.current()).payoutAccountId).toBe("acct_neu");
+    });
+
+    it("landet bei Mehrfachklick mit allen Anfragen im selben neuen Konto", async () => {
+      const t = await driverWithOldAccount();
+      // Drei Klicks mit demselben veralteten Profilstand, gleichzeitig.
+      const urls = await Promise.all([1, 2, 3].map(() => startPayoutOnboarding(t.user, t.stored)));
+      expect(urls.every((url) => /demo_onboarding=ok$/.test(url))).toBe(true);
+      expect((await t.current()).payoutAccountId).toBe("acct_neu");
+      // Jede Anfrage hat dieselben Angaben gesendet (gleicher Idempotency-Key bei Stripe) …
+      expect(t.create).toHaveBeenCalledTimes(3);
+      for (const call of t.create.mock.calls) expect(call).toEqual(t.create.mock.calls[0]);
+      // … und alle Onboarding-Links gehören zum neuen Konto. Getauscht wurde genau einmal.
+      expect(t.onboard).toHaveBeenCalledTimes(3);
+      for (const [input] of t.onboard.mock.calls) expect(input.accountId).toBe("acct_neu");
+      expect((await t.events()).filter((event) => event.level === "info")).toHaveLength(1);
+    });
+
+    it("macht im bereits getauschten Konto weiter, wenn Stripe den parallelen zweiten Anlageversuch abweist", async () => {
+      const t = await driverWithOldAccount();
+      expect(await startPayoutOnboarding(t.user, t.stored)).toMatch(/demo_onboarding=ok$/);
+      // Zweiter Klick mit veraltetem Profilstand; Stripe meldet „Schlüssel wird gerade verwendet“.
+      t.create.mockRejectedValueOnce(new Error("idempotency_key_in_use"));
+      expect(await startPayoutOnboarding(t.user, t.stored)).toMatch(/demo_onboarding=ok$/);
+      expect((await t.current()).payoutAccountId).toBe("acct_neu");
+      expect(t.onboard).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "acct_neu" }));
+      expect((await t.events()).filter((event) => event.level === "warning")).toHaveLength(0);
+    });
   });
 
   it("warnt nur bei manuellen Auszahlungen und nie wegen einer Stripe-Störung", async () => {

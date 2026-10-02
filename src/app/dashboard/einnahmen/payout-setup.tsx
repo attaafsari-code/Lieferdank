@@ -73,7 +73,14 @@ export function PayoutSetup({
         <div className="mt-4 text-[0.8125rem] leading-relaxed text-ink-soft">
           <p className="font-semibold text-ink">Gut zu wissen, bevor es zu Stripe geht</p>
           <ul className="mt-1.5 list-disc space-y-1 pl-4">
-            <li>Welche Angaben Pflicht sind, legt Stripe für dein Konto fest und zeigt es im Formular an.</li>
+            <li>
+              Branche, Website und Beschreibung haben wir für dich ausgefüllt. Du musst sie bei Stripe nur bestätigen und
+              nichts daran ändern.
+            </li>
+            <li>
+              Selbst angeben musst du nur Persönliches: Geburtsdatum, Anschrift und Bankverbindung. Manchmal bittet Stripe
+              zusätzlich um ein Ausweisfoto.
+            </li>
             <li>Hast du keine USt-IdNr., kannst du das Feld leer lassen, solange Stripe es nicht als Pflichtfeld markiert.</li>
             <li>
               Soll deine Telefonnummer privat bleiben, achte bei „Öffentliche Details“ auf die Option „Telefonnummer auf Belegen

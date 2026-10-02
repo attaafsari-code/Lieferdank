@@ -2,6 +2,7 @@ import "server-only";
 import { getDb } from "@/lib/db";
 import type { DriverProfile, User } from "@/lib/db/types";
 import { ServiceError } from "../errors";
+import { errorMessage, logEvent } from "../events";
 import { getPaymentProvider } from "../payments";
 import { baseUrl } from "../site";
 import { thankYouUrl } from "../qr";
@@ -19,6 +20,14 @@ export async function startPayoutOnboarding(user: User, driver: DriverProfile): 
     throw new ServiceError("forbidden", "Dieses Auszahlungskonto gehört nicht zu deinem Profil.", 403);
   }
   const provider = getPaymentProvider();
+  const createAccount = () => provider.createConnectedAccount({
+    email: user.email,
+    driverId: driver.id,
+    profileUrl: thankYouUrl(driver.code),
+    firstName: user.firstName,
+    lastName: user.lastName,
+    phone: user.phone,
+  });
   let accountId = driver.payoutAccountId;
   if (accountId) {
     // Ein fertiges Standard-Konto verwaltet der Lieferant in seinem eigenen Stripe-Dashboard.
@@ -27,12 +36,10 @@ export async function startPayoutOnboarding(user: User, driver: DriverProfile): 
     const existing = accountId;
     const ready = await syncPayoutReadiness(driver.id, () => provider.isAccountReady(existing, driver.id)).catch(() => null);
     if (ready) return PAYOUT_RETURN_PATH;
+    // Nur wenn Stripe gerade sicher „nicht bereit“ gemeldet hat, kommt ein Tausch überhaupt in Frage.
+    if (ready === false) accountId = await replaceLegacyAccount(driver.id, existing, createAccount);
   } else {
-    accountId = await provider.createConnectedAccount({
-      email: user.email,
-      driverId: driver.id,
-      profileUrl: thankYouUrl(driver.code),
-    });
+    accountId = await createAccount();
     await getDb().driverProfiles.update(driver.id, { payoutAccountId: accountId, updatedAt: new Date().toISOString() });
   }
   const link = await provider.onboardDriver({
@@ -42,6 +49,47 @@ export async function startPayoutOnboarding(user: User, driver: DriverProfile): 
     refreshUrl: `${baseUrl()}/dashboard/einnahmen?konto=neu`,
   });
   return link.url;
+}
+
+/**
+ * Konten aus der Zeit vor der Vorbelegung verlangen vom Lieferanten Branche, Website und
+ * Beschreibung – und Stripe lässt die Plattform das nach dem ersten Onboarding-Link nicht
+ * mehr nachtragen. Ist ein solches Konto noch völlig unberührt, bekommt der Lieferant
+ * stattdessen ein neues, vorbelegtes. Das alte wird weder gelöscht noch verändert.
+ *
+ * Defensiv: Jeder Zweifel und jeder Stripe-Fehler bei der Prüfung heißt „Konto behalten“.
+ * Scheitert die Anlage des Ersatzkontos, bleibt die gespeicherte Konto-ID unverändert.
+ */
+async function replaceLegacyAccount(driverId: string, existing: string, createAccount: () => Promise<string>): Promise<string> {
+  const replaceable = await getPaymentProvider().isReplaceableLegacyAccount(existing, driverId).catch(() => false);
+  if (!replaceable) return existing;
+
+  const drivers = getDb().driverProfiles;
+  let replacement: string;
+  try {
+    replacement = await createAccount();
+  } catch (error) {
+    // Ein paralleler Klick kann den Tausch schon vollzogen haben – dann dort weitermachen.
+    const current = await drivers.get(driverId);
+    if (current?.payoutAccountId && current.payoutAccountId !== existing) return current.payoutAccountId;
+    await logEvent("warning", "stripe-connect", "Vorbelegtes Ersatzkonto konnte nicht angelegt werden – bisheriges Konto bleibt", {
+      driverId, accountId: existing, error: errorMessage(error),
+    });
+    // Nicht stillschweigend ins alte Formular schicken: zwei parallele Klicks dürfen nie in
+    // zwei verschiedenen Stripe-Konten landen.
+    throw new ServiceError("connect_unavailable",
+      "Die Einrichtung konnte gerade nicht gestartet werden. Bitte versuche es in einem Moment noch einmal.", 503);
+  }
+  // Nur tauschen, wenn noch das geprüfte Altkonto eingetragen ist (Mehrfachklick, zweiter Tab).
+  const swapped = await drivers.updateIf(driverId, { payoutAccountId: existing }, {
+    payoutAccountId: replacement, payoutReady: false, updatedAt: new Date().toISOString(),
+  });
+  if (swapped) {
+    await logEvent("info", "stripe-connect", "Unberührtes Altkonto durch vorbelegtes Konto ersetzt", {
+      driverId, replacedAccountId: existing, accountId: replacement,
+    });
+  }
+  return (await drivers.get(driverId))?.payoutAccountId ?? existing;
 }
 
 /** Für den Hinweis im Dashboard. Bei Stripe-Störungen lieber kein Hinweis als ein falscher. */

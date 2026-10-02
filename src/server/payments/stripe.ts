@@ -11,9 +11,40 @@ import type { PaymentProvider } from "./types";
 /** Trinkgelder sind Direct Charges; nur Kartenkäufe belasten das Plattformkonto. */
 let stripe: Stripe | null = null;
 
-/** Laut Stripe nur intern für Risiko und Underwriting – nicht öffentlich. */
+/**
+ * Laut Stripe nur intern für Risiko und Underwriting – nicht öffentlich. Stripe erwartet
+ * darin auch, wie und wofür gezahlt wird.
+ */
 export const DRIVER_PRODUCT_DESCRIPTION =
-  "Freiwillige Trinkgelder von Kundinnen und Kunden für Zustellungen, empfangen über die Plattform Lieferdank (lieferdank.de). Es werden keine Waren verkauft.";
+  "Freiwillige Trinkgelder von Kundinnen und Kunden für Zustellungen, empfangen über die Plattform Lieferdank (lieferdank.de). " +
+  "Kundinnen und Kunden zahlen einmalig 2, 3 oder 5 € per Karte, Apple Pay oder Google Pay über Stripe Checkout. " +
+  "Es werden keine Waren verkauft.";
+
+/**
+ * Branche des Kontos (MCC): Kurierdienste – die Tätigkeit, für die das Trinkgeld gegeben wird.
+ * Stripe prüft die Angabe selbst und kann sie korrigieren.
+ */
+export const DRIVER_MCC = "4215";
+
+/** Kundenkontakt bei Fragen zu einem Trinkgeld ist Lieferdank, nicht die private Adresse des Lieferanten. */
+export const DRIVER_SUPPORT_EMAIL = "info@lieferdank.de";
+export const DRIVER_SUPPORT_URL = "https://lieferdank.de/legal/impressum";
+
+/** Marke an Konten, die mit vollständiger Vorbelegung angelegt wurden. Ältere Konten tragen sie nicht. */
+export const DRIVER_PREFILL_VERSION = "4";
+
+/**
+ * Nur eindeutig internationale Nummern (E.164) gehen an Stripe – eine ungültige Nummer ließe
+ * die Kontoanlage scheitern. Alles andere fragt Stripe im Formular selbst ab.
+ */
+export function internationalPhone(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const compact = value.replace(/[\s\-./]/g, "");
+  if (!/^\+[1-9]\d{7,14}$/.test(compact)) return null;
+  // „+49 0170 …“: die Inlands-Null hinter der Ländervorwahl macht die Nummer mehrdeutig.
+  if (compact.startsWith("+490")) return null;
+  return compact;
+}
 
 /**
  * Text auf dem Kontoauszug der Kunden (settings.payments.statement_descriptor).
@@ -74,6 +105,25 @@ export function stripeAccountReady(account: Stripe.Account): boolean {
  */
 export function stripeAccountAccessDenied(error: unknown): boolean {
   return error instanceof Stripe.errors.StripeError && error.code === "account_invalid";
+}
+
+/**
+ * Darf ein gespeichertes Konto durch ein vorbelegtes ersetzt werden? Nur, wenn es eindeutig
+ * ein eigenes Konto aus der Zeit vor der Vorbelegung ist und noch nichts Wesentliches daran
+ * hängt: nicht abgeschickt, nichts freigeschaltet, keine Branche gewählt, keine Bankverbindung,
+ * Bedingungen nicht akzeptiert, keine laufende Prüfung, nicht von Stripe abgelehnt.
+ * Im Zweifel: nein – ein Konto mit Ablehnung oder Prüfung darf nie „neu gestartet“ werden.
+ */
+export function stripeAccountReplaceable(account: Stripe.Account, driverId: string): boolean {
+  const due = account.requirements?.currently_due ?? [];
+  return stripeAccountCompatible(account, driverId) &&
+    !account.metadata?.lieferdankPrefill &&
+    account.details_submitted === false && account.charges_enabled === false && account.payouts_enabled === false &&
+    account.requirements?.disabled_reason === "requirements.past_due" &&
+    (account.requirements?.pending_verification ?? []).length === 0 &&
+    !account.business_profile?.mcc &&
+    ["business_profile.mcc", "external_account", "tos_acceptance.date"].every((field) => due.includes(field)) &&
+    (account.external_accounts?.data ?? []).length === 0;
 }
 
 export function stripeAccountCompatible(account: Stripe.Account, driverId?: string): boolean {
@@ -143,29 +193,56 @@ export const stripePaymentProvider: PaymentProvider = {
     });
   },
 
-  async createConnectedAccount({ email, driverId, profileUrl }) {
+  async createConnectedAccount({ email, driverId, profileUrl, firstName, lastName, phone }) {
     assertKeyMatchesEnvironment();
     // Standard: Stripe erhebt Payment-/Connect-Kosten beim Account und trägt
     // dessen Negativsaldo-Risiko. Existing Express-Konten werden nicht umgedeutet.
-    // Lieferanten haben meist keine eigene Website. Stripe sieht dafür die
-    // Profilseite auf der Plattform bzw. eine Produktbeschreibung vor; beides
-    // ist wahr und vor Vertragsannahme vom Lieferanten änderbar. Nach dem ersten
-    // Account Link kann die Plattform das bei Standard-Konten nicht mehr setzen.
+    // Ein Lieferant soll bei Stripe nur angeben, was Stripe von ihm persönlich braucht
+    // (Geburtsdatum, Anschrift, Bankverbindung, Ausweis, Zustimmung). Alles, was für jeden
+    // Lieferdank-Lieferanten gleich und wahr ist, belegen wir vor: Branche, Profilseite als
+    // Website, Beschreibung, Kundenkontakt – dazu Name und E-Mail aus seinem Profil.
+    // Der Lieferant bestätigt die Angaben im Formular und kann sie dort ändern. Nach dem
+    // ersten Account Link kann die Plattform das bei Standard-Konten nicht mehr setzen.
     const url = profileUrl && isPublicHttpsUrl(profileUrl) ? profileUrl : null;
-    const account = await stripeClient().accounts.create({
+    const first = firstName?.trim();
+    const last = lastName?.trim();
+    const params = (withPhone: string | null): Stripe.AccountCreateParams => ({
       type: "standard",
       country: "DE",
       email,
       business_type: "individual",
-      business_profile: { product_description: DRIVER_PRODUCT_DESCRIPTION, ...(url ? { url } : {}) },
+      business_profile: {
+        mcc: DRIVER_MCC,
+        product_description: DRIVER_PRODUCT_DESCRIPTION,
+        support_email: DRIVER_SUPPORT_EMAIL,
+        support_url: DRIVER_SUPPORT_URL,
+        ...(url ? { url } : {}),
+      },
+      individual: {
+        email,
+        ...(first ? { first_name: first } : {}),
+        ...(last ? { last_name: last } : {}),
+        ...(withPhone ? { phone: withPhone } : {}),
+      },
       capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
       settings: {
         payments: { statement_descriptor: DRIVER_STATEMENT_DESCRIPTOR },
         payouts: { schedule: { interval: DRIVER_PAYOUT_INTERVAL } },
       },
-      metadata: { driverId },
-      // v3: Stripe lehnt denselben Idempotency-Key mit geänderten Parametern ab.
-    }, { idempotencyKey: `driver_account_standard_v3_${driverId}` });
+      metadata: { driverId, lieferdankPrefill: DRIVER_PREFILL_VERSION },
+    });
+    // v4: Stripe lehnt denselben Idempotency-Key mit geänderten Parametern ab.
+    const key = `driver_account_standard_v4_${driverId}`;
+    const validPhone = internationalPhone(phone);
+    let account: Stripe.Account;
+    try {
+      account = await stripeClient().accounts.create(params(validPhone), { idempotencyKey: key });
+    } catch (error) {
+      // Stripe prüft Telefonnummern strenger als wir. Lehnt es die Nummer ab, bleibt sie weg
+      // und Stripe fragt sie im Formular selbst ab – die Einrichtung darf daran nicht scheitern.
+      if (!validPhone || !(error instanceof Stripe.errors.StripeInvalidRequestError) || error.param !== "individual[phone]") throw error;
+      account = await stripeClient().accounts.create(params(null), { idempotencyKey: `${key}_ohne_telefon` });
+    }
     if (account.type !== "standard") {
       throw new ServiceError("connect_account_incompatible",
         "Stripe hat kein geeignetes Standard-Konto erstellt. Bitte kontaktiere den Lieferdank-Support.", 502);
@@ -208,6 +285,11 @@ export const stripePaymentProvider: PaymentProvider = {
   async isAccountReady(accountId, driverId) {
     const account = await stripeClient().accounts.retrieve(accountId);
     return stripeAccountReady(account) && stripeAccountCompatible(account, driverId);
+  },
+
+  async isReplaceableLegacyAccount(accountId, driverId) {
+    const account = await stripeClient().accounts.retrieve(accountId);
+    return stripeAccountReplaceable(account, driverId);
   },
 
   async payoutInterval(accountId) {

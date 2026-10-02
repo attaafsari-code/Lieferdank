@@ -1,6 +1,10 @@
 import Stripe from "stripe";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DRIVER_PAYOUT_INTERVAL, DRIVER_PRODUCT_DESCRIPTION, DRIVER_STATEMENT_DESCRIPTOR, stripeAccountAccessDenied, stripeAccountCompatible, stripeAccountReady, stripeClient, stripePaymentProvider } from "@/server/payments/stripe";
+import {
+  DRIVER_MCC, DRIVER_PAYOUT_INTERVAL, DRIVER_PREFILL_VERSION, DRIVER_PRODUCT_DESCRIPTION, DRIVER_STATEMENT_DESCRIPTOR, DRIVER_SUPPORT_EMAIL,
+  DRIVER_SUPPORT_URL, internationalPhone, stripeAccountAccessDenied, stripeAccountCompatible, stripeAccountReady, stripeAccountReplaceable,
+  stripeClient, stripePaymentProvider,
+} from "@/server/payments/stripe";
 import { isProductionRuntime } from "@/lib/runtime";
 import { getDb } from "@/lib/db";
 import { confirmPayment, startTip } from "@/server/services/thanks";
@@ -118,22 +122,205 @@ describe("Stripe Direct Charges", () => {
     } });
   });
 
-  it("belegt für Privatpersonen nur wahre Profilangaben vor – Profilseite und Beschreibung, keine Branche", async () => {
+  it("belegt alles vor, was für jeden Lieferanten gleich und wahr ist – und nur das", async () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
     const create = vi.spyOn(stripeClient().accounts, "create").mockResolvedValue({ id: "acct_new", type: "standard" } as Stripe.Response<Stripe.Account>);
     await stripePaymentProvider.createConnectedAccount({
       email: "max@test.de", driverId: "driver-id", profileUrl: "https://lieferdank.de/danke/LD-ABCDE",
+      firstName: " Max ", lastName: "Müller", phone: "+49 170 1234567",
     });
     const [params, options] = create.mock.calls[0] as unknown as [Stripe.AccountCreateParams, Stripe.RequestOptions];
-    expect(params.business_type).toBe("individual");
-    expect(params.business_profile).toEqual({
-      url: "https://lieferdank.de/danke/LD-ABCDE",
-      product_description: DRIVER_PRODUCT_DESCRIPTION,
+    expect(params).toEqual({
+      type: "standard",
+      country: "DE",
+      email: "max@test.de",
+      business_type: "individual",
+      business_profile: {
+        mcc: "4215",
+        url: "https://lieferdank.de/danke/LD-ABCDE",
+        product_description: DRIVER_PRODUCT_DESCRIPTION,
+        support_email: "info@lieferdank.de",
+        support_url: "https://lieferdank.de/legal/impressum",
+      },
+      individual: { email: "max@test.de", first_name: "Max", last_name: "Müller", phone: "+491701234567" },
+      capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
+      settings: {
+        payments: { statement_descriptor: "LIEFERDANK TRINKGELD" },
+        payouts: { schedule: { interval: "daily" } },
+      },
+      metadata: { driverId: "driver-id", lieferdankPrefill: "4" },
     });
-    // Branche und öffentliche Support-Telefonnummer entscheidet der Lieferant selbst bei Stripe.
-    expect(params.business_profile).not.toHaveProperty("mcc");
+    expect([DRIVER_MCC, DRIVER_SUPPORT_EMAIL, DRIVER_SUPPORT_URL, DRIVER_PREFILL_VERSION])
+      .toEqual(["4215", "info@lieferdank.de", "https://lieferdank.de/legal/impressum", "4"]);
+    // Stripe erwartet in der Beschreibung auch, wofür und wie gezahlt wird.
+    expect(DRIVER_PRODUCT_DESCRIPTION).toMatch(/Trinkgelder.*Zustellungen.*2, 3 oder 5 €.*Stripe Checkout.*keine Waren/);
+    // Was Stripe vom Lieferanten persönlich braucht, erfinden wir nie: Geburtsdatum, Anschrift, Ausweis,
+    // Bankverbindung, Zustimmung – und die öffentliche Support-Telefonnummer entscheidet er selbst.
+    for (const personal of ["dob", "address", "id_number", "verification", "ssn_last_4"]) expect(params.individual).not.toHaveProperty(personal);
+    for (const personal of ["tos_acceptance", "external_account", "company", "documents"]) expect(params).not.toHaveProperty(personal);
     expect(params.business_profile).not.toHaveProperty("support_phone");
-    expect(options.idempotencyKey).toBe("driver_account_standard_v3_driver-id");
+    expect(params.business_profile).not.toHaveProperty("name");
+    expect(options.idempotencyKey).toBe("driver_account_standard_v4_driver-id");
+  });
+
+  it("lässt fehlende Profilangaben weg, statt Platzhalter zu senden", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
+    const create = vi.spyOn(stripeClient().accounts, "create").mockResolvedValue({ id: "acct_new", type: "standard" } as Stripe.Response<Stripe.Account>);
+    await stripePaymentProvider.createConnectedAccount({ email: "max@test.de", driverId: "driver-id", firstName: "  ", lastName: null, phone: "" });
+    const [params] = create.mock.calls[0] as unknown as [Stripe.AccountCreateParams];
+    expect(params.individual).toEqual({ email: "max@test.de" });
+    expect(params.business_profile).not.toHaveProperty("url");
+  });
+
+  it.each([
+    ["+491701234567", "+491701234567"],
+    ["+49 170 1234567", "+491701234567"],
+    ["+49-170-123.45/67", "+491701234567"],
+    ["+1 202 555 0123", "+12025550123"],
+  ])("übernimmt die eindeutig internationale Telefonnummer %s", (input, expected) => {
+    expect(internationalPhone(input)).toBe(expected);
+  });
+
+  it.each([
+    "0170 1234567",           // Inlandsformat: Land unklar
+    "0049 170 1234567",       // „00“ statt „+“
+    "+49 (0)170 1234567",     // Inlands-Null in Klammern
+    "+49 0170 1234567",       // Inlands-Null hinter der Ländervorwahl
+    "+49 170",                // zu kurz
+    "+49 170 1234567 890123", // zu lang
+    "+0170 1234567",          // keine Ländervorwahl
+    "+49 170 12345a7",
+    "Tel. +49 170 1234567",
+    "170 1234567",
+    "",
+    "   ",
+  ])("sendet die Telefonnummer %j nicht an Stripe", async (input) => {
+    expect(internationalPhone(input)).toBeNull();
+    vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
+    const create = vi.spyOn(stripeClient().accounts, "create").mockResolvedValue({ id: "acct_new", type: "standard" } as Stripe.Response<Stripe.Account>);
+    await stripePaymentProvider.createConnectedAccount({ email: "max@test.de", driverId: "driver-id", firstName: "Max", lastName: "Müller", phone: input });
+    const [params] = create.mock.calls[0] as unknown as [Stripe.AccountCreateParams];
+    expect(params.individual).toEqual({ email: "max@test.de", first_name: "Max", last_name: "Müller" });
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("behandelt null und undefined als fehlende Telefonnummer", () => {
+    expect(internationalPhone(null)).toBeNull();
+    expect(internationalPhone(undefined)).toBeNull();
+  });
+
+  it("legt das Konto ohne Telefonnummer an, wenn Stripe eine formal gültige Nummer ablehnt", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
+    const rejected = new Stripe.errors.StripeInvalidRequestError({ type: "invalid_request_error", message: "Invalid phone", param: "individual[phone]", statusCode: 400 });
+    const create = vi.spyOn(stripeClient().accounts, "create")
+      .mockRejectedValueOnce(rejected)
+      .mockResolvedValue({ id: "acct_new", type: "standard" } as Stripe.Response<Stripe.Account>);
+    const input = { email: "max@test.de", driverId: "driver-id", firstName: "Max", lastName: "Müller", phone: "+49 170 1234567" };
+    expect(await stripePaymentProvider.createConnectedAccount(input)).toBe("acct_new");
+    const [first, firstOptions] = create.mock.calls[0] as unknown as [Stripe.AccountCreateParams, Stripe.RequestOptions];
+    const [second, secondOptions] = create.mock.calls[1] as unknown as [Stripe.AccountCreateParams, Stripe.RequestOptions];
+    expect(first.individual).toHaveProperty("phone", "+491701234567");
+    expect(second.individual).toEqual({ email: "max@test.de", first_name: "Max", last_name: "Müller" });
+    // Sonst unverändert – und mit eigenem Schlüssel, damit Stripe die geänderten Parameter annimmt.
+    expect({ ...second, individual: first.individual }).toEqual(first);
+    expect(firstOptions.idempotencyKey).toBe("driver_account_standard_v4_driver-id");
+    expect(secondOptions.idempotencyKey).toBe("driver_account_standard_v4_driver-id_ohne_telefon");
+
+    // Jeder andere Stripe-Fehler bleibt ein Fehler – kein zweiter Versuch mit veränderten Angaben.
+    for (const error of [
+      new Stripe.errors.StripeInvalidRequestError({ type: "invalid_request_error", message: "Invalid URL", param: "business_profile[url]", statusCode: 400 }),
+      new Stripe.errors.StripeAPIError({ type: "api_error", message: "Stripe nicht erreichbar" }),
+      new Error("network"),
+    ]) {
+      create.mockReset().mockRejectedValue(error);
+      await expect(stripePaymentProvider.createConnectedAccount(input)).rejects.toBe(error);
+      expect(create).toHaveBeenCalledTimes(1);
+    }
+    // Ohne Telefonnummer gibt es nichts wegzulassen.
+    create.mockReset().mockRejectedValue(rejected);
+    await expect(stripePaymentProvider.createConnectedAccount({ ...input, phone: null })).rejects.toBe(rejected);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("sendet bei Mehrfachklick identische Angaben mit demselben Idempotency-Key", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
+    const create = vi.spyOn(stripeClient().accounts, "create").mockResolvedValue({ id: "acct_new", type: "standard" } as Stripe.Response<Stripe.Account>);
+    const input = { email: "max@test.de", driverId: "driver-id", profileUrl: "https://lieferdank.de/danke/LD-ABCDE", firstName: "Max", lastName: "Müller", phone: "+49 170 1234567" };
+    expect(await Promise.all([1, 2, 3].map(() => stripePaymentProvider.createConnectedAccount(input)))).toEqual(["acct_new", "acct_new", "acct_new"]);
+    const calls = create.mock.calls as unknown as [Stripe.AccountCreateParams, Stripe.RequestOptions][];
+    expect(calls).toHaveLength(3);
+    for (const [params, options] of calls) {
+      expect(params).toEqual(calls[0][0]);
+      expect(options).toEqual({ idempotencyKey: "driver_account_standard_v4_driver-id" });
+    }
+  });
+
+  describe("Ersetzen eines Altkontos", () => {
+    // So liest sich ein vom früheren Code angelegtes, noch unberührtes Konto (in der Stripe-Sandbox so gesehen).
+    const legacy = (patch: Record<string, unknown> = {}) => ({
+      id: "acct_alt", type: "standard", country: "DE", details_submitted: false, charges_enabled: false, payouts_enabled: false,
+      controller: { fees: { payer: "account" }, losses: { payments: "stripe" } }, metadata: { driverId: "driver-1" },
+      business_profile: { mcc: null, url: null, product_description: null },
+      external_accounts: { object: "list", data: [] },
+      requirements: {
+        disabled_reason: "requirements.past_due", pending_verification: [],
+        currently_due: ["business_profile.mcc", "business_profile.product_description", "business_profile.support_phone", "business_profile.url",
+          "external_account", "individual.address.city", "individual.address.line1", "individual.address.postal_code", "individual.dob.day",
+          "individual.dob.month", "individual.dob.year", "individual.email", "individual.first_name", "individual.last_name", "individual.phone",
+          "tos_acceptance.date", "tos_acceptance.ip"],
+      },
+      ...patch,
+    }) as unknown as Stripe.Account;
+    const requirements = (patch: Record<string, unknown>) => ({ requirements: { ...legacy().requirements, ...patch } });
+    const due = legacy().requirements!.currently_due!;
+
+    it("erkennt das unberührte Konto aus der Zeit vor der Vorbelegung", () => {
+      expect(stripeAccountReplaceable(legacy(), "driver-1")).toBe(true);
+      // Ein Konto des deployten Zwischenstands: Website und Beschreibung gesetzt, Branche noch nicht.
+      expect(stripeAccountReplaceable(legacy({ business_profile: { mcc: null, url: "https://lieferdank.de/danke/LD-ABCDE", product_description: "x" },
+        ...requirements({ currently_due: due.filter((field) => !["business_profile.url", "business_profile.product_description"].includes(field)) }) }), "driver-1")).toBe(true);
+      // Schon eingetippte, aber nie abgeschickte persönliche Angaben sind kein Hindernis: Name und E-Mail sind danach vorbelegt.
+      expect(stripeAccountReplaceable(legacy(requirements({ currently_due: due.filter((field) => !field.startsWith("individual.")) })), "driver-1")).toBe(true);
+    });
+
+    it.each([
+      ["abgeschickt", { details_submitted: true }],
+      ["Zahlungen freigeschaltet", { charges_enabled: true }],
+      ["Auszahlungen freigeschaltet", { payouts_enabled: true }],
+      ["mit vollständiger Vorbelegung angelegt", { metadata: { driverId: "driver-1", lieferdankPrefill: "4" } }],
+      ["Branche bereits gewählt", { business_profile: { mcc: "4215" } }],
+      ["Branche nicht mehr offen", requirements({ currently_due: due.filter((field) => field !== "business_profile.mcc") })],
+      ["Bankverbindung hinterlegt", requirements({ currently_due: due.filter((field) => field !== "external_account") })],
+      ["Bankverbindung am Konto", { external_accounts: { object: "list", data: [{ id: "ba_1" }] } }],
+      ["Bedingungen akzeptiert", requirements({ currently_due: due.filter((field) => field !== "tos_acceptance.date") })],
+      ["Prüfung läuft", requirements({ pending_verification: ["individual.verification.document"] })],
+      ["von Stripe abgelehnt", requirements({ disabled_reason: "rejected.fraud" })],
+      ["bei Stripe in Prüfung", requirements({ disabled_reason: "under_review" })],
+      ["gelistet", requirements({ disabled_reason: "listed" })],
+      ["ohne Sperrgrund (unklarer Zustand)", requirements({ disabled_reason: null })],
+      ["ohne Anforderungsliste", { requirements: undefined }],
+      ["Konto eines anderen Lieferanten", { metadata: { driverId: "driver-2" } }],
+      ["ohne Zuordnung", { metadata: {} }],
+      ["Express-Konto", { type: "express" }],
+      ["anderes Land", { country: "AT" }],
+      ["Plattform trägt Gebühren", { controller: { fees: { payer: "application" }, losses: { payments: "stripe" } } }],
+      ["Plattform trägt Verluste", { controller: { fees: { payer: "account" }, losses: { payments: "application" } } }],
+    ])("ersetzt kein Konto, das %s ist", (_label, patch) => {
+      expect(stripeAccountReplaceable(legacy(patch), "driver-1")).toBe(false);
+    });
+
+    it("liest dafür den Live-Stand bei Stripe und reicht Stripe-Fehler durch", async () => {
+      vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
+      const retrieve = vi.spyOn(stripeClient().accounts, "retrieve").mockResolvedValue(legacy() as Stripe.Response<Stripe.Account>);
+      expect(await stripePaymentProvider.isReplaceableLegacyAccount("acct_alt", "driver-1")).toBe(true);
+      expect(await stripePaymentProvider.isReplaceableLegacyAccount("acct_alt", "driver-2")).toBe(false);
+      expect(retrieve).toHaveBeenCalledWith("acct_alt");
+      retrieve.mockResolvedValue(legacy({ details_submitted: true }) as Stripe.Response<Stripe.Account>);
+      expect(await stripePaymentProvider.isReplaceableLegacyAccount("acct_alt", "driver-1")).toBe(false);
+      const error = new Stripe.errors.StripePermissionError({ type: "invalid_request_error", message: "x", code: "account_invalid", statusCode: 403 });
+      retrieve.mockRejectedValue(error);
+      await expect(stripePaymentProvider.isReplaceableLegacyAccount("acct_alt", "driver-1")).rejects.toBe(error);
+    });
   });
 
   it("sendet für neue Konten den Kontoauszugstext und einen automatischen Auszahlungsplan", async () => {
@@ -204,7 +391,10 @@ describe("Stripe Direct Charges", () => {
       const create = vi.spyOn(stripeClient().accounts, "create").mockResolvedValue({ id: "acct_new", type: "standard" } as Stripe.Response<Stripe.Account>);
       await stripePaymentProvider.createConnectedAccount({ email: "max@test.de", driverId: "driver-id", profileUrl });
       const [params] = create.mock.calls[0] as unknown as [Stripe.AccountCreateParams];
-      expect(params.business_profile).toEqual({ product_description: DRIVER_PRODUCT_DESCRIPTION });
+      expect(params.business_profile).not.toHaveProperty("url");
+      expect(params.business_profile).toEqual({
+        mcc: DRIVER_MCC, product_description: DRIVER_PRODUCT_DESCRIPTION, support_email: DRIVER_SUPPORT_EMAIL, support_url: DRIVER_SUPPORT_URL,
+      });
     },
   );
 
