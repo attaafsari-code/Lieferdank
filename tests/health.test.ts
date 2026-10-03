@@ -73,7 +73,7 @@ describe("Produktions-Health-Check", () => {
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "local-test-value");
     vi.stubEnv("STRIPE_CONNECT_WEBHOOK_SECRET", "local-test-connect-value");
     vi.stubEnv("RESEND_API_KEY", "local-test-value");
-    vi.mocked(supabaseClient).mockReturnValueOnce({ from: () => ({ select: () => ({ limit: async () => ({ error: { message: "missing" } }) }) }) } as never);
+    vi.mocked(supabaseClient).mockReturnValueOnce({ from: () => ({ select: () => ({ limit: async () => ({ error: { code: "42703", message: "column does not exist" } }) }) }) } as never);
     const response = await GET();
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ ok: false, database: "migration_required" });
@@ -95,7 +95,7 @@ describe("Produktions-Health-Check", () => {
     const columns = ["driver_profiles.payout_sync_version", "payments.refunded_amount_cents", "tips.refunded_cents, fee_refunded_cents", "users.email_verified_at"];
     const client = (missing: string | null, checked: string[] = []) => ({ from: (table: string) => ({ select: (column: string) => ({ limit: async () => {
       checked.push(`${table}.${column}`);
-      return { error: `${table}.${column}` === missing ? { message: "column does not exist" } : null };
+      return { error: `${table}.${column}` === missing ? { code: "42703", message: "column does not exist" } : null };
     } }) }) }) as never;
     for (const missing of columns) {
       const checked: string[] = [];
@@ -110,6 +110,46 @@ describe("Produktions-Health-Check", () => {
     const ready = await GET();
     expect(ready.status).toBe(200);
     expect(await ready.json()).toMatchObject({ ok: true, database: "supabase" });
+  });
+
+  it("meldet eine kurze Datenbankstörung nicht als fehlende Migration und wiederholt einmal", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("LIEFERDANK_DB", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://project.supabase.co");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "local-test-value");
+    vi.stubEnv("AUTH_SECRET", "local-test-secret-with-at-least-32-characters");
+    vi.stubEnv("PAYMENT_PROVIDER", "stripe");
+    vi.stubEnv("STRIPE_SECRET_KEY", "rk_live_dummy");
+    vi.stubEnv("STRIPE_WEBHOOK_SECRET", "local-test-value");
+    vi.stubEnv("STRIPE_CONNECT_WEBHOOK_SECRET", "local-test-connect-value");
+    vi.stubEnv("RESEND_API_KEY", "local-test-value");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const flaky = (failure: "error" | "throw") => ({ from: (table: string) => ({ select: () => ({ limit: async () => {
+      if (table !== "tips") return { error: null };
+      if (failure === "throw") throw new TypeError("fetch failed");
+      return { error: { code: "PGRST002", message: "Could not query the database for the schema cache. Retrying." } };
+    } }) }) }) as never;
+
+    // Erster Versuch gestört, die Wiederholung klappt: bereit.
+    vi.mocked(supabaseClient).mockReturnValueOnce(flaky("error"));
+    const recovered = await GET();
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toMatchObject({ ok: true, database: "supabase" });
+    expect(logged).not.toHaveBeenCalled();
+
+    // Bleibt die Störung (Fehlerantwort oder Netzwerkfehler), ist die Datenbank „unavailable“ – nicht „migration_required“.
+    for (const failure of ["error", "throw"] as const) {
+      vi.mocked(supabaseClient).mockReturnValueOnce(flaky(failure)).mockReturnValueOnce(flaky(failure));
+      const response = await GET();
+      expect(response.status).toBe(503);
+      expect(await response.json()).toMatchObject({ ok: false, database: "unavailable" });
+    }
+    expect(logged).toHaveBeenCalledWith("[health] Datenbankprüfung fehlgeschlagen", "unavailable",
+      [expect.objectContaining({ table: "tips", code: "PGRST002" })]);
+    expect(logged).toHaveBeenCalledWith("[health] Datenbankprüfung fehlgeschlagen", "unavailable",
+      [expect.objectContaining({ table: "tips", code: "fetch_failed", message: "fetch failed" })]);
+    expect(JSON.stringify(logged.mock.calls)).not.toMatch(/local-test|rk_live|project\.supabase\.co/);
+    logged.mockRestore();
   });
 
   it("meldet identische Plattform- und Connect-Secrets als nicht bereit", async () => {
