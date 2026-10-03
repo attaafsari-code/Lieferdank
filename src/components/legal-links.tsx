@@ -4,6 +4,9 @@ const LINKS = [
   { href: "/legal/impressum", label: "Impressum" },
   { href: "/legal/datenschutz", label: "Datenschutz" },
   { href: "/legal/agb", label: "AGB" },
+  { href: "/kontakt", label: "Kontakt" },
+  { href: "/vertrag-widerrufen", label: "Vertrag widerrufen" },
+  { href: "/vertrag-kuendigen", label: "Verträge hier kündigen" },
 ] as const;
 
 /** Rechtslinks für Seiten ohne Site-Footer: Dashboard und die Schritte des Danke-Flows. */

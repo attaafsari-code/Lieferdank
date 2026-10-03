@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireDriver } from "@/server/guards";
 import { getDriverStats } from "@/server/services/stats";
 import { MilestoneList, PageTitle, SectionTitle, ThankYouList } from "@/components/dashboard-ui";
@@ -27,8 +28,12 @@ export default async function ThankYousPage() {
       </section>
 
       <p className="text-sm leading-relaxed text-ink-soft">
-        Kunden können bei Lieferdank ausschließlich Positives senden. Es gibt keine
-        Bewertungen, keine Sterne und keine Beschwerden.
+        Kunden senden dir ein Danke, ein Trinkgeld und optional eine kurze Nachricht. Es gibt keine
+        Bewertungen, keine Sterne und keine Beschwerden. Ist eine Nachricht beleidigend oder rechtswidrig,{" "}
+        <Link href="/kontakt?anliegen=meldung&ort=Nachricht%20im%20Dashboard" className="font-semibold text-brand underline underline-offset-2">
+          melde sie uns
+        </Link>
+        .
       </p>
     </div>
   );

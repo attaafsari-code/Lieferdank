@@ -119,6 +119,14 @@ export default async function EarningsPage({
               Testmodus: Die Einrichtung wird simuliert. Es werden keine Bankdaten erhoben.
             </p>
           )}
+          {driver.payoutAccountId && (
+            <p className="text-[0.8125rem] text-ink-soft">
+              Trinkgeld-Funktion:{" "}
+              <Link href="/vertrag-widerrufen" className="font-semibold text-brand underline underline-offset-2">Vertrag widerrufen</Link>
+              {" · "}
+              <Link href="/vertrag-kuendigen" className="font-semibold text-brand underline underline-offset-2">Verträge hier kündigen</Link>
+            </p>
+          )}
         </div>
       </section>
 

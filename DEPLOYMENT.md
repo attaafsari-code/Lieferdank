@@ -278,6 +278,12 @@ Admins können sich nicht selbst registrieren.
   Scans, Stripe-Onboarding). Auf Vercel ist das nur ein Grundschutz, weil parallele
   Instanzen getrennt zählen. Für echten Schutz eine Vercel-Firewall-Regel (Rate Limiting)
   oder Upstash Redis ergänzen (siehe DECISIONS.md).
+- **Löschfristen**: Vercel ruft täglich `/api/cron/aufbewahrung` auf (`vercel.json` → `crons`) und löscht
+  Systemprotokolle nach 12 Monaten und Reset-Links nach 30 Tagen. Der Endpunkt löscht nur Abgelaufenes;
+  ist `CRON_SECRET` gesetzt, verlangt er zusätzlich den Vercel-Header.
+- **Formulare**: Kontakt, Inhaltsmeldung (DSA), Widerruf (`/vertrag-widerrufen`) und Kündigung
+  (`/vertrag-kuendigen`) gehen per E-Mail an info@lieferdank.de; die absendende Person bekommt eine
+  Eingangsbestätigung. Ohne funktionierenden Mailversand lehnt Production die Formulare ab.
 - **CI**: `.github/workflows/ci.yml` prüft Typecheck, Lint, Tests und Build bei jedem Pull
   Request und Push auf `main`. Dieselben Prüfungen laufen zusätzlich im Vercel-Build
   (`buildCommand` in `vercel.json`): Schlägt eine fehl, scheitert das Deployment und

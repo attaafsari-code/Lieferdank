@@ -160,6 +160,25 @@ export async function deleteAccount(user: User): Promise<void> {
       payoutReady: false,
       updatedAt: now,
     });
+    // Datensparsamkeit: Was keine Buchung ist, wird gelöscht – Danke samt Nachrichten, Scans,
+    // Meilensteine, Kartendesign, Verifizierung und Favoriten anderer Kunden auf dieses Profil.
+    // Zahlungen, Trinkgeldbuchungen, Auszahlungen und Kartenbestellungen bleiben für die
+    // gesetzliche Aufbewahrung erhalten.
+    const [thankYous, scans, milestones, designs, favorites] = await Promise.all([
+      db.thankYous.findMany({ where: { driverId: driver.id } }),
+      db.scans.findMany({ where: { driverId: driver.id } }),
+      db.milestones.findMany({ where: { driverId: driver.id } }),
+      db.cardDesigns.findMany({ where: { driverId: driver.id } }),
+      db.driverFavorites.findMany({ where: { driverId: driver.id } }),
+    ]);
+    for (const row of thankYous) await db.thankYous.remove(row.id);
+    for (const row of scans) await db.scans.remove(row.id);
+    for (const row of milestones) await db.milestones.remove(row.id);
+    for (const row of designs) await db.cardDesigns.remove(row.id);
+    for (const row of favorites) await db.driverFavorites.remove(row.id);
+  }
+  for (const verification of await db.verifications.findMany({ where: { userId: user.id } })) {
+    await db.verifications.remove(verification.id);
   }
 
   if (user.role === "customer") {

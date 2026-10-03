@@ -18,7 +18,7 @@ import {
   uploadDriverPhoto,
 } from "../services/profile";
 import { cancelCardOrder, cardDesignSchema, cardOrderSchema, createCardOrder, saveCardDesign } from "../services/cards";
-import { refreshPayoutReadiness, startPayoutOnboarding } from "../services/payouts";
+import { concludeTippingContract, refreshPayoutReadiness, startPayoutOnboarding } from "../services/payouts";
 import { formAction, formBoolean, formString, type FormState } from "./form-state";
 
 function refreshDashboard() {
@@ -121,12 +121,13 @@ export async function cancelCardOrderAction(orderId: string): Promise<FormState>
   });
 }
 
-export async function startPayoutOnboardingAction(): Promise<FormState> {
+export async function startPayoutOnboardingAction(consent: { immediateStart: boolean } = { immediateStart: false }): Promise<FormState> {
   let url: string;
   const state = await formAction(async () => {
     const { user, driver } = await requireDriver();
     // Jeder Klick spricht die Stripe-API an – pro Konto begrenzt.
     enforceRateLimitFor(`payout-start:${user.id}`, 10, 10 * 60_000);
+    await concludeTippingContract(user, driver, { immediateStart: consent?.immediateStart === true });
     url = await startPayoutOnboarding(user, driver);
   });
   if (state.error) return state;

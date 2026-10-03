@@ -7,6 +7,9 @@ import { ServiceError } from "../errors";
 import { errorMessage, logEvent } from "../events";
 import { paymentProviderById, type RefundState } from "../payments";
 import { logAdminAction } from "./admin";
+import { emails } from "../emails";
+import { sendMail } from "../mail";
+import { baseUrl } from "../site";
 
 /**
  * Erstattungen von Trinkgeldern.
@@ -202,11 +205,25 @@ export async function refundTip(actor: User, tipId: string, request: TipRefundRe
     throw new ServiceError("refund_failed",
       "Stripe hat die Erstattung nicht bestätigt. Bitte lade die Seite neu und prüfe den Stand, bevor du es erneut versuchst.", 502);
   }
+  // Die AGB sagen dem Zusteller zu, dass er über jede von Lieferdank ausgelöste Erstattung informiert wird.
+  await notifyDriverOfRefund(tip, state.refundedCents + amount, reason);
   try {
     return (await reconcileTipRefund(payment.id)).tip;
   } catch (error) {
     await logEvent("warning", "refund", "Erstattung ausgelöst, Verbuchung folgt über den Webhook", { paymentId: payment.id, error: errorMessage(error) });
     throw new ServiceError("refund_sync_pending",
       "Die Erstattung wurde bei Stripe ausgelöst, ist hier aber noch nicht verbucht. Der Abgleich folgt automatisch – bitte lade die Seite gleich neu.", 502);
+  }
+}
+
+async function notifyDriverOfRefund(tip: Tip, refundedCents: number, reason: string): Promise<void> {
+  try {
+    const db = getDb();
+    const driver = await db.driverProfiles.get(tip.driverId);
+    const user = driver ? await db.users.get(driver.userId) : null;
+    if (!user || user.blockedAt) return;
+    await sendMail(user.email, emails.refundNotice(user.firstName, refundedCents, tip.grossCents, reason.slice(0, 250), `${baseUrl()}/dashboard/einnahmen`), "refund_notice");
+  } catch (error) {
+    await logEvent("warning", "refund", "Zusteller konnte nicht über die Erstattung informiert werden", { tipId: tip.id, error: errorMessage(error) });
   }
 }

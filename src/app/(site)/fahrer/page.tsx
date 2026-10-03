@@ -35,7 +35,7 @@ const BENEFITS = [
   },
   {
     title: "Nur Positives",
-    text: "Kunden können dir kein schlechtes Feedback geben. Keine Sterne, keine Beschwerden, keine Ranglisten.",
+    text: "Keine Sterne, keine Bewertungen, keine Ranglisten. Kunden senden ein Danke, ein Trinkgeld oder eine kurze Nachricht.",
   },
   {
     title: "Keine Überwachung",

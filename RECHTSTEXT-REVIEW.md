@@ -1,51 +1,42 @@
-# Rechtstexte – offene Entscheidungen vor dem Release
+# Rechtstexte – Entscheidungsprotokoll
 
-Stand: 03.10.2026. AGB, Datenschutzhinweise und Impressum beschreiben den technisch
-implementierten Ablauf (Code ist die Quelle). Die folgenden Punkte brauchen eine Entscheidung
-des Betreibers bzw. eine Rechtsberatung. Sie sind bewusst **nicht** ausformuliert worden.
-Im Code verweisen Kommentare `REVIEW (RECHTSTEXT-REVIEW.md, Nr. …)` auf diese Liste.
+Stand: 03.10.2026. Grundlage: der implementierte Code und Primärquellen (gesetze-im-internet.de,
+EUR-Lex bzw. Normtexte, Vertragsseiten der Dienstleister). Keine Rechtsberatung; eine anwaltliche
+Durchsicht vor dem Start mit echten Zahlungen bleibt empfehlenswert.
 
-Solange die Punkte offen sind, bleiben die Hinweise „Entwurf – noch nicht rechtsverbindlich“
-auf AGB und Datenschutzhinweisen stehen.
+## Erledigt
 
-## AGB
+| Nr. | Thema | Entscheidung | Grundlage |
+| --- | --- | --- | --- |
+| 1 | Haftung (AGB Ziff. 10) | Unbeschränkt bei Vorsatz, grober Fahrlässigkeit, Leben/Körper/Gesundheit, ProdHaftG, Garantie; bei leichter Fahrlässigkeit nur für wesentliche Vertragspflichten, begrenzt auf den vorhersehbaren Schaden; Gewährleistung für digitale Dienstleistungen bleibt unberührt | § 309 Nr. 7 a/b BGB, § 307 BGB, §§ 327 ff. BGB |
+| 2 | Recht und Gerichtsstand (Ziff. 14) | Deutsches Recht mit Verbrauchervorbehalt; keine Gerichtsstandsvereinbarung, da der Betreiber kein Kaufmann ist | Art. 6 Abs. 2 Rom-I-VO; § 38 ZPO |
+| 3 | Erstattungen (Ziff. 6) | Ermächtigung von Lieferdank nur bei doppelter/irrtümlicher, betrügerischer oder nicht autorisierter Zahlung oder auf Verlangen des Zustellers; Information per E-Mail (technisch umgesetzt: `refundNotice`) | § 307 BGB (Transparenz, Angemessenheit) |
+| 4 | Einordnung und Widerrufsrecht | Trinkgeld = freiwillige Zuwendung an den Zusteller; für Sender ist Lieferdank kostenlos (kein Widerrufsrecht mangels Preis). Für Zusteller ist die Trinkgeld-Funktion entgeltlich (Gebühr je Trinkgeld); angestellte Zusteller sind Verbraucher. Umgesetzt: Pflichtinformationen vor dem Klick, Schaltfläche „Trinkgeld zahlungspflichtig aktivieren“, ausdrückliches Verlangen des Sofortbeginns, Vertragsbestätigung mit Widerrufsbelehrung und Muster-Formular per E-Mail, Online-Widerrufsfunktion, Kündigungsschaltfläche | § 13, § 312 Abs. 1, § 312f Abs. 2, § 312j Abs. 2–4, § 312k, § 356a, § 357a Abs. 2 BGB; Art. 246a EGBGB mit Anlagen 1 und 2 |
+| 5 | Mindestalter (Ziff. 3) | Konten ab 18 Jahren; Bestätigung in der Registrierungs-Checkbox | Vertragsfreiheit; Stripe verlangt für Minderjährige einen gesetzlichen Vertreter |
+| 6 | AGB-Änderungen (Ziff. 12) | Nur mit ausdrücklicher Zustimmung, Ankündigung vier Wochen vorher per E-Mail; keine Zustimmungsfiktion | BGH, Urteil vom 27.04.2021 – XI ZR 26/20 |
+| 7 | Nachrichten und Meldungen (Ziff. 8) | Inhaltsregeln, keine Vorabprüfung, menschliche Entscheidung, Melde- und Abhilfeverfahren mit Empfangsbestätigung (`/kontakt?anliegen=meldung`), Begründung bei Maßnahmen | Art. 14, 16, 17 DSA; Art. 19 DSA (Kleinstunternehmen nur von Abschnitt 3 befreit) |
+| 8 | Rollen | Lieferdank Verantwortlicher; Stripe Auftragsverarbeiter des Zahlungsempfängers und eigener Verantwortlicher für eigene Zwecke; der Zusteller sieht als Zahlungsempfänger Zahlungsangaben in seinem Stripe-Konto | Stripe DPA und Datenschutzerklärung |
+| 9 | Speicherdauer und Rechtsgrundlagen | Je Verarbeitung festgelegt; Buchungsdaten 8 Jahre (Bücher 10), Korrespondenz bis 6 Jahre, Protokolle 12 Monate, Reset-Links 30 Tage (automatisch per täglichem Cron `/api/cron/aufbewahrung`); Danke, Nachrichten, Scans u. a. werden bei Kontolöschung gelöscht | Art. 5 Abs. 1 lit. e, Art. 6, Art. 13 DSGVO; § 147 Abs. 3 AO |
+| 10 | Cookies | Nur unbedingt erforderliche Cookies, einwilligungsfrei | § 25 Abs. 2 Nr. 2 TDDDG |
+| 11 | Drittlandtransfer | DPF für Stripe, Vercel, Resend (nach eigenen Angaben zertifiziert), sonst Standardvertragsklauseln (Supabase) | Art. 45 DSGVO i. V. m. Durchführungsbeschluss (EU) 2023/1795; Art. 46 Abs. 2 lit. c DSGVO |
+| 12 | Zweiter Kontaktweg | Kontaktformular `/kontakt` mit Antwort per E-Mail; zugleich zentrale Kontaktstelle (Deutsch/Englisch) | § 5 Abs. 1 Nr. 2 DDG; EuGH, Urteil vom 16.10.2008 – C-298/07; Art. 11, 12 DSA |
+| 14 | Verbraucherstreitbeilegung | Erklärung beibehalten; Hinweis auf die OS-Plattform entfällt (Plattform seit 20.07.2025 abgeschaltet) | § 36 VSBG; Verordnung (EU) 2024/3228 |
 
-1. **Haftung (§ 10)** – Platzhalter `[Haftungsregelung durch Rechtsberatung ergänzen.]`.
-2. **Recht und Gerichtsstand (§ 12)** – Platzhalter `[Gerichtsstand …]`. Zu klären auch, wie
-   die Rechtswahl gegenüber Verbrauchern formuliert werden darf.
-3. **Erstattungen (§ 7)** – Technisch kann ein Admin eine Voll- oder Teilerstattung auslösen,
-   die Stripe dem Konto des Zustellers belastet; Lieferdank gibt seine Gebühr vollständig
-   bzw. anteilig zurück, auch bei Erstattungen, die der Zusteller selbst in Stripe auslöst.
-   Offen: Ob, wann und mit welcher Information an den Zusteller Lieferdank eine Erstattung
-   zu dessen Lasten auslösen darf, und welche Ansprüche Sender auf Erstattung haben.
-4. **Einordnung der Zahlung** – Rolle von Lieferdank (technische Plattform, Gebühr als
-   Application Fee), Vertragsverhältnis Sender ↔ Zusteller, Verbraucherinformationen und
-   ein etwaiges Widerrufsrecht für freiwillige Trinkgelder.
-5. **Mindestalter** – Die Registrierung prüft kein Alter.
-6. **Änderungen der AGB (§ 11)** – „werden rechtzeitig angekündigt“: Form und Frist festlegen.
-   Ein automatischer Rundmail-Versand an alle Konten ist nicht implementiert.
-7. **Nachrichten** – Sender können optional eine Vorlage oder einen Freitext (bis 140 Zeichen)
-   senden. Es gibt keine Moderation und im Admin keine Löschfunktion für Nachrichten.
-   Offen: Nutzungsregeln für Inhalte und ein Meldeweg.
+Aufsichtsbehörde (Datenschutz): Landesbeauftragter für den Datenschutz und die Informationsfreiheit
+Baden-Württemberg, Heilbronner Straße 35, 70191 Stuttgart (Anschrift seit 22.12.2025).
 
-## Datenschutz
+## Offen – braucht Angaben oder Handlungen des Betreibers
 
-8. **Rollen** – Verantwortlichkeit von Lieferdank, Stripe (Stripe Connect, Standard-Konten,
-   Direct Charges) und Zustellern; gegebenenfalls gemeinsame Verantwortlichkeit.
-9. **Speicherdauer und Rechtsgrundlagen** – Konkrete Fristen für pseudonymisierte Datensätze
-   gelöschter Konten (Danke, Nachrichten, Trinkgeldbuchungen, Stripe-Konto-ID), für Scans,
-   Ereignisprotokolle und Server-Logs des Hosters; Rechtsgrundlage je Verarbeitung (Danke ohne
-   Konto, Scans, Nachrichten, Trinkgeld-Benachrichtigungen, Verifizierungs-Abzeichen).
-10. **Cookies** – Rechtsgrundlage für die technisch notwendigen Cookies `ld_session`,
-    `ld_visitor` und `ld_message_grant` (§ 25 Abs. 2 TDDDG) formulieren.
-11. **Auftragsverarbeitung und Drittlandtransfer** – AV-Verträge mit Vercel, Supabase, Resend und
-    IONOS abschließen bzw. bestätigen; die Grundlagen der Drittlandübermittlung sind bisher nur
-    als „nach eigenen Angaben der Anbieter“ beschrieben.
-
-## Impressum und Betreiber
-
-12. **Zweiter Kontaktweg** – Angegeben ist nur die E-Mail-Adresse (bewusst keine Telefonnummer).
-    Klären, ob ein weiterer schneller Kontaktweg (z. B. Kontaktformular) erforderlich ist.
-13. **Betreiberstatus** – Gewerbeanmeldung, steuerliche Angaben (z. B. USt-IdNr.) und deren
-    Auswirkung auf Impressum und AGB, da Lieferdank Gebühren einnimmt.
-14. **Verbraucherstreitbeilegung** – Die bestehende Erklärung bestätigen.
+1. **Telefonnummer** (Nr. 4): Für Verbraucherverträge im Fernabsatz Pflichtangabe
+   (Art. 246a § 1 Abs. 1 Nr. 3 EGBGB) und Teil des Widerrufsmusters. Eintragen in
+   `src/lib/legal-content.ts` (`OPERATOR.phone`); dann verschwindet der Entwurfshinweis auf den AGB
+   automatisch und die Nummer erscheint in AGB, Impressum, Widerrufsbelehrung und Vertragsbestätigung.
+2. **Vercel-Tarif** (Nr. 11): Hobby ist laut Vercel nur für nicht-kommerzielle Nutzung erlaubt
+   („any method of requesting or processing payment“ gilt als kommerziell), und der
+   Auftragsverarbeitungsvertrag gilt nur für Pro und Enterprise. Vor echten Zahlungen auf Pro wechseln.
+3. **IONOS-AV-Vertrag** (Nr. 11): Seit 19.07.2022 Teil der IONOS-AGB; ist der Vertrag älter, im
+   Kundenbereich unter „Datenschutz“ abschließen. Supabase, Resend und Stripe binden ihren AV-Vertrag
+   automatisch ein.
+4. **Betreiberstatus** (Nr. 13): Gewerbeanmeldung und steuerliche Behandlung der Gebühren klären.
+   Falls eine USt-IdNr. oder Wirtschafts-Identifikationsnummer vorhanden ist, gehört sie ins Impressum
+   (§ 5 Abs. 1 Nr. 6 DDG).

@@ -24,6 +24,9 @@ const COLUMNS = [
       { href: "/legal/impressum", label: "Impressum" },
       { href: "/legal/datenschutz", label: "Datenschutz" },
       { href: "/legal/agb", label: "AGB" },
+      { href: "/kontakt", label: "Kontakt & Inhalt melden" },
+      { href: "/vertrag-widerrufen", label: "Vertrag widerrufen" },
+      { href: "/vertrag-kuendigen", label: "Verträge hier kündigen" },
     ],
   },
 ];

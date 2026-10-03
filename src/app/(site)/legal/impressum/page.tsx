@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { PageHeader, Prose } from "@/components/page-shell";
+import { OPERATOR } from "@/lib/legal-content";
 
 export const metadata = {
   title: "Impressum",
@@ -13,22 +15,32 @@ export default function ImprintPage() {
       <Prose>
         <h2>Angaben gemäß § 5 DDG</h2>
         <p>
-          Atta Afsari Gargari
+          {OPERATOR.name}
           <br />
-          Dürkheimerstraße 2
+          {OPERATOR.street}
           <br />
-          76187 Karlsruhe
+          {OPERATOR.city}
           <br />
-          Deutschland
+          {OPERATOR.country}
         </p>
 
         <h2>Kontakt</h2>
         <p>
-          E-Mail: <a href="mailto:info@lieferdank.de">info@lieferdank.de</a>
+          E-Mail: <a href={`mailto:${OPERATOR.email}`}>{OPERATOR.email}</a>
+          {OPERATOR.phone && <><br />Telefon: {OPERATOR.phone}</>}
+          <br />
+          Kontaktformular: <Link href="/kontakt">lieferdank.de/kontakt</Link>
+        </p>
+
+        <h2>Zentrale Kontaktstelle nach Art. 11 und 12 DSA</h2>
+        <p>
+          Behörden, die EU-Kommission und Nutzer erreichen uns über die oben genannte E-Mail-Adresse und das
+          Kontaktformular, auf Deutsch oder Englisch. Rechtswidrige Inhalte kannst du über{" "}
+          <Link href="/kontakt?anliegen=meldung">„Rechtswidrigen Inhalt melden“</Link> melden.
         </p>
 
         <h2>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h2>
-        <p>Atta Afsari Gargari, Anschrift wie oben</p>
+        <p>{OPERATOR.name}, Anschrift wie oben</p>
 
         <h2>Verbraucherstreitbeilegung</h2>
         <p>
@@ -38,8 +50,8 @@ export default function ImprintPage() {
 
         <h2>Hinweis zu Marken Dritter</h2>
         <p>
-          Marken Dritter sind Eigentum der jeweiligen Unternehmen. Lieferdank steht in keiner
-          Verbindung zu Paketdiensten und verwendet deren Logos nicht.
+          Marken Dritter sind Eigentum der jeweiligen Unternehmen. Lieferdank steht in keiner Verbindung zu Paketdiensten
+          und verwendet deren Logos nicht.
         </p>
       </Prose>
     </>

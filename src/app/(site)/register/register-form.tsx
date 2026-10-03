@@ -49,7 +49,7 @@ export function Terms({ driver = true }: { driver?: boolean }) {
     <label className="flex items-start gap-3 rounded-2xl bg-canvas p-4 text-[0.9375rem] leading-relaxed text-ink-soft">
       <input type="checkbox" name="terms" className="mt-0.5 h-5 w-5 shrink-0 rounded accent-[color:var(--color-brand)]" />
       <span>
-        Ich habe die{" "}
+        Ich bin mindestens 18 Jahre alt und habe die{" "}
         <Link href="/legal/agb" className="font-semibold text-brand underline underline-offset-2">
           AGB
         </Link>{" "}

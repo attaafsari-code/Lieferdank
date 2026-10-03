@@ -4,6 +4,7 @@ import { CARD_PRODUCT_LABELS } from "@/lib/pricing";
 import type { CardOrder } from "@/lib/db/types";
 import type { MailContent } from "./mail";
 import { PRODUCTION_URL } from "@/lib/base-url";
+import { OPERATOR, OPERATOR_ADDRESS_LINE, TIP_FEE_SUMMARY, TIPPING_SERVICE_NAME, WITHDRAWAL_FORM_LINES, withdrawalInstructions } from "@/lib/legal-content";
 
 /**
  * E-Mail-Vorlagen. Jede Mail hat eine HTML- und eine Textfassung.
@@ -191,5 +192,62 @@ export const emails = {
         { kind: "button", label: "Bestellung ansehen", href: ordersUrl },
       ],
     );
+  },
+
+  /**
+   * Vertragsbestätigung für die Trinkgeld-Funktion auf dauerhaftem Datenträger (§ 312f Abs. 2 BGB)
+   * mit den Angaben nach Art. 246a EGBGB, Widerrufsbelehrung und Muster-Widerrufsformular.
+   */
+  tippingContract(firstName: string, concludedAt: string, termsUrl: string, withdrawUrl: string, cancelUrl: string): MailContent {
+    const blocks: Block[] = [
+      { kind: "p", text: `Hallo ${firstName}, hiermit bestätigen wir deinen Vertrag über die Lieferdank-${TIPPING_SERVICE_NAME}, geschlossen am ${concludedAt}.` },
+      { kind: "p", text: `Anbieter: ${OPERATOR_ADDRESS_LINE}, E-Mail: ${OPERATOR.email}. Kontakt und Beschwerden: ${PRODUCTION_URL}/kontakt` },
+      { kind: "p", text: "Leistung: Kunden können dir über deinen Danke-Code freiwilliges Trinkgeld geben. Stripe wickelt die Zahlung direkt auf deinem eigenen Stripe-Konto ab und zahlt das Guthaben nach deinem Auszahlungsplan aus. Lieferdank nimmt kein Kundengeld entgegen." },
+      { kind: "p", text: `Preis: Je erhaltenem Trinkgeld behält Lieferdank eine Gebühr ein (${TIP_FEE_SUMMARY}). Weitere Kosten berechnet Lieferdank nicht. Stripe berechnet seine Zahlungs- und gegebenenfalls Auszahlungskosten nach den Bedingungen von Stripe separat auf deinem Stripe-Konto. Wird ein Trinkgeld erstattet, gibt Lieferdank die Gebühr vollständig bzw. anteilig zurück.` },
+      { kind: "p", text: `Laufzeit: unbefristet, ohne Mindestlaufzeit. Du kannst jederzeit ohne Frist kündigen – über „Verträge hier kündigen“ (${cancelUrl}) oder indem du dein Konto im Profil löschst.` },
+      { kind: "p", text: "Für die Trinkgeld-Funktion als digitale Dienstleistung gilt das gesetzliche Gewährleistungsrecht." },
+      { kind: "p", text: "Du hast verlangt, dass wir mit der Leistung vor Ablauf der Widerrufsfrist beginnen. Bei einem Widerruf schuldest du für die bis dahin erbrachten Leistungen einen anteiligen Betrag." },
+      { kind: "button", label: "Allgemeine Geschäftsbedingungen", href: termsUrl },
+    ];
+    for (const section of withdrawalInstructions(withdrawUrl)) {
+      blocks.push({ kind: "p", text: section.heading });
+      for (const paragraph of section.paragraphs) blocks.push({ kind: "note", text: paragraph });
+    }
+    blocks.push({ kind: "p", text: "Muster-Widerrufsformular" });
+    for (const line of WITHDRAWAL_FORM_LINES) blocks.push({ kind: "note", text: line });
+    return mail(`Vertragsbestätigung: Lieferdank-${TIPPING_SERVICE_NAME}`, "Deine Vertragsbestätigung mit Widerrufsbelehrung", "Vertragsbestätigung", blocks);
+  },
+
+  /** Information an den Zusteller, wenn Lieferdank eine Erstattung zu seinen Lasten ausgelöst hat. */
+  refundNotice(firstName: string, refundedCents: number, grossCents: number, reason: string, earningsUrl: string): MailContent {
+    return mail(
+      "Ein Trinkgeld wurde erstattet",
+      `${formatEuro(refundedCents)} an den Kunden erstattet`,
+      "Erstattung eines Trinkgelds",
+      [
+        { kind: "p", text: `Hallo ${firstName}, Lieferdank hat von einem Trinkgeld über ${formatEuro(grossCents)} insgesamt ${formatEuro(refundedCents)} über Stripe an den Kunden erstattet. Der Betrag wird deinem Stripe-Konto belastet; die Lieferdank-Gebühr geben wir dir vollständig bzw. anteilig zurück.` },
+        { kind: "p", text: `Grund: ${reason}` },
+        { kind: "p", text: `Fragen oder Einwände? Schreib uns an ${OPERATOR.email}.` },
+        { kind: "button", label: "Einnahmen ansehen", href: earningsUrl },
+      ],
+    );
+  },
+
+  /** Eingangsbestätigung an die Person, die ein Formular abgeschickt hat (Kündigung, Widerruf, Meldung, Kontakt). */
+  requestReceipt(subject: string, intro: string, lines: string[], receivedAt: string): MailContent {
+    return mail(subject, intro, subject, [
+      { kind: "p", text: intro },
+      { kind: "p", text: `Eingegangen am ${receivedAt}.` },
+      ...lines.map((text): Block => ({ kind: "note", text })),
+      { kind: "note", text: `Lieferdank · ${OPERATOR_ADDRESS_LINE} · ${OPERATOR.email}` },
+    ]);
+  },
+
+  /** Weiterleitung eines Formulars an das Lieferdank-Postfach. */
+  requestToOperator(subject: string, lines: string[], receivedAt: string): MailContent {
+    return mail(subject, subject, subject, [
+      { kind: "p", text: `Eingegangen am ${receivedAt}.` },
+      ...lines.map((text): Block => ({ kind: "p", text })),
+    ]);
   },
 };

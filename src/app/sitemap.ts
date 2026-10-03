@@ -8,6 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/so-funktionierts",
     "/faq",
     "/register",
+    "/kontakt",
   ];
   const now = new Date();
   return routes.map((route) => ({

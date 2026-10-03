@@ -4,5 +4,11 @@
   "regions": [
     "fra1"
   ],
-  "buildCommand": "npm run typecheck && npm run lint && env -i PATH=\"$PATH\" HOME=\"$HOME\" npm test && npm run build"
+  "buildCommand": "npm run typecheck && npm run lint && env -i PATH=\"$PATH\" HOME=\"$HOME\" npm test && npm run build",
+  "crons": [
+    {
+      "path": "/api/cron/aufbewahrung",
+      "schedule": "17 3 * * *"
+    }
+  ]
 }

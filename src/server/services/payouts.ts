@@ -7,6 +7,10 @@ import { getPaymentProvider } from "../payments";
 import { baseUrl } from "../site";
 import { thankYouUrl } from "../qr";
 import { assertEmailVerified } from "./auth";
+import { formatReceivedAt } from "./legal-requests";
+import { emails } from "../emails";
+import { sendMail } from "../mail";
+import { newId } from "@/lib/id";
 
 /* ---------- Auszahlungskonto ---------- */
 
@@ -163,4 +167,41 @@ export async function syncPayoutReadiness(driverId: string, readLive: () => Prom
     if (written) return ready;
   }
   throw new Error("Kontostatus wurde parallel abgeglichen – Abgleich nicht abgeschlossen.");
+}
+
+/* ---------- Vertrag über die Trinkgeld-Funktion ---------- */
+
+export const TIPPING_CONTRACT_ACTION = "tipping_contract_concluded";
+
+/**
+ * Die Trinkgeld-Funktion ist der entgeltliche Teil der Nutzung (Gebühr je Trinkgeld). Sie kommt
+ * mit dem Klick auf „Trinkgeld zahlungspflichtig aktivieren“ zustande (§ 312j Abs. 3 BGB). Weil
+ * die Leistung sofort beginnen soll, muss der Zusteller das ausdrücklich verlangen (§ 357a
+ * Abs. 2 BGB). Die Vertragsbestätigung mit Widerrufsbelehrung geht vor Leistungsbeginn per
+ * E-Mail raus (§ 312f Abs. 2 BGB); der Abschluss wird im Admin-Protokoll festgehalten.
+ */
+export async function concludeTippingContract(user: User, driver: DriverProfile, consent: { immediateStart: boolean }): Promise<void> {
+  if (user.role !== "driver" || driver.userId !== user.id) {
+    throw new ServiceError("forbidden", "Dieses Auszahlungskonto gehört nicht zu deinem Profil.", 403);
+  }
+  // Ein bestehendes Stripe-Konto heißt: Der Vertrag wurde schon geschlossen.
+  if (driver.payoutAccountId) return;
+  assertEmailVerified(user);
+  if (!consent.immediateStart) {
+    throw new ServiceError("contract_consent", "Bitte bestätige, dass die Trinkgeld-Funktion sofort beginnen soll.", 400, "immediateStart");
+  }
+  const db = getDb();
+  if (await db.adminActions.findOne({ targetId: driver.id, action: TIPPING_CONTRACT_ACTION })) return;
+  const now = new Date();
+  await db.adminActions.insert({
+    id: newId(),
+    actorEmail: "self-service",
+    targetId: driver.id,
+    action: TIPPING_CONTRACT_ACTION,
+    reason: "Trinkgeld-Funktion zahlungspflichtig aktiviert; Leistungsbeginn vor Ablauf der Widerrufsfrist ausdrücklich verlangt",
+    createdAt: now.toISOString(),
+  });
+  await sendMail(user.email, emails.tippingContract(
+    user.firstName, formatReceivedAt(now), `${baseUrl()}/legal/agb`, `${baseUrl()}/vertrag-widerrufen`, `${baseUrl()}/vertrag-kuendigen`,
+  ), "tipping_contract");
 }

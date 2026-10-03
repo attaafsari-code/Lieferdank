@@ -173,6 +173,9 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
             <Link href="/legal/impressum" className="transition hover:text-brand">
               Impressum &amp; Kontakt
             </Link>
+            <Link href={`/kontakt?anliegen=meldung&code=${driver.code}`} className="transition hover:text-brand">
+              Inhalt melden
+            </Link>
           </nav>
         </footer>
       </div>
