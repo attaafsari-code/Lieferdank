@@ -23,7 +23,8 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "Lieferdank – Dein Danke kommt an.", description },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    apple: "/apple-icon.png",
+    // Erzeugt von src/app/apple-icon.tsx – die Route heißt /apple-icon (ohne .png).
+    apple: "/apple-icon",
   },
   appleWebApp: {
     capable: true,
