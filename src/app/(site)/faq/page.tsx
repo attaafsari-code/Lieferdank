@@ -24,7 +24,7 @@ const faqDrivers = (cardsOrderable: boolean) => [
   },
   {
     q: "Muss ich mich verifizieren lassen?",
-    a: "Der Danke-Code und kostenlose Danke funktionieren sofort. Für Trinkgeld musst du die von Stripe verlangte Konto- und Identitätsprüfung abschließen.",
+    a: "Der Danke-Code und kostenlose Danke funktionieren sofort. Für Trinkgeld bestätigst du zuerst deine E-Mail-Adresse und schließt dann die von Stripe verlangte Konto- und Identitätsprüfung ab.",
   },
   {
     q: "Welcher Name steht auf meiner Karte?",

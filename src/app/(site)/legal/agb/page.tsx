@@ -16,9 +16,10 @@ export default function TermsPage() {
 
         <h2>1. Geltungsbereich</h2>
         <p>
-          Diese Bedingungen gelten für die Nutzung der Plattform Lieferdank durch Zusteller
-          („Empfänger“) und durch Kundinnen und Kunden, die ein Danke oder ein Trinkgeld
-          senden („Sender“).
+          Diese Bedingungen gelten für die Nutzung der Plattform Lieferdank durch Zusteller,
+          auf der Website auch „Lieferanten“ genannt („Empfänger“), und durch Kundinnen und
+          Kunden, die ein Danke oder ein Trinkgeld senden („Sender“). Sender können Lieferdank
+          ohne Konto nutzen oder ein freiwilliges Kundenkonto anlegen.
         </p>
         <p>
           Anbieter der Plattform ist Atta Afsari Gargari, Dürkheimerstraße 2, 76187 Karlsruhe,
@@ -46,13 +47,14 @@ export default function TermsPage() {
         </p>
         <p>
           Lieferdank erhält je nach Trinkgeldbetrag 0,50 € (2 €), 0,60 € (3 €) oder 1,00 € (5 €)
-          als Application Fee. Stripe zieht seine Zahlungs- und gegebenenfalls Auszahlungskosten
+          als Lieferdank-Gebühr (bei Stripe „Application Fee“). Stripe zieht seine Zahlungs- und gegebenenfalls Auszahlungskosten
           separat vom Stripe-Konto des Zustellers ab. Der tatsächliche Auszahlungsbetrag ist daher geringer.
         </p>
 
         <h2>5. Auszahlung</h2>
         <p>
           Trinkgelder werden direkt auf dem verbundenen Stripe-Konto des Zustellers verarbeitet.
+          Lieferdank nimmt Trinkgelder nicht selbst entgegen und verwahrt keine Kundengelder.
           Stripe verwaltet dieses Konto und dessen reguläre Auszahlungen. Voraussetzung ist
           ein für Zahlungen und Auszahlungen freigeschaltetes Stripe-Konto.
         </p>
@@ -60,7 +62,7 @@ export default function TermsPage() {
         <h2>6. Verifizierung und Sperrung</h2>
         <p>
           Stripe prüft die für Zahlungsannahme und Auszahlung erforderlichen Kontoinformationen.
-          Ein optionales Lieferdank-Abzeichen für die Zustellertätigkeit ist davon getrennt.
+          Die Einrichtung des Stripe-Kontos setzt eine bestätigte E-Mail-Adresse voraus. Ein optionales Lieferdank-Abzeichen für die Zustellertätigkeit ist davon getrennt.
           Bei begründetem Verdacht auf
           Missbrauch, falsche Angaben oder betrügerische Zahlungen kann Lieferdank Konten
           sperren, Codes neu vergeben und die Annahme neuer Trinkgelder unterbinden.
@@ -73,6 +75,18 @@ export default function TermsPage() {
           <a href="mailto:info@lieferdank.de">info@lieferdank.de</a>. Wir prüfen den konkreten
           Erstattungsfall. Die Behandlung von Rückbuchungen richtet sich zusätzlich nach den
           Bedingungen des Zahlungsdienstleisters.
+        </p>
+        {/* REVIEW (RECHTSTEXT-REVIEW.md, Nr. 3): Ob und unter welchen Voraussetzungen Lieferdank eine
+            Erstattung zulasten des Stripe-Kontos des Zustellers auslösen darf, ist rechtlich zu regeln.
+            Der folgende Absatz beschreibt nur den technischen Ablauf. */}
+        <p>
+          Eine Erstattung erfolgt über Stripe, vollständig oder in Teilen. Der erstattete Betrag
+          wird dem Stripe-Konto des Zustellers belastet. Lieferdank gibt seine Gebühr bei
+          vollständiger Erstattung vollständig und bei teilweiser Erstattung anteilig zurück –
+          auch dann, wenn der Zusteller die Erstattung selbst in seinem Stripe-Konto auslöst.
+          Für die Zahlungskosten von Stripe gelten die Bedingungen von Stripe. Rückbuchungen
+          über den Zahlungsdienstleister werden nicht automatisch verrechnet, sondern einzeln
+          geprüft.
         </p>
 
         <h2>8. Pflichten der Zusteller</h2>
@@ -91,8 +105,9 @@ export default function TermsPage() {
 
         <h2>9. Keine Bewertungen</h2>
         <p>
-          Über Lieferdank können ausschließlich positive Rückmeldungen gesendet werden. Es gibt
-          keine Bewertungen, Ranglisten oder Beschwerdefunktionen.
+          Über Lieferdank können ein Danke, ein freiwilliges Trinkgeld und optional eine kurze
+          Nachricht gesendet werden. Es gibt keine Bewertungen, Sterne, Ranglisten oder
+          Beschwerdefunktionen.
         </p>
 
         <h2>10. Haftung</h2>
@@ -100,9 +115,12 @@ export default function TermsPage() {
 
         <h2>11. Änderungen und Kündigung</h2>
         <p>
-          Zusteller können ihr Lieferdank-Konto löschen. Bereits eingegangene Zahlungen,
-          Erstattungen und Auszahlungen bleiben bei Stripe zu klären und unterliegen
-          dessen Kontobedingungen. Änderungen dieser Bedingungen werden rechtzeitig angekündigt.
+          Zusteller und Kunden können ihr Lieferdank-Konto jederzeit selbst löschen. Sind bei
+          einem Zusteller noch Zahlungen oder Erstattungen offen, ist die Löschung erst nach deren
+          Klärung möglich. Bereits eingegangene Zahlungen, Erstattungen und Auszahlungen bleiben
+          bei Stripe zu klären und unterliegen dessen Kontobedingungen. Änderungen dieser
+          Bedingungen werden rechtzeitig angekündigt.
+          {/* REVIEW (RECHTSTEXT-REVIEW.md, Nr. 6): Form und Frist der Ankündigung festlegen. */}
         </p>
 
         <h2>12. Schlussbestimmungen</h2>

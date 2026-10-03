@@ -64,7 +64,7 @@ export function SiteFooter() {
 
         <p className="mt-12 border-t border-line pt-7 text-xs leading-relaxed text-ink-faint">
           © {new Date().getFullYear()} Lieferdank · Danke sagen ist kostenlos, Trinkgeld
-          ist freiwillig. Lieferdank steht in keiner Verbindung zu den genannten
+          ist freiwillig. Lieferdank steht in keiner Verbindung zu Paket- und
           Zustelldiensten.
         </p>
       </div>
