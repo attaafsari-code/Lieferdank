@@ -199,13 +199,25 @@ describe("Löschfristen", () => {
     expect(await applyRetention(now)).toEqual({ systemEvents: 0, passwordResets: 0 });
   });
 
-  it("Cron-Endpunkt läuft ohne Secret und verlangt es, sobald eines gesetzt ist", async () => {
+  it("Cron-Endpunkt führt ohne Secret oder gültigen Header keine Löschung aus", async () => {
+    const db = getDb();
+    await db.systemEvents.insert({
+      id: newId(), level: "info", source: "cron-test", message: "abgelaufen", context: null,
+      createdAt: "2020-01-01T00:00:00.000Z",
+    });
     const call = (auth?: string) => retentionCron(new Request("http://localhost/api/cron/aufbewahrung", {
       headers: { "x-forwarded-for": nextIp(), ...(auth ? { authorization: auth } : {}) },
     }), { params: Promise.resolve({}) });
-    expect((await call()).status).toBe(200);
-    vi.stubEnv("CRON_SECRET", "geheimer-cron-wert");
+    vi.stubEnv("CRON_SECRET", "");
+    expect((await call()).status).toBe(503);
+    expect(await db.systemEvents.count()).toBe(1);
+    vi.stubEnv("CRON_SECRET", "zu-kurz");
+    expect((await call("Bearer zu-kurz")).status).toBe(503);
+    vi.stubEnv("CRON_SECRET", "ein-geheimer-cron-wert-mit-32-zeichen");
     expect((await call()).status).toBe(401);
-    expect((await call("Bearer geheimer-cron-wert")).status).toBe(200);
+    expect((await call("Bearer falsch")).status).toBe(401);
+    expect(await db.systemEvents.count()).toBe(1);
+    expect((await call("Bearer ein-geheimer-cron-wert-mit-32-zeichen")).status).toBe(200);
+    expect(await db.systemEvents.count()).toBe(0);
   });
 });

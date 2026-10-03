@@ -1,6 +1,7 @@
 import { SignJWT } from "jose";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as postThanks } from "@/app/api/v1/drivers/[code]/thanks/route";
+import { POST as postTip } from "@/app/api/v1/drivers/[code]/tips/route";
 import { POST as postMessage } from "@/app/api/v1/thanks/[id]/message/route";
 import { getDb } from "@/lib/db";
 import { attachMessageAction, sendThanksAction, startTipAction } from "@/server/actions/customer-flow";
@@ -97,6 +98,19 @@ describe("Nachricht zum Danke im Web", () => {
 });
 
 describe("Nachricht zum Danke in der App-API", () => {
+  it("gibt nach dem Trinkgeldstart nur dem Initiator ein Nachrichtentoken für diese Zahlung", async () => {
+    const { driver } = await makeDriver();
+    const response = await postTip(request(`/api/v1/drivers/${driver.code}/tips`, { amountCents: 300 }), params({ code: driver.code }));
+    expect(response.status).toBe(200);
+    const { paymentId, messageToken } = await response.json() as { paymentId: string; messageToken: string };
+    expect(messageToken).toEqual(expect.any(String));
+    await confirmPayment(paymentId);
+    const thankYou = (await getDb().thankYous.findOne({ driverId: driver.id, tipId: (await getDb().tips.findOne({ paymentId }))!.id }))!;
+    expect((await sendMessage(thankYou.id, { message: "Nicht meins", messageToken: await signMessageGrant([`p:${crypto.randomUUID()}`]) })).status).toBe(404);
+    expect((await sendMessage(thankYou.id, { message: "Danke!", messageToken })).status).toBe(200);
+    expect(await stored(thankYou.id)).toEqual({ presetId: null, message: "Danke!" });
+  });
+
   async function freeThanks() {
     const { driver } = await makeDriver();
     const response = await postThanks(request(`/api/v1/drivers/${driver.code}/thanks`), params({ code: driver.code }));

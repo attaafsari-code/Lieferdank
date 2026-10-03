@@ -6,7 +6,7 @@ import { readMessageGrant } from "@/server/message-grant";
 const body = z.object({
   presetId: z.string().nullable().optional(),
   message: z.string().max(500).nullable().optional(),
-  /** messageToken aus POST /drivers/{code}/thanks – das Schreibrecht des Absenders. */
+  /** messageToken aus POST /drivers/{code}/thanks oder /tips – das Schreibrecht des Absenders. */
   messageToken: z.string().max(4096),
 });
 

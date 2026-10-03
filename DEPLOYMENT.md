@@ -84,6 +84,7 @@ Details zu Tabellen und Sicherheit: [DATABASE.md](DATABASE.md).
 | `NEXT_PUBLIC_BASE_URL`          | `https://lieferdank.de`                | ja      |
 | `NEXT_PUBLIC_SITE_URL`          | `https://lieferdank.de`                | ja      |
 | `AUTH_SECRET`                   | `openssl rand -base64 48`              | ja      |
+| `CRON_SECRET`                   | eigener Zufallswert, mindestens 32 Zeichen | ja   |
 | `LIEFERDANK_DB`                 | `supabase`                             | ja      |
 | `SUPABASE_URL`                  | aus Schritt 2                          | ja      |
 | `SUPABASE_SERVICE_ROLE_KEY`     | aus Schritt 2                          | ja      |
@@ -279,8 +280,8 @@ Admins können sich nicht selbst registrieren.
   Instanzen getrennt zählen. Für echten Schutz eine Vercel-Firewall-Regel (Rate Limiting)
   oder Upstash Redis ergänzen (siehe DECISIONS.md).
 - **Löschfristen**: Vercel ruft täglich `/api/cron/aufbewahrung` auf (`vercel.json` → `crons`) und löscht
-  Systemprotokolle nach 12 Monaten und Reset-Links nach 30 Tagen. Der Endpunkt löscht nur Abgelaufenes;
-  ist `CRON_SECRET` gesetzt, verlangt er zusätzlich den Vercel-Header.
+  Systemprotokolle nach 12 Monaten und Reset-Links nach 30 Tagen. `CRON_SECRET` muss in Vercel für
+  Production gesetzt sein; ohne Secret oder passenden Vercel-Header führt der Endpunkt nichts aus.
 - **Formulare**: Kontakt, Inhaltsmeldung (DSA), Widerruf (`/vertrag-widerrufen`) und Kündigung
   (`/vertrag-kuendigen`) gehen per E-Mail an info@lieferdank.de; die absendende Person bekommt eine
   Eingangsbestätigung. Ohne funktionierenden Mailversand lehnt Production die Formulare ab.
