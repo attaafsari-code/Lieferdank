@@ -279,6 +279,7 @@ Admins können sich nicht selbst registrieren.
   Instanzen getrennt zählen. Für echten Schutz eine Vercel-Firewall-Regel (Rate Limiting)
   oder Upstash Redis ergänzen (siehe DECISIONS.md).
 - **CI**: `.github/workflows/ci.yml` prüft Typecheck, Lint, Tests und Build bei jedem Pull
-  Request und Push auf `main`. Vercel deployt `main` unabhängig davon – blockierend wird
-  die CI erst mit Branch-Schutz (Pull Requests mit Pflicht-Check) bzw. einer passenden
-  Vercel-Einstellung.
+  Request und Push auf `main`. Dieselben Prüfungen laufen zusätzlich im Vercel-Build
+  (`buildCommand` in `vercel.json`): Schlägt eine fehl, scheitert das Deployment und
+  Production bleibt auf dem letzten grünen Stand. Die Tests laufen dort mit leerer Umgebung
+  (`env -i`), damit sie nie Production-Schlüssel sehen.
