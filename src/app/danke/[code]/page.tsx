@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { findDriverByCode, toPublicDriver } from "@/server/services/drivers";
-import { recordScan } from "@/server/services/thanks";
+import { headers } from "next/headers";
+import { recordScanFrom } from "@/server/services/thanks";
+import { ipFromHeaders } from "@/server/rate-limit";
 import { getPaymentProvider } from "@/server/payments";
 import { LogoMark } from "@/components/logo";
+import { LegalLinks } from "@/components/legal-links";
 import { dativeName } from "@/lib/names";
 import { ThankYouScreen } from "./thank-you-screen";
 
@@ -20,7 +23,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const name = found?.user ? toPublicDriver(found.driver, found.user).name : null;
   return {
     title: name ? `Sag ${dativeName(name)} Danke` : "Danke sagen",
-    description: "Sag deinem Zusteller Danke – kostenlos, ohne App, in wenigen Sekunden.",
+    description: "Sag deinem Lieferanten Danke – kostenlos, ohne App, in wenigen Sekunden.",
     robots: { index: false, follow: false },
   };
 }
@@ -35,7 +38,7 @@ export default async function ThankYouPage({ params, searchParams }: Params) {
   if (!driver.active || !user || user.blockedAt) return <InactiveCode />;
 
   // Scan zählen – Basis der Scan-to-Payment-Conversion. Die Eigenvorschau zählt nicht.
-  if (query.vorschau !== "1") await recordScan(driver.id);
+  if (query.vorschau !== "1") await recordScanFrom(driver.id, ipFromHeaders(await headers()));
 
   return (
     <ThankYouScreen
@@ -55,6 +58,7 @@ function Shell({ title, text }: { title: string; text: string }) {
       <Link href="/" className="btn btn-ghost mt-8">
         Was ist Lieferdank?
       </Link>
+      <LegalLinks className="mt-10 text-ink-faint" />
     </div>
   );
 }

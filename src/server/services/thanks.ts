@@ -15,6 +15,7 @@ import { driverPublicName, findReceivingDriver } from "./drivers";
 import { refreshMilestones } from "./milestones";
 import { dayKey } from "@/lib/time";
 import { dailyVisitorHash } from "../visitor";
+import { rateLimit } from "../rate-limit";
 
 /**
  * Der Kernablauf: Danke sagen und Trinkgeld geben.
@@ -25,6 +26,17 @@ const inactive = () => new ServiceError("inactive", "Dieser Danke-Code ist gerad
 
 export async function recordScan(driverId: string): Promise<void> {
   await getDb().scans.insert({ id: newId(), driverId, createdAt: new Date().toISOString() });
+}
+
+/**
+ * Zählt einen Scan von dieser Adresse höchstens alle 10 Minuten je Lieferant und schreibt
+ * insgesamt höchstens 60 Scans pro Minute und Adresse. Neuladen oder Skripte blähen so weder
+ * die Statistik noch die Datenbank auf. Wirkt pro Serverinstanz (siehe rate-limit.ts).
+ */
+export async function recordScanFrom(driverId: string, clientIp: string): Promise<void> {
+  if (!rateLimit(`scan:${clientIp}:${driverId}`, 1, 10 * 60_000)) return;
+  if (!rateLimit(`scan-ip:${clientIp}`, 60, 60_000)) return;
+  await recordScan(driverId);
 }
 
 export async function sendFreeThankYou(

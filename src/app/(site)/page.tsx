@@ -8,6 +8,7 @@ import { formatEuroShort } from "@/lib/format";
 import { renderCardSvg } from "@/lib/card/svg";
 import { canonicalBase } from "@/server/site";
 import { qrSvg } from "@/server/qr";
+import { cardOrdersAvailable } from "@/server/services/cards";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -55,7 +56,7 @@ function Hero({ card }: { card: string }) {
             Dein Danke kommt an.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-soft sm:text-xl">
-            Sag deinem Zusteller einfach Danke – kostenlos oder mit einem kleinen Trinkgeld. QR-Code scannen,
+            Sag deinem Lieferanten einfach Danke – kostenlos oder mit einem kleinen Trinkgeld. QR-Code scannen,
             fertig. Ohne App, ohne Konto.
           </p>
 
@@ -95,7 +96,12 @@ function Hero({ card }: { card: string }) {
 function Steps() {
   const steps = [
     { title: "Profil anlegen", text: "Kostenlos registrieren, Namen und Foto festlegen – du entscheidest, was Kunden sehen." },
-    { title: "Karte gestalten", text: "Eigener Text, eigenes Design. Als Bild am Handy, zum Ausdrucken oder als Plastikkarte." },
+    {
+      title: "Karte gestalten",
+      text: cardOrdersAvailable()
+        ? "Eigener Text, eigenes Design. Als Bild am Handy, zum Ausdrucken oder als Plastikkarte."
+        : "Eigener Text, eigenes Design. Als Bild am Handy oder zum Ausdrucken.",
+    },
     { title: "Danke bekommen", text: "Kunden scannen und senden dir ein Danke oder ein freiwilliges Trinkgeld." },
   ];
 

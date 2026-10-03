@@ -20,14 +20,16 @@ export async function GET() {
     try {
       // Supabase prüft auch ohne Datensätze, ob die Spalten der letzten Migrationen über die API
       // erreichbar sind. Ohne payout_sync_version scheitern Registrierung und Stripe-Kontoabgleich,
-      // ohne die Erstattungsspalten der tips lassen sich keine Trinkgelder anlegen.
+      // ohne die Erstattungsspalten der tips lassen sich keine Trinkgelder anlegen, ohne
+      // email_verified_at keine Konten.
       const client = supabaseClient();
-      const [payments, drivers, tips] = await Promise.all([
+      const checks = await Promise.all([
         client.from("payments").select("refunded_amount_cents").limit(1),
         client.from("driver_profiles").select("payout_sync_version").limit(1),
         client.from("tips").select("refunded_cents, fee_refunded_cents").limit(1),
+        client.from("users").select("email_verified_at").limit(1),
       ]);
-      schemaReady = !payments.error && !drivers.error && !tips.error;
+      schemaReady = checks.every((check) => !check.error);
     } catch { schemaReady = false; }
   }
   const ready = !production || (paymentReady && databaseReady && schemaReady && authReady && mailConfigured());
@@ -36,6 +38,8 @@ export async function GET() {
     database: isDemoDatabase() ? "memory" : !databaseReady ? "misconfigured" : schemaReady ? "supabase" : "migration_required",
     payments: isDemoPayment() ? "demo" : paymentReady ? "stripe" : "stripe_not_ready",
     mail: mailConfigured() ? "resend" : "log",
+    // Nur ob AUTH_SECRET ausreichend lang gesetzt ist – nie der Wert.
+    auth: authReady ? "configured" : "missing",
     time: new Date().toISOString(),
   }, { status: ready ? 200 : 503, headers: { "cache-control": "no-store" } });
 }

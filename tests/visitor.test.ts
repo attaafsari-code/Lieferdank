@@ -7,7 +7,9 @@ describe("anonyme Danke-Kennung", () => {
     expect(first.newToken).toBeTruthy();
     expect(readVisitorToken(first.newToken!)).toBe(first.id);
     expect(visitorFromToken(first.newToken!).newToken).toBeNull();
-    expect(readVisitorToken(`f${first.newToken!.slice(1)}`)).toBeNull();
+    // Erstes Zeichen sicher verändern – beginnt die zufällige Kennung schon mit „f“, wäre „f…“ unverändert.
+    const tampered = `${first.newToken!.startsWith("f") ? "e" : "f"}${first.newToken!.slice(1)}`;
+    expect(readVisitorToken(tampered)).toBeNull();
     expect(readVisitorToken("invalid")).toBeNull();
   });
 

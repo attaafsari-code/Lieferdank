@@ -3,7 +3,8 @@ import { AuthShell } from "@/components/auth-shell";
 import { NewPasswordForm } from "./new-password-form";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Neues Passwort", robots: { index: false, follow: false } };
+// Der Link enthält ein Token – es soll nie per Referer an andere Seiten gehen.
+export const metadata = { title: "Neues Passwort", robots: { index: false, follow: false }, referrer: "no-referrer" as const };
 
 export default async function NewPasswordPage({
   searchParams,

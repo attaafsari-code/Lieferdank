@@ -10,6 +10,7 @@ import { isFavorite } from "@/server/services/favorites";
 import { MessageForm } from "./message-form";
 import { SaveDriver } from "./save-driver";
 import { OptionalTip } from "./optional-tip";
+import { LegalLinks } from "@/components/legal-links";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Danke!", robots: { index: false, follow: false } };
@@ -112,6 +113,7 @@ export default async function SuccessPage({ params, searchParams }: Props) {
           <Link href="/" className="btn btn-ghost btn-sm mt-4">
             Mehr über Lieferdank
           </Link>
+          <LegalLinks className="mt-6 text-ink-faint" />
         </footer>
       </div>
     </div>

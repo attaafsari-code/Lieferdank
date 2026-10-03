@@ -73,6 +73,8 @@ function addUser({ firstName, lastName, email, password, role, phone = null }) {
     passwordHash: hashPassword(password),
     tokenVersion: 0,
     createdAt: isoAt(40, 9, 0),
+    // Demo-Zugänge gelten als bestätigt, damit sich alle Abläufe lokal durchspielen lassen.
+    emailVerifiedAt: isoAt(40, 9, 5),
     blockedAt: null,
     blockedReason: null,
   };

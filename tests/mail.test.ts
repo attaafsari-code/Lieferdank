@@ -15,6 +15,10 @@ describe("Transaktionsmails", () => {
     expect(content.html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
     expect(content.html).not.toContain('<img src=x onerror="alert(1)">');
     expect(content.html).toContain("https://lieferdank.de/passwort-neu?token=abc");
+    for (const path of ["impressum", "datenschutz", "agb"]) {
+      expect(content.html).toContain(`https://lieferdank.de/legal/${path}`);
+      expect(content.text).toContain(`https://lieferdank.de/legal/${path}`);
+    }
   });
 
   it("schickt Reply-To korrekt und blockiert CRLF in Mail-Headern", async () => {
@@ -23,7 +27,7 @@ describe("Transaktionsmails", () => {
     vi.stubEnv("MAIL_FROM", "Lieferdank <noreply@lieferdank.de>");
     vi.stubEnv("MAIL_REPLY_TO", "support@lieferdank.de");
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
-    const content = emails.welcomeDriver("Max", "LD-ABCDE", "https://lieferdank.de/dashboard");
+    const content = emails.welcomeDriver("Max", "LD-ABCDE", "https://lieferdank.de/dashboard", "https://lieferdank.de/email-bestaetigen?token=t");
     expect((await sendMail("max@test.de", content, "welcome_driver")).delivered).toBe(true);
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(body.from).toBe("Lieferdank <noreply@lieferdank.de>");
@@ -38,7 +42,7 @@ describe("Transaktionsmails", () => {
     freshDb();
     vi.stubEnv("RESEND_API_KEY", "local-test-token");
     const fetchMock = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Bearer local-test-token max@test.de"));
-    const result = await sendMail("max@test.de", emails.welcomeDriver("Max", "LD-ABCDE", "https://lieferdank.de/dashboard"), "welcome_driver");
+    const result = await sendMail("max@test.de", emails.welcomeDriver("Max", "LD-ABCDE", "https://lieferdank.de/dashboard", "https://lieferdank.de/email-bestaetigen?token=t"), "welcome_driver");
     expect(result.delivered).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const events = await getDb().systemEvents.findMany();

@@ -18,7 +18,7 @@ import { TABLE_NAMES } from "@/lib/db/types";
 type Keys<T> = Record<keyof T, true>;
 
 const KEYS: { [K in TableName]: Keys<Tables[K]> } = {
-  users: { id: true, email: true, firstName: true, lastName: true, phone: true, role: true, passwordHash: true, tokenVersion: true, createdAt: true, blockedAt: true, blockedReason: true },
+  users: { id: true, email: true, firstName: true, lastName: true, phone: true, role: true, passwordHash: true, tokenVersion: true, createdAt: true, emailVerifiedAt: true, blockedAt: true, blockedReason: true },
   driverProfiles: {
     id: true, userId: true, code: true, nameDisplay: true, customName: true, photoKey: true, photoPublic: true, providerId: true,
     providerPublic: true, tagline: true, bio: true, city: true, verification: true, providerVerified: true, active: true,

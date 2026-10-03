@@ -177,6 +177,7 @@ export async function deleteAccount(user: User): Promise<void> {
     firstName: "Gelöscht",
     lastName: "",
     email: `geloescht+${user.id}@lieferdank.invalid`,
+    emailVerifiedAt: null,
     phone: null,
     passwordHash: "geloescht",
     tokenVersion: (user.tokenVersion ?? 0) + 1,

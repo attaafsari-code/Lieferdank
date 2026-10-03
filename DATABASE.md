@@ -33,7 +33,7 @@ der Test fehl, nicht die Produktion.
 
 | Tabelle             | Zweck                                                                    |
 | ------------------- | ------------------------------------------------------------------------ |
-| `users`             | Alle Konten: Lieferant, Kunde, Admin. Passwort als scrypt-Hash, `token_version` für Session-Widerruf |
+| `users`             | Alle Konten: Lieferant, Kunde, Admin. Passwort als scrypt-Hash, `token_version` für Session-Widerruf, `email_verified_at` nach bestätigtem E-Mail-Link |
 | `driver_profiles`   | Öffentliches Profil eines Lieferanten: Code, Namensanzeige, Foto, Lieferdienst, Texte, Auszahlungskonto |
 | `customer_profiles` | Optionales Kundenkonto                                                   |
 | `verifications`     | Freiwilliges Vertrauensabzeichen                                         |

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-shell";
 import { ArrowRight } from "@/components/icons";
+import { cardOrdersAvailable } from "@/server/services/cards";
 
 export const metadata: Metadata = {
   title: "Für Lieferanten",
@@ -25,7 +26,8 @@ const BENEFITS = [
   },
   {
     title: "Deine eigene Karte",
-    text: "Gestalte deine Karte mit eigenem Text. Als Bild fürs Handy, zum Ausdrucken oder als echte Plastikkarte.",
+    text: "Gestalte deine Karte mit eigenem Text. Als Bild fürs Handy oder zum Ausdrucken.",
+    orderableText: "Gestalte deine Karte mit eigenem Text. Als Bild fürs Handy, zum Ausdrucken oder als echte Plastikkarte.",
   },
   {
     title: "Der Code gehört dir",
@@ -46,6 +48,7 @@ const BENEFITS = [
 ];
 
 export default function DriversPage() {
+  const cardsOrderable = cardOrdersAvailable();
   return (
     <>
       <PageHeader
@@ -69,7 +72,7 @@ export default function DriversPage() {
           {BENEFITS.map((benefit) => (
             <div key={benefit.title} className="card-flat">
               <h2 className="font-bold text-ink">{benefit.title}</h2>
-              <p className="mt-2 leading-relaxed text-ink-soft">{benefit.text}</p>
+              <p className="mt-2 leading-relaxed text-ink-soft">{cardsOrderable && benefit.orderableText ? benefit.orderableText : benefit.text}</p>
             </div>
           ))}
         </div>

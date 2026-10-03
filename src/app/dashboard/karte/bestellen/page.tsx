@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { requireDriver } from "@/server/guards";
 import { getDb } from "@/lib/db";
-import { cardContext, CARD_ORDER_STATUS_LABELS } from "@/server/services/cards";
+import { cardContext, cardOrdersAvailable, CARD_ORDER_STATUS_LABELS } from "@/server/services/cards";
 import { CARD_PRODUCT_LABELS, CARD_QUANTITIES, cardOrdersArePaid, cardProductFor, quoteCardOrder } from "@/lib/pricing";
 import { DEFAULT_HEADLINE } from "@/lib/card/design";
 import { formatDateTime, formatEuro } from "@/lib/format";
 import { CardPreview } from "@/components/card-preview";
 import { PageTitle, SectionTitle } from "@/components/dashboard-ui";
 import { OrderForm, CancelOrderButton } from "./order-form";
-import { isProductionRuntime } from "@/lib/runtime";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Karte bestellen" };
@@ -74,7 +73,7 @@ export default async function OrderPage({
         </div>
 
         <div className="rounded-3xl border border-line bg-white p-6 shadow-xs sm:p-7">
-          {isProductionRuntime() && !cardOrdersArePaid() ? (
+          {!cardOrdersAvailable() ? (
             <p className="text-sm leading-relaxed text-ink-soft">Physische Karten sind derzeit nicht bestellbar. Deinen digitalen QR-Code kannst du kostenlos herunterladen und selbst ausdrucken.</p>
           ) : <OrderForm
             quotes={quotes}

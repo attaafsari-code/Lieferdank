@@ -14,6 +14,7 @@ import { sendMail } from "../mail";
 import { emails } from "../emails";
 import { baseUrl } from "../site";
 import { avatarUrl, driverPublicName } from "./drivers";
+import { assertEmailVerified } from "./auth";
 import { getPaymentProvider } from "../payments";
 import { isProductionRuntime } from "@/lib/runtime";
 
@@ -41,6 +42,14 @@ export const cardDesignSchema = z.object({
 export async function saveCardDesign(driverId: string, input: z.infer<typeof cardDesignSchema>): Promise<void> {
   const design = await getCardDesign(driverId);
   await getDb().cardDesigns.update(design.id, { ...input, updatedAt: new Date().toISOString() });
+}
+
+/**
+ * Physische Karten sind in Production nur bestellbar, wenn bezahlte Bestellungen eingeschaltet
+ * sind (CARD_ORDERS_PAID). Bestellung, Dashboard und Werbetexte richten sich alle danach.
+ */
+export function cardOrdersAvailable(): boolean {
+  return !isProductionRuntime() || cardOrdersArePaid();
 }
 
 /** Alles, was eine Kartenvorschau braucht – serverseitig vorberechnet. */
@@ -100,10 +109,12 @@ export async function createCardOrder(
   if (user.role !== "driver" || driver.userId !== user.id) {
     throw new ServiceError("forbidden", "Diese Karte gehört nicht zu deinem Profil.", 403);
   }
-  const db = getDb();
-  if (isProductionRuntime() && !cardOrdersArePaid()) {
+  if (!cardOrdersAvailable()) {
     throw new ServiceError("card_orders_unavailable", "Physische Karten können derzeit nicht bestellt werden.", 503);
   }
+  // Bestellung, Versand und Mails gehen an diese Adresse und Anschrift.
+  assertEmailVerified(user);
+  const db = getDb();
   if (input.reorderOf) {
     if (!isUuid(input.reorderOf)) throw new ServiceError("invalid_order", "Ungültige Vorbestellung.", 400);
     const original = await db.cardOrders.get(input.reorderOf);

@@ -1,12 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createSession, destroySession } from "../session";
-import { enforceRateLimit } from "../rate-limit";
+import { createSession, destroySession, getSession } from "../session";
+import { enforceRateLimit, enforceRateLimitFor } from "../rate-limit";
 import { safeRedirectPath } from "../guards";
 import {
   authenticate,
   completePasswordReset,
+  confirmEmail,
   customerRegistrationSchema,
   driverRegistrationSchema,
   homePathFor,
@@ -14,8 +15,9 @@ import {
   parseInput,
   registerCustomer,
   registerDriver,
+  requestEmailVerification,
   requestPasswordReset,
-  localResetLink,
+  localMailLink,
 } from "../services/auth";
 import { addFavoriteByCode } from "../services/favorites";
 import { formAction, formString, type FormState } from "./form-state";
@@ -44,7 +46,10 @@ export async function registerCustomerAction(_prev: FormState, formData: FormDat
 export async function loginAction(_prev: FormState, formData: FormData): Promise<FormState> {
   return formAction(async () => {
     await enforceRateLimit("login", 10, 10 * 60_000);
-    const user = await authenticate(parseInput(loginSchema, Object.fromEntries(formData)));
+    const credentials = parseInput(loginSchema, Object.fromEntries(formData));
+    // Zusätzlich pro Konto: verteiltes Durchprobieren von Passwörtern über viele IP-Adressen bremsen.
+    enforceRateLimitFor(`login-email:${credentials.email}`, 20, 15 * 60_000);
+    const user = await authenticate(credentials);
     await createSession(user);
 
     // „Lieferant speichern“ nach der Anmeldung nachholen.
@@ -67,9 +72,11 @@ export async function requestResetAction(_prev: FormState, formData: FormData): 
     await enforceRateLimit("reset-request", 5, 15 * 60_000);
     const email = formString(formData, "email").trim();
     if (!email.includes("@")) throw new ServiceError("invalid_email", "Bitte gib eine gültige E-Mail-Adresse an.", 400, "email");
+    // Pro Adresse begrenzt: niemand soll ein fremdes Postfach mit Reset-Mails fluten können.
+    enforceRateLimitFor(`reset-email:${email.toLowerCase()}`, 3, 60 * 60_000);
     const { link } = await requestPasswordReset(email);
     // Immer dieselbe Antwort – verrät nicht, ob es das Konto gibt.
-    return { saved: true, devLink: localResetLink(link) };
+    return { saved: true, devLink: localMailLink(link) };
   });
 }
 
@@ -84,5 +91,26 @@ export async function completeResetAction(_prev: FormState, formData: FormData):
     const user = await completePasswordReset(formString(formData, "token"), password);
     await createSession(user);
     redirect(homePathFor(user));
+  });
+}
+
+/** Bestätigungslink erneut senden – nur für das eigene, angemeldete Konto. */
+export async function resendVerificationAction(): Promise<FormState> {
+  return formAction(async () => {
+    const session = await getSession();
+    if (!session) throw new ServiceError("unauthenticated", "Bitte melde dich zuerst an.", 401);
+    await enforceRateLimit("verify-resend", 10, 60 * 60_000);
+    enforceRateLimitFor(`verify-resend-user:${session.user.id}`, 3, 60 * 60_000);
+    const { link } = await requestEmailVerification(session.user);
+    return { saved: true, devLink: localMailLink(link) };
+  });
+}
+
+/** Bestätigt per Klick auf der Seite – nicht schon beim Öffnen, damit Link-Scanner nichts bestätigen. */
+export async function confirmEmailAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  return formAction(async () => {
+    await enforceRateLimit("verify-confirm", 20, 15 * 60_000);
+    await confirmEmail(formString(formData, "token"));
+    return { saved: true };
   });
 }

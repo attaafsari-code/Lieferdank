@@ -103,7 +103,7 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
 
         {!driver.tipReady && (
           <p className="mt-4 rounded-xl bg-brand-50 px-4 py-3 text-center text-sm text-brand-900">
-            Trinkgeld ist für diesen Zusteller noch nicht eingerichtet. Kostenlos Danke sagen funktioniert schon.
+            Trinkgeld ist für diesen Lieferanten noch nicht eingerichtet. Kostenlos Danke sagen funktioniert schon.
           </p>
         )}
         <div className="mt-4 grid grid-cols-3 gap-2.5">

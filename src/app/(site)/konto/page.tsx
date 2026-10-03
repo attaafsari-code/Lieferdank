@@ -7,6 +7,7 @@ import { Avatar } from "@/components/avatar";
 import { Heart } from "@/components/icons";
 import { logoutAction } from "@/server/actions/auth";
 import { FavoriteRow, DeleteCustomerAccount } from "./favorite-controls";
+import { EmailVerificationNotice } from "@/components/email-verification-notice";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Meine Lieferanten", robots: { index: false, follow: false } };
@@ -29,6 +30,12 @@ export default async function CustomerAccountPage({
           Hier findest du alle, denen du schon einmal Danke gesagt und die du gespeichert hast.
         </p>
       </header>
+
+      {!user.emailVerifiedAt && (
+        <div className="mt-6">
+          <EmailVerificationNotice email={user.email} />
+        </div>
+      )}
 
       {query.gespeichert === "1" && (
         <p className="mt-6 rounded-2xl bg-brand-50 px-4 py-3.5 text-sm font-semibold text-brand-900">

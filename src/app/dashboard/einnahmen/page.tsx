@@ -53,7 +53,7 @@ export default async function EarningsPage({
           <p className="text-sm font-semibold text-white/60">Dein Trinkgeldanteil vor Stripe-Kosten</p>
           <p className="mt-1.5 break-words text-[2.25rem] leading-none font-extrabold tracking-tight sm:text-[2.75rem]">{formatEuro(stats.total.driverCents)}</p>
           <p className="mt-3 text-sm text-white/75">
-            Deine tatsächliche Stripe-Balance und den Banktermin siehst du bei Stripe. Lieferdank verwahrt kein Fahrergeld.
+            Dein tatsächliches Stripe-Guthaben und den Banktermin siehst du bei Stripe. Lieferdank verwahrt dein Geld nicht.
           </p>
           {stats.inReviewCents > 0 && (
             <p className="mt-2 text-sm font-semibold text-white">{formatEuro(stats.inReviewCents)} aus strittigen Zahlungen in Prüfung; nicht im bestätigten Anteil enthalten.</p>

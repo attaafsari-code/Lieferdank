@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-shell";
+import { cardOrdersAvailable } from "@/server/services/cards";
 
 export const metadata = {
   title: "FAQ",
-  description: "Häufige Fragen zu Lieferdank – für Zusteller und für Kunden.",
+  description: "Häufige Fragen zu Lieferdank – für Lieferanten und für Kunden.",
   alternates: { canonical: "/faq" },
 };
 
-const FAQ_DRIVERS = [
+/** Antworten zu physischen Karten folgen der tatsächlichen Bestellbarkeit. */
+const faqDrivers = (cardsOrderable: boolean) => [
   {
     q: "Was kostet mich Lieferdank?",
-    a: "Registrierung, digitaler Danke-Code und Dashboard sind kostenlos. Physische Karten kosten extra. Für Trinkgeld fallen eine Lieferdank-Gebühr und separate Stripe-Kosten auf deinem Stripe-Konto an.",
+    a: `Registrierung, digitaler Danke-Code und Dashboard sind kostenlos. ${cardsOrderable ? "Physische Karten kosten extra." : "Physische Karten sind derzeit nicht bestellbar."} Für Trinkgeld fallen eine Lieferdank-Gebühr und separate Stripe-Kosten auf deinem Stripe-Konto an.`,
   },
   {
     q: "Wie viel bekomme ich vom Trinkgeld?",
@@ -34,11 +36,13 @@ const FAQ_DRIVERS = [
   },
   {
     q: "Kann ich eine echte Karte bekommen?",
-    a: "Ja. Du kannst deine gestaltete Karte als Plastikkarte bestellen – oder sie selbst ausdrucken bzw. am Handy zeigen.",
+    a: cardsOrderable
+      ? "Ja. Du kannst deine gestaltete Karte als Plastikkarte bestellen – oder sie selbst ausdrucken bzw. am Handy zeigen."
+      : "Du kannst deine digitale Karte selbst ausdrucken oder am Handy zeigen. Physische Karten sind derzeit nicht bestellbar.",
   },
   {
     q: "Was bringt mir das Verifiziert-Abzeichen?",
-    a: "Es ist freiwillig. Wenn wir deine Zustellertätigkeit bestätigt haben, sehen Kunden auf deiner Seite „✓ Verifizierter Zusteller“. Das schafft Vertrauen, ist aber keine Voraussetzung für irgendetwas.",
+    a: "Es ist freiwillig. Wenn wir deine Tätigkeit bestätigt haben, sehen Kunden auf deiner Seite „✓ Verifiziert“. Das schafft Vertrauen, ist aber keine Voraussetzung für irgendetwas.",
   },
   {
     q: "Sieht mein Arbeitgeber, was ich verdiene?",
@@ -84,8 +88,8 @@ const FAQ_CUSTOMERS = [
     a: "Nein. Du zahlst exakt den Betrag, den du auswählst. Es kommt nichts obendrauf. Vom gewählten Betrag werden lediglich Zahlungs- und Plattformkosten abgezogen.",
   },
   {
-    q: "Kommt das Geld wirklich beim Zusteller an?",
-    a: "Ja. Die Auszahlung läuft über einen regulierten Zahlungsdienstleister direkt auf das Konto des Zustellers. Dessen Identität wird dabei geprüft.",
+    q: "Kommt das Geld wirklich beim Lieferanten an?",
+    a: "Ja. Die Auszahlung läuft über einen regulierten Zahlungsdienstleister direkt auf das Konto des Lieferanten. Dessen Identität wird dabei geprüft.",
   },
   {
     q: "Kann ich mich beschweren?",
@@ -102,7 +106,7 @@ export default function FaqPage() {
         lead="Alles, was Lieferanten und Kunden vor dem ersten Danke wissen wollen."
       />
       <div className="container-page max-w-3xl pb-24">
-        <Group title="Für Lieferanten" items={FAQ_DRIVERS} />
+        <Group title="Für Lieferanten" items={faqDrivers(cardOrdersAvailable())} />
         <Group title="Für Kunden" items={FAQ_CUSTOMERS} />
 
         <p className="mt-16 text-center text-ink-soft">

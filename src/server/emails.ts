@@ -3,6 +3,7 @@ import { formatEuro } from "@/lib/format";
 import { CARD_PRODUCT_LABELS } from "@/lib/pricing";
 import type { CardOrder } from "@/lib/db/types";
 import type { MailContent } from "./mail";
+import { PRODUCTION_URL } from "@/lib/base-url";
 
 /**
  * E-Mail-Vorlagen. Jede Mail hat eine HTML- und eine Textfassung.
@@ -37,7 +38,8 @@ function layout(preheader: string, heading: string, blocks: Block[]): { html: st
 <tr><td style="padding-bottom:16px;font-size:22px;font-weight:800;color:#0b2545">${escapeHtml(heading)}</td></tr>
 ${body}
 </table>
-<p style="margin:20px 0 0;font-size:12px;color:#8798b3">Lieferdank · Dein Danke kommt an.</p>
+<p style="margin:20px 0 8px;font-size:12px;color:#8798b3">Lieferdank · Dein Danke kommt an.</p>
+<p style="margin:0;font-size:12px"><a href="${PRODUCTION_URL}/legal/impressum">Impressum</a> · <a href="${PRODUCTION_URL}/legal/datenschutz">Datenschutz</a> · <a href="${PRODUCTION_URL}/legal/agb">AGB</a></p>
 </td></tr></table></body></html>`;
 
   const text = [
@@ -46,6 +48,9 @@ ${body}
     ...blocks.map((block) => (block.kind === "button" ? `${block.label}: ${block.href}` : block.text)),
     "",
     "Lieferdank · Dein Danke kommt an.",
+    `Impressum: ${PRODUCTION_URL}/legal/impressum`,
+    `Datenschutz: ${PRODUCTION_URL}/legal/datenschutz`,
+    `AGB: ${PRODUCTION_URL}/legal/agb`,
   ].join("\n");
 
   return { html, text };
@@ -56,13 +61,15 @@ function mail(subject: string, preheader: string, heading: string, blocks: Block
 }
 
 export const emails = {
-  welcomeDriver(firstName: string, code: string, dashboardUrl: string): MailContent {
+  welcomeDriver(firstName: string, code: string, dashboardUrl: string, verifyUrl: string): MailContent {
     return mail(
       "Willkommen bei Lieferdank – dein Danke-Code ist fertig",
       `Dein persönlicher Code: ${code}`,
       `Willkommen, ${firstName}!`,
       [
         { kind: "p", text: `Dein persönlicher Lieferdank-Code lautet ${code}. Er funktioniert ab sofort.` },
+        { kind: "p", text: "Bitte bestätige noch deine E-Mail-Adresse. Erst danach kannst du dein Auszahlungskonto bei Stripe einrichten." },
+        { kind: "button", label: "E-Mail-Adresse bestätigen", href: verifyUrl },
         { kind: "p", text: "Gestalte deine Karte, drucke sie aus oder zeig den QR-Code direkt am Handy." },
         { kind: "button", label: "Zum Dashboard", href: dashboardUrl },
         { kind: "note", text: "Bitte beachte die Regeln deines Arbeitgebers bzw. Auftraggebers." },
@@ -70,14 +77,32 @@ export const emails = {
     );
   },
 
-  welcomeCustomer(firstName: string, accountUrl: string): MailContent {
+  welcomeCustomer(firstName: string, accountUrl: string, verifyUrl: string): MailContent {
     return mail(
       "Willkommen bei Lieferdank",
       "Deine Lieblingslieferanten an einem Ort",
       `Schön, dass du da bist${firstName ? `, ${firstName}` : ""}!`,
       [
         { kind: "p", text: "Du kannst jetzt Lieferanten speichern und ihnen jederzeit wieder Danke sagen." },
+        { kind: "p", text: "Bitte bestätige noch kurz deine E-Mail-Adresse." },
+        { kind: "button", label: "E-Mail-Adresse bestätigen", href: verifyUrl },
         { kind: "button", label: "Meine Lieferanten", href: accountUrl },
+      ],
+    );
+  },
+
+  verifyEmail(firstName: string, link: string, ttlDays: number): MailContent {
+    return mail(
+      "Bitte bestätige deine E-Mail-Adresse",
+      "Ein Klick, dann ist deine Adresse bestätigt",
+      "E-Mail-Adresse bestätigen",
+      [
+        { kind: "p", text: `Hallo ${firstName || "du"}, bitte bestätige, dass diese E-Mail-Adresse zu deinem Lieferdank-Konto gehört.` },
+        { kind: "button", label: "E-Mail-Adresse bestätigen", href: link },
+        {
+          kind: "note",
+          text: `Der Link gilt ${ttlDays} Tage. Wenn du kein Konto bei Lieferdank angelegt hast, ignoriere diese E-Mail.`,
+        },
       ],
     );
   },

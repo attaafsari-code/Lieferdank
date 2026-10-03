@@ -58,7 +58,7 @@ function StatsBlock({ title, stats }: { title: string; stats: PlatformStats }) {
         <Kpi label="Transaktionen" value={String(stats.tipCount)} />
         <Kpi label="Ø Trinkgeld" value={formatEuro(stats.averageTipCents)} />
         <Kpi label="Kostenlose Danke" value={String(stats.freeThankYouCount)} />
-        <Kpi label="Vorgesehene Application Fees" value={formatEuro(stats.grossPlatformFeeCents)} />
+        <Kpi label="Vorgesehene Lieferdank-Gebühren" value={formatEuro(stats.grossPlatformFeeCents)} />
         <Kpi label="Vorgesehen vor Betriebskosten" value={formatEuro(stats.netRevenueCents)} highlight />
         <Kpi label="Gebühr je Transaktion" value={formatEuro(stats.revenuePerTransactionCents)} />
         <Kpi label="Scans" value={String(stats.scanCount)} />

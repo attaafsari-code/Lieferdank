@@ -4,6 +4,8 @@ import { getSession } from "@/server/session";
 import { homePathFor } from "@/server/services/auth";
 import { Logo } from "@/components/logo";
 import { DemoBanner } from "@/components/demo-banner";
+import { LegalLinks } from "@/components/legal-links";
+import { EmailVerificationNotice } from "@/components/email-verification-notice";
 import { logoutAction } from "@/server/actions/auth";
 import { DashboardBottomBar, DashboardTabs } from "./nav";
 
@@ -41,7 +43,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <DashboardTabs />
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 pt-8 pb-28 md:pb-16">{children}</main>
+      <main className="mx-auto w-full max-w-4xl flex-1 px-5 pt-8 pb-12 md:pb-16">
+        {!session.user.emailVerifiedAt && (
+          <div className="mb-8">
+            <EmailVerificationNotice
+              email={session.user.email}
+              requirement="Erst danach kannst du dein Auszahlungskonto bei Stripe einrichten."
+            />
+          </div>
+        )}
+        {children}
+      </main>
+      {/* Auf dem Handy liegt die Navigationsleiste fest unten – der Footer hält dafür Abstand, sonst wären die Links verdeckt. */}
+      <footer className="no-print border-t border-line px-5 pt-5 pb-28 text-ink-soft md:pb-5">
+        <LegalLinks />
+      </footer>
       <DashboardBottomBar />
     </div>
   );

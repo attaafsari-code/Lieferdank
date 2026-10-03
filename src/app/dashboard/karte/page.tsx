@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireDriver } from "@/server/guards";
-import { cardContext } from "@/server/services/cards";
+import { cardContext, cardOrdersAvailable } from "@/server/services/cards";
 import { qrPngDataUrl, qrSvgWithQuietZone } from "@/server/qr";
 import { BaseUrlNotice } from "@/components/base-url-notice";
 import { CopyButton } from "@/components/copy-button";
@@ -86,7 +86,7 @@ export default async function CardPage() {
         </p>
       </section>
 
-      <section className="flex flex-col gap-5 rounded-3xl bg-brand-900 p-7 text-white sm:flex-row sm:items-center sm:justify-between">
+      {cardOrdersAvailable() && <section className="flex flex-col gap-5 rounded-3xl bg-brand-900 p-7 text-white sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-extrabold">Echte Plastikkarte</h2>
           <p className="mt-1 max-w-md text-[0.9375rem] leading-relaxed text-white/75">
@@ -97,7 +97,7 @@ export default async function CardPage() {
           Karte bestellen
           <ArrowRight className="h-4 w-4" />
         </Link>
-      </section>
+      </section>}
 
       <section>
         <SectionTitle>So nutzt du den Code</SectionTitle>

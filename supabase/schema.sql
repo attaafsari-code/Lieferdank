@@ -25,6 +25,7 @@ create table if not exists public.users (
   password_hash   text not null,
   token_version   integer not null default 0,
   created_at      timestamptz not null default now(),
+  email_verified_at timestamptz,
   blocked_at      timestamptz,
   blocked_reason  text,
   constraint users_email_lowercase check (email = lower(email))

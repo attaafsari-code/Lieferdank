@@ -53,6 +53,10 @@ Keine Secrets im Repo: `.env*` (außer `.env.example`), `data/`, `.claude/` und 
    [`supabase/migrations/20261002_tip_refunds.sql`](supabase/migrations/20261002_tip_refunds.sql)
    ausführen (rein additiv). Ohne die beiden Spalten kann die neue Version keine Trinkgelder
    anlegen; auch das meldet `/api/health` als `migration_required`.
+   Vor dem Deployment der Version mit E-Mail-Bestätigung zusätzlich
+   [`supabase/migrations/20261003_email_verification.sql`](supabase/migrations/20261003_email_verification.sql)
+   ausführen (rein additiv). Bestehende Konten gelten danach als unbestätigt und bestätigen
+   über den Hinweis im Dashboard; ohne Bestätigung startet kein Stripe-Onboarding.
 3. **Project Settings → API** notieren:
    - `Project URL` → `SUPABASE_URL`
    - `service_role` Secret → `SUPABASE_SERVICE_ROLE_KEY`
@@ -193,12 +197,13 @@ Gerät, Browser, Stripe-Account und Dashboard-Einstellungen ab.
 Signatur, Webhook-Quelle, Connect-Konto, Checkout-ID, Betrag, Währung,
 PaymentIntent, Application Fee und Server-Metadaten werden geprüft.
 Der signierte Webhook – niemals die Browser-Rückkehr –
-bucht eine Zahlung. Rückerstattungen über die API setzen
+bucht eine Zahlung. Trinkgeld-Erstattungen aus dem Admin setzen
 `refund_application_fee=true`; bei Teilrefund erstattet Stripe die Fee proportional.
-Dashboard-Refunds können die Application Fee stehen lassen. Jede Refund-/Dispute-
-Korrektur bleibt deshalb sichtbar als `review_required`, zählt nicht als bestätigter
-Umsatz und muss anhand von Stripe abgeglichen werden. Doppelte Webhooks ändern den
-kumulativen Refundbetrag nicht rückwärts.
+Für jedes `charge.refunded` liest die App den Stand bei Stripe und gibt einen noch
+fehlenden Anteil der Lieferdank-Gebühr selbst zurück – auch nach Erstattungen im
+Stripe-Dashboard des Lieferanten. Rückbuchungen (Disputes) und Vorgänge in
+`review_required` bewegen nie automatisch Geld und werden von Hand abgeglichen.
+Doppelte oder verspätete Webhooks senken gebuchte Beträge nie.
 Die Admin-KPIs zeigen vorgesehene Application Fees aus bestätigten Zahlungen;
 Stripe kann die tatsächlichen Fee-Objekte asynchron erzeugen. Für Buchhaltung und
 Refund-Abgleich sind die Stripe-Berichte maßgeblich.
@@ -214,8 +219,9 @@ Keine Live-Schlüssel in Preview verwenden.
 2. Die angezeigten DNS-Einträge (SPF, DKIM, optional DMARC) beim Domain-Anbieter setzen.
 3. **API Keys** → Key mit „Sending access“ → `RESEND_API_KEY`.
 
-Versendet werden: Willkommen (Lieferant und Kunde), Passwort vergessen, Trinkgeld erhalten
-(abschaltbar), Kartenbestellung eingegangen, Karte versendet. Ohne Key wird
+Versendet werden: Willkommen mit Bestätigungslink (Lieferant und Kunde), E-Mail bestätigen
+(erneut senden), Passwort vergessen, Trinkgeld erhalten (abschaltbar), Kartenbestellung
+eingegangen, Karte versendet. Jede Mail verlinkt Impressum, Datenschutz und AGB. Ohne Key wird
 nichts verschickt – Fehlversuche stehen im Admin unter **System**.
 
 ---
@@ -227,7 +233,8 @@ Admins können sich nicht selbst registrieren.
 1. Auf `https://lieferdank.de/register` normal registrieren.
 2. In Supabase → SQL Editor:
    ```sql
-   update public.users set role = 'admin' where email = 'deine@adresse.de';
+   update public.users set role = 'admin', email_verified_at = coalesce(email_verified_at, now())
+     where email = 'deine@adresse.de';
    delete from public.driver_profiles where user_id = (select id from public.users where email = 'deine@adresse.de');
    ```
 3. Neu anmelden → `/admin`.
@@ -238,7 +245,9 @@ Admins können sich nicht selbst registrieren.
 
 - [ ] `https://lieferdank.de` lädt, `https://www.lieferdank.de` leitet weiter
 - [ ] `https://lieferdank.de/api/health` liefert HTTP 200 und zeigt `"database":"supabase","payments":"stripe","mail":"resend"`
-- [ ] Registrierung → sofort ein Danke-Code, Willkommensmail kommt an
+- [ ] Registrierung → sofort ein Danke-Code, Willkommensmail mit Bestätigungslink kommt an
+- [ ] Ohne bestätigte E-Mail: Hinweis im Dashboard, „Auszahlungskonto einrichten“ wird abgelehnt
+- [ ] Bestätigungslink öffnen → erst der Klick auf „E-Mail-Adresse bestätigen“ bestätigt
 - [ ] `/dashboard/karte` zeigt **keinen** Hinweis auf eine lokale Adresse, Link beginnt mit `https://lieferdank.de/danke/`
 - [ ] QR-Code mit **iPhone** und **Android** scannen (von Bildschirm und Ausdruck)
 - [ ] Kostenlos Danke → erscheint im Dashboard
@@ -249,7 +258,8 @@ Admins können sich nicht selbst registrieren.
 - [ ] Admin: Direct Charge und Application Fee sichtbar; keine Lieferdank-Auszahlungsaktion
 - [ ] Profilfoto „nur im Dashboard“ → auf der Kundenseite nicht sichtbar
 - [ ] Passwort vergessen → Mail kommt an, Link funktioniert einmal
-- [ ] Kartenbestellung → Admin setzt „Versendet“ → Versandmail kommt an
+- [ ] Nur mit `CARD_ORDERS_PAID=true`: Kartenbestellung → Admin setzt „Versendet“ → Versandmail kommt an.
+      Ohne die Variable bewirbt keine Seite Plastikkarten und die Bestellung ist gesperrt
 - [ ] Auf dem Handy „Zum Home-Bildschirm“ → startet als App
 - [ ] Rechtstexte durch Rechtsberatung geprüft, Platzhalter ersetzt
 
@@ -263,5 +273,12 @@ Admins können sich nicht selbst registrieren.
 - **Backups**: Supabase erstellt tägliche Backups (Pro-Plan: Point-in-Time-Recovery).
 - **Rollback**: Vercel → Deployments → letztes funktionierendes → **Promote to Production**.
   Achtung: vor einem Rollback Datenbankschema- und Webhook-Kompatibilität prüfen.
-- **Rate Limiting** läuft im Arbeitsspeicher pro Instanz. Bei viel Verkehr auf Upstash
-  Redis umstellen (siehe DECISIONS.md).
+- **Rate Limiting** läuft im Arbeitsspeicher pro Instanz (Anmeldung pro IP und pro Konto,
+  Registrierung, Passwort-Reset pro IP und pro Adresse, Danke, Trinkgeld, Nachrichten,
+  Scans, Stripe-Onboarding). Auf Vercel ist das nur ein Grundschutz, weil parallele
+  Instanzen getrennt zählen. Für echten Schutz eine Vercel-Firewall-Regel (Rate Limiting)
+  oder Upstash Redis ergänzen (siehe DECISIONS.md).
+- **CI**: `.github/workflows/ci.yml` prüft Typecheck, Lint, Tests und Build bei jedem Pull
+  Request und Push auf `main`. Vercel deployt `main` unabhängig davon – blockierend wird
+  die CI erst mit Branch-Schutz (Pull Requests mit Pflicht-Check) bzw. einer passenden
+  Vercel-Einstellung.

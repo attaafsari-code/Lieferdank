@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireDriver } from "../guards";
 import { destroySession } from "../session";
-import { enforceRateLimit } from "../rate-limit";
+import { enforceRateLimit, enforceRateLimitFor } from "../rate-limit";
 import { ServiceError } from "../errors";
 import { parseInput } from "../services/auth";
 import {
@@ -125,6 +125,8 @@ export async function startPayoutOnboardingAction(): Promise<FormState> {
   let url: string;
   const state = await formAction(async () => {
     const { user, driver } = await requireDriver();
+    // Jeder Klick spricht die Stripe-API an – pro Konto begrenzt.
+    enforceRateLimitFor(`payout-start:${user.id}`, 10, 10 * 60_000);
     url = await startPayoutOnboarding(user, driver);
   });
   if (state.error) return state;
@@ -133,7 +135,8 @@ export async function startPayoutOnboardingAction(): Promise<FormState> {
 
 export async function refreshPayoutStatusAction(): Promise<FormState> {
   return formAction(async () => {
-    const { driver } = await requireDriver();
+    const { user, driver } = await requireDriver();
+    enforceRateLimitFor(`payout-refresh:${user.id}`, 20, 10 * 60_000);
     await refreshPayoutReadiness(driver);
     refreshDashboard();
   });

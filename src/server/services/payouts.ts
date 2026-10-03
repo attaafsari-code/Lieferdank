@@ -6,6 +6,7 @@ import { errorMessage, logEvent } from "../events";
 import { getPaymentProvider } from "../payments";
 import { baseUrl } from "../site";
 import { thankYouUrl } from "../qr";
+import { assertEmailVerified } from "./auth";
 
 /* ---------- Auszahlungskonto ---------- */
 
@@ -19,6 +20,8 @@ export async function startPayoutOnboarding(user: User, driver: DriverProfile): 
   if (user.role !== "driver" || driver.userId !== user.id) {
     throw new ServiceError("forbidden", "Dieses Auszahlungskonto gehört nicht zu deinem Profil.", 403);
   }
+  // Stripe legt das Konto mit dieser Adresse an – sie muss nachweislich dem Lieferanten gehören.
+  assertEmailVerified(user);
   const provider = getPaymentProvider();
   const createAccount = () => provider.createConnectedAccount({
     email: user.email,

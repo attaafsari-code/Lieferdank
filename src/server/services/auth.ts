@@ -5,7 +5,13 @@ import { getDb } from "@/lib/db";
 import type { User } from "@/lib/db/types";
 import { newId } from "@/lib/id";
 import { ServiceError } from "../errors";
-import { hashPassword, verifyPassword } from "../session";
+import {
+  EMAIL_VERIFICATION_TTL_DAYS,
+  hashPassword,
+  readEmailVerificationToken,
+  signEmailVerificationToken,
+  verifyPassword,
+} from "../session";
 import { mailConfigured, sendMail } from "../mail";
 import { emails } from "../emails";
 import { baseUrl } from "../site";
@@ -71,6 +77,7 @@ export async function registerDriver(input: z.infer<typeof driverRegistrationSch
     passwordHash: await hashPassword(input.password),
     tokenVersion: 0,
     createdAt: now,
+    emailVerifiedAt: null,
     blockedAt: null,
     blockedReason: null,
   });
@@ -92,7 +99,7 @@ export async function registerDriver(input: z.infer<typeof driverRegistrationSch
     throw error;
   }
 
-  await sendMail(user.email, emails.welcomeDriver(user.firstName, driver.code, `${baseUrl()}/dashboard`), "welcome_driver");
+  await sendMail(user.email, emails.welcomeDriver(user.firstName, driver.code, `${baseUrl()}/dashboard`, await emailVerificationLink(user)), "welcome_driver");
   return user;
 }
 
@@ -111,6 +118,7 @@ export async function registerCustomer(input: z.infer<typeof customerRegistratio
     passwordHash: await hashPassword(input.password),
     tokenVersion: 0,
     createdAt: now,
+    emailVerifiedAt: null,
     blockedAt: null,
     blockedReason: null,
   });
@@ -126,7 +134,7 @@ export async function registerCustomer(input: z.infer<typeof customerRegistratio
     await addFavoriteByCode(user.id, input.saveCode).catch(() => undefined);
   }
 
-  await sendMail(user.email, emails.welcomeCustomer(user.firstName, `${baseUrl()}/konto`), "welcome_customer");
+  await sendMail(user.email, emails.welcomeCustomer(user.firstName, `${baseUrl()}/konto`, await emailVerificationLink(user)), "welcome_customer");
   return user;
 }
 
@@ -158,8 +166,8 @@ export function homePathFor(user: Pick<User, "role">): string {
 
 const RESET_TTL_MINUTES = 60;
 
-/** Ein Reset-Link darf nur auf dem lokalen Entwicklungsrechner sichtbar sein. */
-export function localResetLink(link: string | null): string | undefined {
+/** Ein Link aus einer E-Mail (Reset, Bestätigung) darf nur auf dem lokalen Entwicklungsrechner sichtbar sein. */
+export function localMailLink(link: string | null): string | undefined {
   return process.env.NODE_ENV === "development" && !process.env.VERCEL_ENV && !mailConfigured()
     ? link ?? undefined : undefined;
 }
@@ -211,9 +219,52 @@ export async function completePasswordReset(token: string, newPassword: string):
   const tokenVersion = (user.tokenVersion ?? 0) + 1;
   // Two different reset links may race. Only one version may win; otherwise
   // the later password would silently overwrite the first one.
-  if (!await db.users.updateIf(user.id, { tokenVersion: user.tokenVersion }, { passwordHash, tokenVersion })) throw invalid;
+  // Der Link kam per E-Mail: Wer ihn einlöst, hat damit auch die Adresse bestätigt.
+  const emailVerifiedAt = user.emailVerifiedAt ?? new Date().toISOString();
+  if (!await db.users.updateIf(user.id, { tokenVersion: user.tokenVersion }, { passwordHash, tokenVersion, emailVerifiedAt })) throw invalid;
   for (const other of await db.passwordResets.findMany({ where: { userId: user.id, usedAt: null } })) {
     await db.passwordResets.updateIf(other.id, { usedAt: null }, { usedAt: new Date().toISOString() });
   }
-  return { ...user, tokenVersion };
+  return { ...user, tokenVersion, emailVerifiedAt };
+}
+
+/* ---------- E-Mail-Bestätigung ---------- */
+
+async function emailVerificationLink(user: Pick<User, "id" | "email">): Promise<string> {
+  return `${baseUrl()}/email-bestaetigen?token=${await signEmailVerificationToken(user)}`;
+}
+
+/**
+ * Sicherheitskritische Funktionen (Stripe-Auszahlungskonto, Kartenbestellung) setzen eine
+ * bestätigte Adresse voraus: Sonst könnte jemand mit fremder E-Mail ein Konto bei Stripe
+ * anlegen lassen oder Post und Mails an fremde Personen auslösen.
+ */
+export function assertEmailVerified(user: Pick<User, "emailVerifiedAt">): void {
+  if (!user.emailVerifiedAt) {
+    throw new ServiceError("email_unverified", "Bitte bestätige zuerst deine E-Mail-Adresse. Den Link haben wir dir per E-Mail geschickt.", 403);
+  }
+}
+
+/** Schickt den Bestätigungslink erneut. Bereits bestätigte Konten bekommen keine Mail. */
+export async function requestEmailVerification(user: User): Promise<{ link: string | null }> {
+  if (user.emailVerifiedAt || user.blockedAt) return { link: null };
+  const link = await emailVerificationLink(user);
+  await sendMail(user.email, emails.verifyEmail(user.firstName, link, EMAIL_VERIFICATION_TTL_DAYS), "verify_email");
+  return { link };
+}
+
+/** Bestätigt die Adresse. Mehrfaches Bestätigen ist harmlos; der Link macht niemanden angemeldet. */
+export async function confirmEmail(token: string): Promise<User> {
+  const invalid = new ServiceError("verification_invalid", "Dieser Bestätigungslink ist nicht mehr gültig. Fordere bitte einen neuen an.", 400);
+  if (token.length > 2048) throw invalid;
+  const claim = await readEmailVerificationToken(token);
+  if (!claim) throw invalid;
+  const db = getDb();
+  const user = await db.users.get(claim.userId);
+  // Der Link gilt nur für genau die Adresse, an die er geschickt wurde.
+  if (!user || user.blockedAt || user.email !== claim.email) throw invalid;
+  if (user.emailVerifiedAt) return user;
+  const emailVerifiedAt = new Date().toISOString();
+  await db.users.updateIf(user.id, { emailVerifiedAt: null }, { emailVerifiedAt });
+  return (await db.users.get(user.id)) ?? { ...user, emailVerifiedAt };
 }

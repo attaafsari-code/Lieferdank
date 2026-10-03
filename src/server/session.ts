@@ -1,5 +1,5 @@
 import "server-only";
-import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
@@ -57,12 +57,45 @@ export async function signSessionToken(user: Pick<User, "id" | "tokenVersion">):
 async function userFromToken(token: string): Promise<User | null> {
   try {
     const { payload } = await jwtVerify(token, secret());
-    if (typeof payload.sub !== "string") return null;
+    // Sitzungstokens tragen keinen Zweck. Alles mit Zweck (z. B. E-Mail-Bestätigung) ist keine Sitzung.
+    if (typeof payload.sub !== "string" || payload.typ !== undefined) return null;
     const user = await getDb().users.get(payload.sub);
     if (!user || user.blockedAt) return null;
     const version = typeof payload.v === "number" ? payload.v : 0;
     if (version !== (user.tokenVersion ?? 0)) return null;
     return user;
+  } catch {
+    return null;
+  }
+}
+
+/* ---------- E-Mail-Bestätigung ---------- */
+
+export const EMAIL_VERIFICATION_TTL_DAYS = 7;
+const EMAIL_VERIFICATION = "email_verification";
+
+/**
+ * Eigener, aus AUTH_SECRET abgeleiteter Schlüssel: Ein Bestätigungslink kann nie als Sitzung
+ * gelten und eine Sitzung nie als Bestätigung.
+ */
+function emailVerificationKey(): Uint8Array {
+  return new Uint8Array(createHash("sha256").update(secret()).update(`:${EMAIL_VERIFICATION}`).digest());
+}
+
+export async function signEmailVerificationToken(user: Pick<User, "id" | "email">): Promise<string> {
+  return new SignJWT({ sub: user.id, email: user.email, typ: EMAIL_VERIFICATION })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${EMAIL_VERIFICATION_TTL_DAYS}d`)
+    .sign(emailVerificationKey());
+}
+
+/** Liefert, für welches Konto und welche Adresse der Link ausgestellt wurde – oder null. */
+export async function readEmailVerificationToken(token: string): Promise<{ userId: string; email: string } | null> {
+  try {
+    const { payload } = await jwtVerify(token, emailVerificationKey());
+    if (payload.typ !== EMAIL_VERIFICATION || typeof payload.sub !== "string" || typeof payload.email !== "string") return null;
+    return { userId: payload.sub, email: payload.email };
   } catch {
     return null;
   }

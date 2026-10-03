@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@/lib/db";
-import { authenticate, completePasswordReset, localResetLink, registerDriver, requestPasswordReset } from "@/server/services/auth";
+import { authenticate, completePasswordReset, localMailLink, registerDriver, requestPasswordReset } from "@/server/services/auth";
 import { confirmPayment, failPayment, markRefunded, sendFreeThankYou, startTip, attachMessage } from "@/server/services/thanks";
 import { getDriverStats } from "@/server/services/stats";
 import { payoutReadinessAfterReturn, payoutsAreManual, refreshPayoutReadiness, startPayoutOnboarding, syncPayoutReadiness } from "@/server/services/payouts";
@@ -26,11 +26,11 @@ describe("Registrierung", () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("VERCEL_ENV", "preview");
     vi.stubEnv("RESEND_API_KEY", "");
-    expect(localResetLink(link)).toBeUndefined();
+    expect(localMailLink(link)).toBeUndefined();
     vi.stubEnv("VERCEL_ENV", "");
-    expect(localResetLink(link)).toBe(link);
+    expect(localMailLink(link)).toBe(link);
     vi.stubEnv("NODE_ENV", "production");
-    expect(localResetLink(link)).toBeUndefined();
+    expect(localMailLink(link)).toBeUndefined();
     vi.unstubAllEnvs();
   });
 

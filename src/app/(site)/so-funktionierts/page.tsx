@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-shell";
 import { ArrowRight } from "@/components/icons";
+import { cardOrdersAvailable } from "@/server/services/cards";
 
 export const metadata: Metadata = {
   title: "So funktioniert's",
@@ -20,7 +21,8 @@ const DRIVER_STEPS = [
   },
   {
     title: "Karte gestalten",
-    text: "Eigener Text, drei Designs. Herunterladen, ausdrucken oder als Plastikkarte bestellen.",
+    text: "Eigener Text, drei Designs. Herunterladen und ausdrucken.",
+    orderableText: "Eigener Text, drei Designs. Herunterladen, ausdrucken oder als Plastikkarte bestellen.",
   },
   {
     title: "Sichtbar tragen",
@@ -60,6 +62,11 @@ const CUSTOMER_STEPS = [
 ];
 
 export default function HowItWorksPage() {
+  const cardsOrderable = cardOrdersAvailable();
+  const driverSteps = DRIVER_STEPS.map((step) => ({
+    title: step.title,
+    text: cardsOrderable && step.orderableText ? step.orderableText : step.text,
+  }));
   return (
     <>
       <PageHeader
@@ -69,7 +76,7 @@ export default function HowItWorksPage() {
       />
 
       <div className="container-page max-w-3xl pb-24">
-        <Section title="Für Lieferanten" steps={DRIVER_STEPS} />
+        <Section title="Für Lieferanten" steps={driverSteps} />
         <Section title="Für Kunden" steps={CUSTOMER_STEPS} />
 
         <section id="geld" className="mt-16 scroll-mt-24">
@@ -77,7 +84,7 @@ export default function HowItWorksPage() {
           <p className="leading-relaxed text-ink-soft">
             Du zahlst exakt den Betrag, den du auswählst. Es kommt nichts obendrauf. Vom gewählten
             Betrag werden Zahlungs- und Plattformkosten abgezogen – für Zahlungsabwicklung, Betrieb,
-            Support und Betrugsprävention. Der Rest geht an den Zusteller.
+            Support und Betrugsprävention. Der Rest geht an den Lieferanten.
           </p>
           <p className="mt-4 text-sm leading-relaxed text-ink-soft">
             Lieferanten sehen die genaue Aufteilung in ihrem Dashboard und in den{" "}

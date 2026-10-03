@@ -1,7 +1,8 @@
 import { api } from "@/server/api/handler";
 import { notFound } from "@/server/errors";
 import { findReceivingDriver, toPublicDriver } from "@/server/services/drivers";
-import { recordScan } from "@/server/services/thanks";
+import { recordScanFrom } from "@/server/services/thanks";
+import { ipFromHeaders } from "@/server/rate-limit";
 import { TIP_OPTIONS_CENTS, MIN_TIP_CENTS, MAX_TIP_CENTS } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export const GET = api<{ code: string }>({ rateLimit: { key: "api-driver", limit: 120, windowMs: 60_000 } }, async ({ request, params }) => {
   const found = await findReceivingDriver(params.code);
   if (!found) throw notFound("Dieser Danke-Code ist nicht aktiv.");
-  if (new URL(request.url).searchParams.get("scan") !== "0") await recordScan(found.driver.id);
+  if (new URL(request.url).searchParams.get("scan") !== "0") await recordScanFrom(found.driver.id, ipFromHeaders(request.headers));
   return {
     driver: toPublicDriver(found.driver, found.user),
     tipping: {

@@ -19,6 +19,8 @@ export type User = {
   /** Wird bei jedem Passwortwechsel erhöht und macht ältere Sessions ungültig. */
   tokenVersion: number;
   createdAt: string;
+  /** Gesetzt, sobald der Nutzer den Bestätigungslink aus der E-Mail bestätigt hat. */
+  emailVerifiedAt: string | null;
   blockedAt: string | null;
   blockedReason: string | null;
 };

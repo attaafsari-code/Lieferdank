@@ -33,7 +33,7 @@ export function OptionalTip({ code, tipReady }: { code: string; tipReady: boolea
   return (
     <section className="mt-8 rounded-2xl border border-line bg-white p-5 text-center shadow-xs">
       <h2 className="font-bold text-brand-900">Möchtest du zusätzlich ein Trinkgeld geben?</h2>
-      {!tipReady && <p className="mt-2 text-sm text-ink-soft">Trinkgeld ist für diesen Zusteller noch nicht eingerichtet.</p>}
+      {!tipReady && <p className="mt-2 text-sm text-ink-soft">Trinkgeld ist für diesen Lieferanten noch nicht eingerichtet.</p>}
       <div className="mt-4 grid grid-cols-3 gap-2">
         {TIP_OPTIONS_CENTS.map((cents) => (
           <button key={cents} type="button" disabled={!tipReady || pending} onClick={() => pay(cents)} className="btn btn-ghost min-h-12 px-1 disabled:opacity-50">

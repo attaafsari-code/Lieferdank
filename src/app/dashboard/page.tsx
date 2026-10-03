@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireDriver } from "@/server/guards";
 import { getDriverStats } from "@/server/services/stats";
-import { cardContext } from "@/server/services/cards";
+import { cardContext, cardOrdersAvailable } from "@/server/services/cards";
 import { isDemoPayment } from "@/server/payments";
 import { formatDateTime, formatEuro } from "@/lib/format";
 import { effectiveTip } from "@/lib/money";
@@ -131,16 +131,20 @@ export default async function DashboardPage({
         <div>
           <h2 className="text-lg font-extrabold text-brand-900">Deine Lieferdank-Karte</h2>
           <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink-soft">
-            Zeig den QR-Code am Handy, trag die Karte sichtbar oder bestell eine echte Plastikkarte.
+            {cardOrdersAvailable()
+              ? "Zeig den QR-Code am Handy, trag die Karte sichtbar oder bestell eine echte Plastikkarte."
+              : "Zeig den QR-Code am Handy oder druck deine Karte aus und trag sie sichtbar."}
           </p>
           <div className="mt-5 flex flex-col gap-2.5">
             <Link href="/dashboard/karte" className="btn btn-primary btn-sm">
               Karte gestalten & herunterladen
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/dashboard/karte/bestellen" className="btn btn-ghost btn-sm">
-              Plastikkarte bestellen
-            </Link>
+            {cardOrdersAvailable() && (
+              <Link href="/dashboard/karte/bestellen" className="btn btn-ghost btn-sm">
+                Plastikkarte bestellen
+              </Link>
+            )}
           </div>
         </div>
       </section>

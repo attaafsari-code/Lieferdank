@@ -9,9 +9,10 @@ export function freshDb() {
 
 let counter = 0;
 
-export async function makeDriver(overrides: { firstName?: string; lastName?: string } = {}) {
+/** Zusteller mit bestätigter E-Mail-Adresse – außer emailVerified: false. */
+export async function makeDriver(overrides: { firstName?: string; lastName?: string; emailVerified?: boolean } = {}) {
   counter += 1;
-  const user = await registerDriver({
+  const registered = await registerDriver({
     firstName: overrides.firstName ?? "Max",
     lastName: overrides.lastName ?? "Müller",
     email: `fahrer${counter}@test.de`,
@@ -19,6 +20,8 @@ export async function makeDriver(overrides: { firstName?: string; lastName?: str
     password: "sicheres-passwort",
     terms: "on",
   });
+  if (overrides.emailVerified !== false) await getDb().users.update(registered.id, { emailVerifiedAt: new Date().toISOString() });
+  const user = (await getDb().users.get(registered.id))!;
   const driver = (await getDb().driverProfiles.findOne({ userId: user.id }))!;
   return { user, driver };
 }
