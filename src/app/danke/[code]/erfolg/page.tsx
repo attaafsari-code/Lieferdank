@@ -11,6 +11,7 @@ import { MessageForm } from "./message-form";
 import { SaveDriver } from "./save-driver";
 import { OptionalTip } from "./optional-tip";
 import { LegalLinks } from "@/components/legal-links";
+import { messageGrantsFromCookie, paymentSubject, thankYouSubject } from "@/server/message-grant";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Danke!", robots: { index: false, follow: false } };
@@ -48,6 +49,11 @@ export default async function SuccessPage({ params, searchParams }: Props) {
     const thankYou = await getDb().thankYous.get(query.danke);
     if (thankYou?.driverId === found.driver.id) thankYouId = thankYou.id;
   }
+
+  // Das Nachrichtenformular gibt es nur für den Browser, der das Danke bzw. die Zahlung ausgelöst hat.
+  const grants = thankYouId ? await messageGrantsFromCookie() : [];
+  const canWriteMessage = Boolean(thankYouId) &&
+    (grants.includes(thankYouSubject(thankYouId!)) || Boolean(query.zahlung && grants.includes(paymentSubject(query.zahlung))));
 
   const session = await getSession();
   const saved = found && session?.customer ? await isFavorite(session.user.id, found.driver.id) : false;
@@ -101,7 +107,7 @@ export default async function SuccessPage({ params, searchParams }: Props) {
         </header>
 
         {freeThanks && thankYouId && driver && <OptionalTip code={driver.code} tipReady={driver.tipReady} />}
-        {thankYouId && <MessageForm thankYouId={thankYouId} />}
+        {thankYouId && canWriteMessage && <MessageForm thankYouId={thankYouId} />}
 
         {/* Erst nach dem Danke, dezent und nie Voraussetzung für irgendetwas. */}
         {canSave && driver && <SaveDriver code={driver.code} name={driver.name} alreadySaved={saved} loggedIn={Boolean(session)} />}

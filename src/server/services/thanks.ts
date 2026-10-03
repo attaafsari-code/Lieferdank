@@ -388,18 +388,36 @@ async function markPaymentAdjustment(
   }
 }
 
-/** Optionale Nachricht nach einem Danke. Eine einmal gesendete Nachricht bleibt stehen. */
-export async function attachMessage(thankYouId: string, presetId: string | null, message: string | null): Promise<void> {
+/**
+ * Optionale Nachricht nach einem Danke. Schreiben darf nur, wer das Danke oder die Zahlung
+ * selbst ausgelöst hat (grants aus message-grant.ts) – eine bekannte ID allein genügt nicht.
+ * Eine einmal gesendete Nachricht bleibt stehen.
+ */
+export async function attachMessage(
+  thankYouId: string,
+  presetId: string | null,
+  message: string | null,
+  grants: readonly string[],
+): Promise<void> {
   const db = getDb();
+  // Ohne Schreibrecht dieselbe Antwort wie bei einer unbekannten ID: verrät nicht, ob es das Danke gibt.
+  const unknown = notFound("Nachricht konnte nicht zugeordnet werden.");
   const thankYou = await db.thankYous.get(thankYouId);
-  if (!thankYou) throw notFound("Nachricht konnte nicht zugeordnet werden.");
+  if (!thankYou) throw unknown;
+  let allowed = grants.includes(`t:${thankYou.id}`);
+  if (!allowed && thankYou.tipId) {
+    const tip = await db.tips.get(thankYou.tipId);
+    allowed = Boolean(tip && grants.includes(`p:${tip.paymentId}`));
+  }
+  if (!allowed) throw unknown;
   if (thankYou.presetId || thankYou.message) return;
 
   const preset = presetById(presetId);
   const trimmed = (message ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_CUSTOM_MESSAGE_LENGTH);
   if (!preset && !trimmed) return;
 
-  await db.thankYous.update(thankYou.id, { presetId: preset?.id ?? null, message: trimmed || null });
+  // Genau einmal, auch bei gleichzeitigen Anfragen: geschrieben wird nur, solange noch nichts steht.
+  await db.thankYous.updateIf(thankYou.id, { presetId: null, message: null }, { presetId: preset?.id ?? null, message: trimmed || null });
 }
 
 /** Zustand einer Zahlung für die Erfolgsseite. */

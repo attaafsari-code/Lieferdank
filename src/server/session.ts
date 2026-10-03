@@ -75,11 +75,15 @@ export const EMAIL_VERIFICATION_TTL_DAYS = 7;
 const EMAIL_VERIFICATION = "email_verification";
 
 /**
- * Eigener, aus AUTH_SECRET abgeleiteter Schlüssel: Ein Bestätigungslink kann nie als Sitzung
- * gelten und eine Sitzung nie als Bestätigung.
+ * Eigener, aus AUTH_SECRET abgeleiteter Schlüssel je Zweck: Ein Token für einen Zweck (z. B. ein
+ * Bestätigungslink) gilt nie für einen anderen und nie als Sitzung – und umgekehrt.
  */
+export function purposeKey(purpose: string): Uint8Array {
+  return new Uint8Array(createHash("sha256").update(secret()).update(`:${purpose}`).digest());
+}
+
 function emailVerificationKey(): Uint8Array {
-  return new Uint8Array(createHash("sha256").update(secret()).update(`:${EMAIL_VERIFICATION}`).digest());
+  return purposeKey(EMAIL_VERIFICATION);
 }
 
 export async function signEmailVerificationToken(user: Pick<User, "id" | "email">): Promise<string> {

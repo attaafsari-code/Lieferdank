@@ -183,8 +183,8 @@ describe("Danke und Trinkgeld", () => {
   it("speichert genau eine Nachricht pro Danke", async () => {
     const { driver } = await makeDriver();
     const { thankYouId } = await sendFreeThankYou(driver.code, null, "a".repeat(32));
-    await attachMessage(thankYouId, "hochtragen", null);
-    await attachMessage(thankYouId, "wetter", "Überschreiben?");
+    await attachMessage(thankYouId, "hochtragen", null, [`t:${thankYouId}`]);
+    await attachMessage(thankYouId, "wetter", "Überschreiben?", [`t:${thankYouId}`]);
     const thankYou = await getDb().thankYous.get(thankYouId);
     expect(thankYou).toMatchObject({ presetId: "hochtragen", message: null });
   });

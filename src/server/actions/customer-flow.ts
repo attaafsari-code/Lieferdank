@@ -11,6 +11,7 @@ import { getDb } from "@/lib/db";
 import { isProductionRuntime } from "@/lib/runtime";
 import { errorMessage, logEvent } from "../events";
 import { visitorId } from "../visitor";
+import { grantMessage, messageGrantsFromCookie, paymentSubject, thankYouSubject } from "../message-grant";
 
 /**
  * Aktionen der Kundenseite. Nie an ein Konto gebunden – ein angemeldeter
@@ -35,6 +36,8 @@ export async function sendThanksAction(code: string): Promise<FlowResult> {
   try {
     await enforceRateLimit("thanks", 10, 60_000);
     const result = await sendFreeThankYou(code, await customerIdIfAny(), await visitorId());
+    // Nur dieser Browser darf danach die optionale Nachricht schreiben.
+    await grantMessage(thankYouSubject(result.thankYouId));
     target = `/danke/${result.code}/erfolg?danke=${result.thankYouId}${result.alreadySent ? "&bereits=1" : ""}`;
   } catch (error) {
     return toResult(error);
@@ -47,6 +50,7 @@ export async function startTipAction(code: string, amountCents: number): Promise
   try {
     await enforceRateLimit("tip", 10, 60_000);
     const result = await startTip(code, amountCents, await customerIdIfAny());
+    await grantMessage(paymentSubject(result.paymentId));
     target = result.redirectUrl;
   } catch (error) {
     return toResult(error);
@@ -61,7 +65,7 @@ export async function attachMessageAction(
 ): Promise<FlowResult> {
   try {
     await enforceRateLimit("message", 20, 60_000);
-    await attachMessage(thankYouId, presetId, message);
+    await attachMessage(thankYouId, presetId, message, await messageGrantsFromCookie());
     return { ok: true };
   } catch (error) {
     return toResult(error);

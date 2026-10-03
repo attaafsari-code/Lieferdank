@@ -60,7 +60,7 @@ describe("API v1 – öffentlich", () => {
     expect(cookie).toMatch(/^ld_visitor=/);
     expect(firstBody.alreadySent).toBe(false);
     const second = await postThanks(request(path, { method: "POST", headers: { cookie: cookie! } }), params({ code: driver.code }));
-    expect(await second.json()).toEqual({ thankYouId: firstBody.thankYouId, alreadySent: true });
+    expect(await second.json()).toMatchObject({ thankYouId: firstBody.thankYouId, alreadySent: true, messageToken: expect.any(String) });
     const { getDb } = await import("@/lib/db");
     expect(await getDb().thankYous.count({ where: { driverId: driver.id, tipId: null } })).toBe(1);
   });

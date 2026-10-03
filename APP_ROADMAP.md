@@ -55,9 +55,9 @@ Keystore – z. B. `expo-secure-store`).
 | Methode | Pfad                              | Zweck                                          |
 | ------- | --------------------------------- | ---------------------------------------------- |
 | GET     | `/drivers/{code}`                 | Öffentliches Profil + Trinkgeldstufen. `?scan=0` zählt nicht als Scan |
-| POST    | `/drivers/{code}/thanks`          | Kostenlos Danke sagen → `{ thankYouId }`       |
+| POST    | `/drivers/{code}/thanks`          | Kostenlos Danke sagen → `{ thankYouId, messageToken }` |
 | POST    | `/drivers/{code}/tips`            | `{ amountCents }` → `{ checkoutUrl, paymentId }` |
-| POST    | `/thanks/{id}/message`            | `{ presetId?, message? }`                      |
+| POST    | `/thanks/{id}/message`            | `{ messageToken, presetId?, message? }` – nur mit dem Token des Absenders, einmalig |
 | POST    | `/auth/login`                     | `{ email, password }` → `{ token, user }`      |
 | POST    | `/auth/register`                  | `{ role, firstName, lastName?, email, password, acceptedTerms: true }` |
 
