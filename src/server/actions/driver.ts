@@ -19,6 +19,7 @@ import {
 } from "../services/profile";
 import { cancelCardOrder, cardDesignSchema, cardOrderSchema, createCardOrder, saveCardDesign } from "../services/cards";
 import { concludeTippingContract, refreshPayoutReadiness, startPayoutOnboarding } from "../services/payouts";
+import { removeMessage } from "../services/thanks";
 import { formAction, formBoolean, formString, type FormState } from "./form-state";
 
 function refreshDashboard() {
@@ -148,4 +149,13 @@ export async function deleteDriverAccountAction(): Promise<void> {
   await deleteAccount(user);
   await destroySession();
   redirect("/?geloescht=1");
+}
+
+/** Eine erhaltene Nachricht aus dem eigenen Dashboard entfernen. */
+export async function removeMessageAction(thankYouId: string): Promise<FormState> {
+  return formAction(async () => {
+    const { driver } = await requireDriver();
+    await removeMessage(driver.id, thankYouId);
+    refreshDashboard();
+  });
 }

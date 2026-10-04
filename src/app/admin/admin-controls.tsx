@@ -98,7 +98,7 @@ export function UserControls({
               ? "Konto sperren. Alle Sessions werden beendet, der Danke-Code funktioniert nicht mehr."
               : "Neuen Code erzeugen. Nur bei Missbrauch – gedruckte Karten funktionieren danach nicht mehr."}
           </p>
-          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Grund (Pflicht, wird protokolliert)" className="field mt-3 !py-2.5 text-sm" autoFocus />
+          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Grund (Pflicht, wird protokolliert und der Person per E-Mail mitgeteilt)" className="field mt-3 !py-2.5 text-sm" autoFocus />
           <div className="mt-3 flex gap-2.5">
             <button
               type="button"

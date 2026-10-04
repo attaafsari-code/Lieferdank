@@ -4,7 +4,7 @@ import type { Payment, Tip } from "@/lib/db/types";
 import { newId } from "@/lib/id";
 import { CURRENCY, isAllowedTipAmount, splitTip } from "@/lib/money";
 import { isProductionRuntime } from "@/lib/runtime";
-import { MAX_CUSTOM_MESSAGE_LENGTH, presetById } from "@/lib/messages";
+import { MAX_CUSTOM_MESSAGE_LENGTH, presetById, REMOVED_MESSAGE_ID } from "@/lib/messages";
 import { ServiceError, notFound } from "../errors";
 import { getPaymentProvider, isDemoPayment } from "../payments";
 import { baseUrl } from "../site";
@@ -418,6 +418,15 @@ export async function attachMessage(
 
   // Genau einmal, auch bei gleichzeitigen Anfragen: geschrieben wird nur, solange noch nichts steht.
   await db.thankYous.updateIf(thankYou.id, { presetId: null, message: null }, { presetId: preset?.id ?? null, message: trimmed || null });
+}
+
+/** Der Zusteller entfernt eine Nachricht aus seinem Dashboard. Das Danke bleibt bestehen. */
+export async function removeMessage(driverId: string, thankYouId: string): Promise<void> {
+  const db = getDb();
+  const thankYou = await db.thankYous.get(thankYouId);
+  if (!thankYou || thankYou.driverId !== driverId) throw notFound("Nachricht nicht gefunden.");
+  if (!thankYou.message && !thankYou.presetId) return;
+  await db.thankYous.update(thankYou.id, { presetId: REMOVED_MESSAGE_ID, message: null });
 }
 
 /** Zustand einer Zahlung für die Erfolgsseite. */

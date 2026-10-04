@@ -3,9 +3,26 @@ import { getDb } from "@/lib/db";
 import type { User } from "@/lib/db/types";
 import { generateLieferdankCode, newId } from "@/lib/id";
 import { ServiceError } from "../errors";
+import { emails } from "../emails";
+import { errorMessage, logEvent } from "../events";
+import { sendMail, type MailContent } from "../mail";
+import { baseUrl } from "../site";
 
 function assertAdmin(actor: User): void {
   if (actor.role !== "admin" || actor.blockedAt) throw new ServiceError("forbidden", "Nur für Administratoren.", 403);
+}
+
+/**
+ * Informiert die betroffene Person über eine Adminentscheidung. Die Entscheidung selbst steht bereits;
+ * scheitert der Versand, landet das im Systemprotokoll, damit der Betreiber von Hand nachfasst.
+ */
+async function notify(user: User, content: MailContent, tag: string): Promise<void> {
+  try {
+    const { delivered } = await sendMail(user.email, content, tag);
+    if (!delivered) await logEvent("warning", "admin", "Betroffene Person konnte nicht per E-Mail informiert werden", { userId: user.id, tag });
+  } catch (error) {
+    await logEvent("warning", "admin", "Betroffene Person konnte nicht per E-Mail informiert werden", { userId: user.id, tag, error: errorMessage(error) });
+  }
 }
 
 /** Protokolliert jede Adminaktion – wer, was, warum. */
@@ -38,6 +55,10 @@ export async function reviewBadge(actor: User, driverId: string, decision: "veri
   else await db.verifications.insert({ id: newId(), userId: driver.userId, documentNote: null, ...values });
 
   await logAdminAction(actor, driver.id, `badge_${decision}`, note);
+  const owner = await db.users.get(driver.userId);
+  if (owner && !owner.blockedAt) {
+    await notify(owner, emails.badgeDecision(owner.firstName, decision === "verified", note.trim() || null, `${baseUrl()}/dashboard/profil`), "badge_decision");
+  }
 }
 
 export async function setProviderVerified(actor: User, driverId: string, verified: boolean) {
@@ -62,6 +83,10 @@ export async function setUserBlocked(actor: User, userId: string, blocked: boole
     tokenVersion: blocked ? (user.tokenVersion ?? 0) + 1 : user.tokenVersion,
   });
   await logAdminAction(actor, userId, blocked ? "user_blocked" : "user_unblocked", reason);
+  // Begründung an die betroffene Person (AGB Ziff. 8); eine erneute Sperre desselben Kontos mailt nicht doppelt.
+  if (blocked && !user.blockedAt) {
+    await notify(user, emails.accountBlocked(user.firstName, reason.trim(), `${baseUrl()}/kontakt`), "account_blocked");
+  }
 }
 
 /**
@@ -79,6 +104,10 @@ export async function regenerateCode(actor: User, driverId: string, reason: stri
   const driver = await db.driverProfiles.get(driverId);
   await db.driverProfiles.update(driverId, { code, updatedAt: new Date().toISOString() });
   await logAdminAction(actor, driverId, "code_regenerated", `${driver?.code ?? "?"} → ${code}: ${reason.trim()}`);
+  const owner = driver ? await db.users.get(driver.userId) : null;
+  if (owner && !owner.blockedAt) {
+    await notify(owner, emails.codeReplaced(owner.firstName, code, reason.trim(), `${baseUrl()}/dashboard/karte`), "code_replaced");
+  }
   return code;
 }
 

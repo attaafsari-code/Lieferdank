@@ -19,7 +19,7 @@ export default async function ThankYousPage() {
 
       <section>
         <SectionTitle>Nachrichten</SectionTitle>
-        <ThankYouList items={stats.recentThankYous} />
+        <ThankYouList items={stats.recentThankYous} removable />
       </section>
 
       <section>
@@ -29,11 +29,12 @@ export default async function ThankYousPage() {
 
       <p className="text-sm leading-relaxed text-ink-soft">
         Kunden senden dir ein Danke, ein Trinkgeld und optional eine kurze Nachricht. Es gibt keine
-        Bewertungen, keine Sterne und keine Beschwerden. Ist eine Nachricht beleidigend oder rechtswidrig,{" "}
+        Bewertungen, keine Sterne und keine Beschwerden. Eine unpassende Nachricht kannst du hier selbst entfernen.
+        Ist sie beleidigend oder rechtswidrig,{" "}
         <Link href="/kontakt?anliegen=meldung&ort=Nachricht%20im%20Dashboard" className="font-semibold text-brand underline underline-offset-2">
           melde sie uns
-        </Link>
-        .
+        </Link>{" "}
+        bitte vorher.
       </p>
     </div>
   );

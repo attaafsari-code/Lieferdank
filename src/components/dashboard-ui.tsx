@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { Milestone, ThankYou } from "@/lib/db/types";
 import { describeMilestone } from "@/lib/milestone-rules";
-import { presetById } from "@/lib/messages";
+import { presetById, REMOVED_MESSAGE_ID } from "@/lib/messages";
 import { formatRelative } from "@/lib/format";
 import { Heart } from "./icons";
+import { RemoveMessage } from "./remove-message";
 
 export function PageTitle({ title, lead }: { title: string; lead?: string }) {
   return (
@@ -74,7 +75,7 @@ export function EmptyState({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function ThankYouList({ items }: { items: ThankYou[] }) {
+export function ThankYouList({ items, removable = false }: { items: ThankYou[]; removable?: boolean }) {
   if (items.length === 0) {
     return (
       <EmptyState>
@@ -99,13 +100,19 @@ export function ThankYouList({ items }: { items: ThankYou[] }) {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block break-words text-ink">
-                {text ?? <span className="text-ink-faint">Ein Danke ohne Nachricht</span>}
+                {text ?? (
+                  <span className="text-ink-faint">
+                    {item.presetId === REMOVED_MESSAGE_ID ? "Nachricht entfernt" : "Ein Danke ohne Nachricht"}
+                  </span>
+                )}
               </span>
               <span className="mt-1 block text-xs text-ink-faint">
                 {formatRelative(item.createdAt)}
                 {item.tipId && " · mit Trinkgeld"}
               </span>
             </span>
+            {/* Nur freie Texte: Die Vorlagen sind fest vorgegeben und immer freundlich. */}
+            {removable && item.message && <RemoveMessage thankYouId={item.id} />}
           </li>
         );
       })}

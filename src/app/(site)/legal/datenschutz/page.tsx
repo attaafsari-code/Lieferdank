@@ -11,7 +11,7 @@ export const metadata = {
 export default function PrivacyPage() {
   return (
     <>
-      <PageHeader title="Datenschutzhinweise" lead="Stand: 3. Oktober 2026" />
+      <PageHeader title="Datenschutzhinweise" lead="Stand: 4. Oktober 2026" />
       <Prose>
         <h2>Grundsatz</h2>
         <p>
@@ -108,7 +108,8 @@ export default function PrivacyPage() {
         <h3>E-Mails</h3>
         <p>
           Wir versenden Willkommens- und Bestätigungsmails, Passwort-Links, Vertragsbestätigungen, Hinweise zu
-          Erstattungen und – abschaltbar – Benachrichtigungen über erhaltene Trinkgelder (Art. 6 Abs. 1 lit. b DSGVO).
+          Erstattungen, Mitteilungen zu einer Kontosperre, einem ersetzten Danke-Code oder einer Abzeichen-Anfrage
+          und – abschaltbar – Benachrichtigungen über erhaltene Trinkgelder (Art. 6 Abs. 1 lit. b DSGVO).
         </p>
 
         <h3>Kontakt, Meldungen, Widerruf und Kündigung</h3>

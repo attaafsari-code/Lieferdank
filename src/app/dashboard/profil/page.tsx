@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireDriver } from "@/server/guards";
 import { getDb } from "@/lib/db";
 import { avatarUrl, driverPublicName } from "@/server/services/drivers";
@@ -90,6 +91,21 @@ export default async function ProfilePage() {
             <a href="/api/datenexport" className="btn btn-ghost btn-sm shrink-0">
               <Download className="h-4 w-4" /> Laden
             </a>
+          </div>
+          <div className="flex items-start justify-between gap-4 border-t border-line pt-5">
+            <span>
+              <span className="block font-semibold text-ink">Passwort ändern</span>
+              <span className="mt-1 block text-[0.9375rem] text-ink-soft">
+                Wir schicken dir einen Link an {user.email}. Für eine neue E-Mail-Adresse{" "}
+                <Link href="/kontakt" className="font-semibold text-brand underline underline-offset-2">
+                  schreib uns
+                </Link>
+                .
+              </span>
+            </span>
+            <Link href="/passwort-vergessen" className="btn btn-ghost btn-sm shrink-0">
+              Link anfordern
+            </Link>
           </div>
           <div className="border-t border-line pt-5">
             <DeleteAccount />

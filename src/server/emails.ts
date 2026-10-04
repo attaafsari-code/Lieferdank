@@ -233,6 +233,44 @@ export const emails = {
     );
   },
 
+  /** Begründung einer Kontosperre (AGB Ziff. 8) samt Weg zur erneuten Prüfung. */
+  accountBlocked(firstName: string, reason: string, contactUrl: string): MailContent {
+    return mail("Dein Lieferdank-Konto wurde gesperrt", "Begründung und nächste Schritte", "Dein Konto wurde gesperrt", [
+      { kind: "p", text: `Hallo ${firstName}, wir haben dein Lieferdank-Konto gesperrt. Du kannst dich nicht mehr anmelden; ein Danke-Code dieses Kontos nimmt kein Danke und kein Trinkgeld mehr an.` },
+      { kind: "p", text: `Grund: ${reason}` },
+      { kind: "p", text: "Die Entscheidung hat ein Mensch getroffen. Hältst du sie für falsch, kannst du über das Kontaktformular eine erneute Prüfung verlangen. Der Rechtsweg zu den Gerichten bleibt offen." },
+      { kind: "button", label: "Erneute Prüfung verlangen", href: contactUrl },
+    ]);
+  },
+
+  /** Der Danke-Code wurde ersetzt – gedruckte Karten und gespeicherte QR-Codes gelten nicht mehr. */
+  codeReplaced(firstName: string, code: string, reason: string, cardUrl: string): MailContent {
+    return mail("Dein Danke-Code wurde ersetzt", `Neuer Code: ${code}`, "Dein Danke-Code wurde ersetzt", [
+      { kind: "p", text: `Hallo ${firstName}, wir haben deinen Danke-Code ersetzt. Dein neuer Code lautet ${code}.` },
+      { kind: "p", text: `Grund: ${reason}` },
+      { kind: "p", text: "Der alte Code funktioniert nicht mehr. Bitte lade deine Karte und deinen QR-Code neu herunter und ersetze gedruckte Karten." },
+      { kind: "button", label: "Neue Karte herunterladen", href: cardUrl },
+      { kind: "note", text: `Fragen oder Einwände? Schreib uns an ${OPERATOR.email}.` },
+    ]);
+  },
+
+  /** Ergebnis der Abzeichen-Anfrage. */
+  badgeDecision(firstName: string, verified: boolean, note: string | null, profileUrl: string): MailContent {
+    const blocks: Block[] = verified
+      ? [{ kind: "p", text: `Hallo ${firstName}, wir haben deine Tätigkeit bestätigt. Auf deiner Danke-Seite steht jetzt „Verifiziert“.` }]
+      : [
+          { kind: "p", text: `Hallo ${firstName}, wir konnten deine Tätigkeit mit den bisherigen Angaben nicht bestätigen. Dein Danke-Code funktioniert unverändert weiter.` },
+          ...(note ? [{ kind: "p", text: `Anmerkung: ${note}` } as Block] : []),
+          { kind: "p", text: "Du kannst das Abzeichen im Profil mit ergänzten Angaben erneut anfragen." },
+        ];
+    return mail(
+      verified ? "Dein Lieferdank-Abzeichen ist da" : "Zu deiner Abzeichen-Anfrage",
+      verified ? "Deine Tätigkeit ist bestätigt" : "Wir brauchen noch etwas von dir",
+      verified ? "Du bist jetzt verifiziert" : "Abzeichen noch nicht vergeben",
+      [...blocks, { kind: "button", label: "Zum Profil", href: profileUrl }],
+    );
+  },
+
   /** Eingangsbestätigung an die Person, die ein Formular abgeschickt hat (Kündigung, Widerruf, Meldung, Kontakt). */
   requestReceipt(subject: string, intro: string, lines: string[], receivedAt: string): MailContent {
     return mail(subject, intro, subject, [

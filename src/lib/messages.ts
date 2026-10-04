@@ -16,3 +16,9 @@ export function presetById(id: string | null | undefined): PresetMessage | null 
 }
 
 export const MAX_CUSTOM_MESSAGE_LENGTH = 140;
+
+/**
+ * Steht anstelle einer vom Zusteller entfernten Nachricht. Das Danke selbst bleibt gezählt, und weil
+ * das Feld belegt ist, kann der Absender keine neue Nachricht nachschieben.
+ */
+export const REMOVED_MESSAGE_ID = "entfernt";

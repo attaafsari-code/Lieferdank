@@ -130,9 +130,14 @@ export default async function CustomerAccountPage({
           </form>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-4">
-          <a href="/api/datenexport" className="text-sm font-semibold text-brand hover:underline">
-            Meine Daten herunterladen
-          </a>
+          <span className="flex flex-wrap gap-x-5 gap-y-2">
+            <a href="/api/datenexport" className="text-sm font-semibold text-brand hover:underline">
+              Meine Daten herunterladen
+            </a>
+            <Link href="/passwort-vergessen" className="text-sm font-semibold text-brand hover:underline">
+              Passwort ändern
+            </Link>
+          </span>
           <DeleteCustomerAccount />
         </div>
       </section>
