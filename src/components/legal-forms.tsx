@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { FormAlert, FormField } from "@/components/form-field";
+import { keepInputs } from "@/components/keep-inputs";
 import { cancellationAction, contactAction, reportAction, withdrawalAction, type LegalFormState } from "@/server/actions/legal";
 
 const initial: LegalFormState = {};
@@ -73,7 +74,7 @@ function ContactForm() {
     return <Receipt title="Danke für deine Nachricht." state={state} note="Wir antworten dir per E-Mail. Eine Eingangsbestätigung ist unterwegs." />;
   }
   return (
-    <form action={action} className="relative space-y-5" noValidate>
+    <form action={action} onSubmit={keepInputs(action)} className="relative space-y-5" noValidate>
       <Honeypot />
       <FormField id="name" label="Name (optional)" autoComplete="name" error={errors.name} maxLength={100} />
       <FormField id="email" label="E-Mail-Adresse für die Antwort" type="email" autoComplete="email" error={errors.email} />
@@ -91,7 +92,7 @@ function ReportForm({ location }: { location?: string }) {
     return <Receipt title="Danke, deine Meldung ist eingegangen." state={state} note="Wir prüfen den Inhalt und teilen dir unsere Entscheidung per E-Mail mit." />;
   }
   return (
-    <form action={action} className="relative space-y-5" noValidate>
+    <form action={action} onSubmit={keepInputs(action)} className="relative space-y-5" noValidate>
       <Honeypot />
       <FormField id="location" label="Wo steht der Inhalt?" defaultValue={location} error={errors.location} maxLength={500}
         hint="Adresse der Danke-Seite oder Danke-Code; bei einer Nachricht in deinem Dashboard Datum und Uhrzeit." />
@@ -116,7 +117,7 @@ export function WithdrawalForm() {
     return <Receipt title="Dein Widerruf ist eingegangen." state={state} note="Eine Eingangsbestätigung mit diesem Inhalt haben wir dir per E-Mail geschickt." />;
   }
   return (
-    <form action={action} className="relative space-y-5" noValidate>
+    <form action={action} onSubmit={keepInputs(action)} className="relative space-y-5" noValidate>
       <Honeypot />
       <FormField id="name" label="Dein Name" autoComplete="name" error={errors.name} maxLength={100} />
       <FormField id="contract" label="E-Mail-Adresse deines Lieferdank-Kontos oder dein Danke-Code" error={errors.contract} maxLength={200} />
@@ -135,7 +136,7 @@ export function CancellationForm() {
     return <Receipt title="Deine Kündigung ist eingegangen." state={state} note="Eine Bestätigung mit diesem Inhalt haben wir dir per E-Mail geschickt." />;
   }
   return (
-    <form action={action} className="relative space-y-5" noValidate>
+    <form action={action} onSubmit={keepInputs(action)} className="relative space-y-5" noValidate>
       <Honeypot />
       <div>
         <label htmlFor="contract" className="label">Welchen Vertrag möchtest du kündigen?</label>

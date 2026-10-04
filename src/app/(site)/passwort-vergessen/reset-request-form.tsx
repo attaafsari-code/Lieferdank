@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { FormAlert, FormField } from "@/components/form-field";
 import { Check } from "@/components/icons";
+import { keepInputs } from "@/components/keep-inputs";
 import { requestResetAction } from "@/server/actions/auth";
 import type { FormState } from "@/server/actions/form-state";
 
@@ -41,7 +42,7 @@ export function ResetRequestForm() {
   }
 
   return (
-    <form action={action} className="space-y-5" noValidate>
+    <form action={action} onSubmit={keepInputs(action)} className="space-y-5" noValidate>
       <FormField
         id="email"
         label="E-Mail"

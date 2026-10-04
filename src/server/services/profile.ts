@@ -126,6 +126,13 @@ export async function requestBadge(user: User, driver: DriverProfile, note: stri
   await db.driverProfiles.update(driver.id, { verification: "pending", updatedAt: now });
 }
 
+const DELETED_PASSWORD_HASH = "geloescht";
+
+/** Ein gelöschtes Konto bleibt als anonymisierte Hülle für die aufzubewahrenden Buchungen bestehen. */
+export function isDeletedUser(user: User): boolean {
+  return user.passwordHash === DELETED_PASSWORD_HASH;
+}
+
 /**
  * Kontodeaktivierung und Datenminimierung. Buchhaltungsdaten sowie die
  * Stripe-Konto-ID bleiben für Refunds, Disputes und Aufbewahrung erhalten.
@@ -198,7 +205,7 @@ export async function deleteAccount(user: User): Promise<void> {
     email: `geloescht+${user.id}@lieferdank.invalid`,
     emailVerifiedAt: null,
     phone: null,
-    passwordHash: "geloescht",
+    passwordHash: DELETED_PASSWORD_HASH,
     tokenVersion: (user.tokenVersion ?? 0) + 1,
     blockedAt: now,
     blockedReason: "Vom Nutzer gelöscht",

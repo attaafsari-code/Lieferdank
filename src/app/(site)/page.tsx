@@ -12,7 +12,8 @@ import { cardOrdersAvailable } from "@/server/services/cards";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ geloescht?: string }> }) {
+  const deleted = (await searchParams).geloescht === "1";
   // Echte Karte mit echtem QR-Code – er führt auf lieferdank.de.
   const qr = await qrSvg(canonicalBase());
   const card = renderCardSvg({
@@ -28,6 +29,13 @@ export default async function HomePage() {
 
   return (
     <>
+      {deleted && (
+        <div className="container-page pt-6">
+          <p role="status" className="rounded-2xl bg-brand-50 px-4 py-3.5 text-sm font-semibold text-brand-900">
+            Dein Konto wurde gelöscht. Danke, dass du Lieferdank ausprobiert hast.
+          </p>
+        </div>
+      )}
       <Hero card={card} />
       <Steps />
       <CustomerSection />
@@ -71,7 +79,7 @@ function Hero({ card }: { card: string }) {
           </div>
 
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-ink-soft">
-            {["Für Paket-, Essens- und Kurierfahrer", "Kostenlos für Lieferanten", "Keine App für Kunden"].map((item) => (
+            {["Für Paket-, Essens- und Kurierfahrer", "Danke-Code kostenlos", "Keine App für Kunden"].map((item) => (
               <li key={item} className="flex items-center gap-1.5">
                 <Check className="h-4 w-4 text-brand" />
                 {item}

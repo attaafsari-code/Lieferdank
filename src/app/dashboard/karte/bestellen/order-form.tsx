@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { FormAlert, FormField } from "@/components/form-field";
+import { keepInputs } from "@/components/keep-inputs";
 import { formatEuro } from "@/lib/format";
 import type { CardQuote } from "@/lib/pricing";
 import { cancelCardOrderAction, createCardOrderAction } from "@/server/actions/driver";
@@ -23,7 +24,7 @@ export function OrderForm({ quotes, paid, defaults, reorderOf }: Props) {
   const quote = quotes.find((q) => q.quantity === quantity) ?? quotes[0];
 
   return (
-    <form action={action} className="space-y-6" noValidate>
+    <form action={action} onSubmit={keepInputs(action)} className="space-y-6" noValidate>
       {reorderOf && <input type="hidden" name="reorderOf" value={reorderOf} />}
       <input type="hidden" name="quantity" value={quantity} />
 

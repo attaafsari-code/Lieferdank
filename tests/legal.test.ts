@@ -5,7 +5,7 @@ import { OPERATOR, WITHDRAWAL_FORM_LINES, withdrawalInstructions } from "@/lib/l
 import { newId } from "@/lib/id";
 import { concludeTippingContract, TIPPING_CONTRACT_ACTION } from "@/server/services/payouts";
 import { formatReceivedAt, submitLegalRequest } from "@/server/services/legal-requests";
-import { deleteAccount } from "@/server/services/profile";
+import { deleteAccount, isDeletedUser } from "@/server/services/profile";
 import { refundTip } from "@/server/services/refunds";
 import { applyRetention } from "@/server/services/retention";
 import { confirmPayment, recordScan, sendFreeThankYou, startTip } from "@/server/services/thanks";
@@ -180,6 +180,9 @@ describe("Datensparsamkeit bei der Kontolöschung", () => {
     expect(await db.tips.count({ where: { driverId: driver.id } })).toBe(1);
     expect(await db.payments.get(paymentId)).not.toBeNull();
     expect((await db.driverProfiles.get(driver.id))?.active).toBe(false);
+    // Die Danke-Seite unterscheidet daran „gelöscht“ von „pausiert“.
+    expect(isDeletedUser(user)).toBe(false);
+    expect(isDeletedUser((await db.users.get(user.id))!)).toBe(true);
   });
 });
 

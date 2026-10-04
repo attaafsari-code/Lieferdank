@@ -100,7 +100,7 @@ export default async function DashboardPage({
       <section>
         <SectionTitle>Seit Beginn</SectionTitle>
         <div className="grid gap-3 sm:grid-cols-2">
-          <StatTile tone="coral" icon={<Heart className="h-5 w-5" />} value={String(stats.freeThankYouTotal)} label="Danke gesamt" />
+          <StatTile tone="coral" icon={<Heart className="h-5 w-5" />} value={String(stats.total.thanks)} label="Danke gesamt" />
           <StatTile icon={<Euro className="h-5 w-5" />} value={formatEuro(stats.total.driverCents)} label="Einnahmen gesamt" />
         </div>
         <p className="mt-2 text-xs text-ink-faint">Einnahmen aus bestätigten Trinkgeldern, vor Stripe-Kosten.</p>

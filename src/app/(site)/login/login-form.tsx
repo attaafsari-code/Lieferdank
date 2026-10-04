@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { FormAlert, FormField } from "@/components/form-field";
+import { keepInputs } from "@/components/keep-inputs";
 import { loginAction } from "@/server/actions/auth";
 import type { FormState } from "@/server/actions/form-state";
 
@@ -12,7 +13,7 @@ export function LoginForm({ next, saveCode }: { next?: string; saveCode?: string
   const [state, action, pending] = useActionState(loginAction, initial);
 
   return (
-    <form action={action} className="space-y-5" noValidate>
+    <form action={action} onSubmit={keepInputs(action)} className="space-y-5" noValidate>
       {next && <input type="hidden" name="weiter" value={next} />}
       {saveCode && <input type="hidden" name="saveCode" value={saveCode} />}
 

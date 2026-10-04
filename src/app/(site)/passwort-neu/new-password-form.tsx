@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { FormAlert, FormField } from "@/components/form-field";
+import { keepInputs } from "@/components/keep-inputs";
 import { completeResetAction } from "@/server/actions/auth";
 import type { FormState } from "@/server/actions/form-state";
 
@@ -12,7 +13,7 @@ export function NewPasswordForm({ token }: { token: string }) {
   const errors = state.fieldErrors ?? {};
 
   return (
-    <form action={action} className="space-y-5" noValidate>
+    <form action={action} onSubmit={keepInputs(action)} className="space-y-5" noValidate>
       <input type="hidden" name="token" value={token} />
 
       <FormField

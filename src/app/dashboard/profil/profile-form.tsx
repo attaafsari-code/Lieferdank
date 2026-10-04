@@ -5,6 +5,7 @@ import type { NameDisplay } from "@/lib/db/types";
 import { MAX_CUSTOM_NAME_LENGTH, NAME_DISPLAY_OPTIONS, dativeName, publicName } from "@/lib/names";
 import { FormAlert, FormField } from "@/components/form-field";
 import { Check } from "@/components/icons";
+import { keepInputs } from "@/components/keep-inputs";
 import { updateProfileAction } from "@/server/actions/driver";
 import type { FormState } from "@/server/actions/form-state";
 
@@ -33,7 +34,7 @@ export function ProfileForm(props: Props) {
   const shown = publicName(first, last, mode, custom || null);
 
   return (
-    <form action={action} className="space-y-10">
+    <form action={action} onSubmit={keepInputs(action)} className="space-y-10">
       <section className="space-y-5">
         <h2 className="text-[1.0625rem] font-extrabold text-brand-900">Name</h2>
         <div className="grid gap-5 sm:grid-cols-2">

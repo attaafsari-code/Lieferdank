@@ -40,7 +40,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ siz
         </div>
         <div style={{ display: "flex", marginTop: unit * 0.6, fontSize: unit * 0.62, fontWeight: 800, letterSpacing: -2 }}>
           <span style={{ color: "#0b2545" }}>Liefer</span>
-          <span style={{ color: "#ff4d4a" }}>dank</span>
+          {/* Der Renderer setzt zwischen zwei Textblöcke eine Lücke; ohne Ausgleich liest man „Liefer dank“. */}
+          <span style={{ color: "#ff4d4a", marginLeft: -unit * 0.08 }}>dank</span>
         </div>
       </div>
     ),

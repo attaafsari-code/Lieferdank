@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { findDriverByCode, toPublicDriver } from "@/server/services/drivers";
+import { isDeletedUser } from "@/server/services/profile";
 import { headers } from "next/headers";
 import { recordScanFrom } from "@/server/services/thanks";
 import { ipFromHeaders } from "@/server/rate-limit";
@@ -20,7 +21,7 @@ type Params = {
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { code } = await params;
   const found = await findDriverByCode(code);
-  const name = found?.user ? toPublicDriver(found.driver, found.user).name : null;
+  const name = found?.user && !isDeletedUser(found.user) ? toPublicDriver(found.driver, found.user).name : null;
   return {
     title: name ? `Sag ${dativeName(name)} Danke` : "Danke sagen",
     description: "Sag deinem Lieferanten Danke – kostenlos, ohne App, in wenigen Sekunden.",
@@ -35,6 +36,8 @@ export default async function ThankYouPage({ params, searchParams }: Params) {
 
   if (!found) return <UnknownCode />;
   const { driver, user } = found;
+  // Ein gelöschtes Konto kommt nicht zurück – „pausiert“ würde Kunden vergeblich warten lassen.
+  if (user && isDeletedUser(user)) return <UnknownCode />;
   if (!driver.active || !user || user.blockedAt) return <InactiveCode />;
 
   // Scan zählen – Basis der Scan-to-Payment-Conversion. Die Eigenvorschau zählt nicht.
@@ -67,7 +70,7 @@ function UnknownCode() {
   return (
     <Shell
       title="Diesen Danke-Code gibt es nicht"
-      text="Bitte prüfe, ob der QR-Code vollständig gescannt wurde. Steht der Code auf einer Karte, kann er auch ersetzt worden sein."
+      text="Bitte prüfe, ob der QR-Code vollständig gescannt wurde. Steht der Code auf einer Karte, kann er auch ersetzt oder gelöscht worden sein."
     />
   );
 }

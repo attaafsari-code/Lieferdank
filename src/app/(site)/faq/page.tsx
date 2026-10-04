@@ -111,8 +111,8 @@ export default function FaqPage() {
 
         <p className="mt-16 text-center text-ink-soft">
           Noch eine Frage?{" "}
-          <Link href="/legal/impressum" className="font-semibold text-brand underline underline-offset-2">
-            Kontakt im Impressum
+          <Link href="/kontakt" className="font-semibold text-brand underline underline-offset-2">
+            Schreib uns
           </Link>
         </p>
       </div>

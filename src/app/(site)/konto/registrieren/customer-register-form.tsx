@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { FormAlert, FormField } from "@/components/form-field";
+import { keepInputs } from "@/components/keep-inputs";
 import { registerCustomerAction } from "@/server/actions/auth";
 import type { FormState } from "@/server/actions/form-state";
 import { Terms } from "../../register/register-form";
@@ -13,7 +14,7 @@ export function CustomerRegisterForm({ saveCode }: { saveCode?: string }) {
   const errors = state.fieldErrors ?? {};
 
   return (
-    <form action={action} className="space-y-5" noValidate>
+    <form action={action} onSubmit={keepInputs(action)} className="space-y-5" noValidate>
       {saveCode && <input type="hidden" name="saveCode" value={saveCode} />}
       <FormField id="firstName" label="Vorname (optional)" autoComplete="given-name" error={errors.firstName} />
       <FormField id="email" label="E-Mail" type="email" autoComplete="email" error={errors.email} />

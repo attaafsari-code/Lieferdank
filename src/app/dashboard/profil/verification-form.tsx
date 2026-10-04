@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Check } from "@/components/icons";
+import { keepInputs } from "@/components/keep-inputs";
 import { requestBadgeAction } from "@/server/actions/driver";
 import type { FormState } from "@/server/actions/form-state";
 
@@ -21,7 +22,7 @@ export function VerificationForm({ existingNote }: { existingNote: string | null
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} onSubmit={keepInputs(action)} className="space-y-4">
       <div>
         <label htmlFor="documentNote" className="label">
           Wie können wir deine Tätigkeit nachvollziehen?
