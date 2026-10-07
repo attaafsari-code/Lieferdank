@@ -32,16 +32,22 @@ export default async function SuccessPage({ params, searchParams }: Props) {
   let thankYouId: string | null = null;
   let tipCents: number | null = null;
   let paymentPending = false;
-  let paymentProblem = false;
+  let paymentRefunded = false;
+  let paymentProblem = Boolean(query.zahlung);
   const freeThanks = Boolean(query.danke && !query.zahlung);
 
   if (query.zahlung && found) {
     const outcome = await paymentOutcome(query.zahlung, found.driver.id);
     if (outcome?.status === "succeeded") {
+      paymentProblem = false;
       tipCents = outcome.grossCents;
       thankYouId = outcome.thankYouId;
     } else if (outcome?.status === "pending") {
+      paymentProblem = false;
       paymentPending = true;
+    } else if (outcome?.status === "refunded") {
+      paymentProblem = false;
+      paymentRefunded = true;
     } else {
       paymentProblem = true;
     }
@@ -83,7 +89,9 @@ export default async function SuccessPage({ params, searchParams }: Props) {
             {freeThanks && thankYouId && query.bereits !== "1" ? "Danke! Deine Wertschätzung wurde übermittelt." : "Danke!"}
           </h1>
           <p className="mt-3 text-[1.0625rem] leading-relaxed text-ink-soft">
-            {paymentProblem ? (
+            {paymentRefunded ? (
+              <>Diese Zahlung wurde zurückerstattet.</>
+            ) : paymentProblem ? (
               <>Diese Zahlung konnte noch nicht bestätigt werden. Bitte prüfe deinen Zahlungsstatus oder wende dich an den Support.</>
             ) : paymentPending ? (
               <>
