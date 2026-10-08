@@ -36,6 +36,12 @@ describe("Stripe Direct Charges", () => {
     expect(options.stripeAccount).toBe("acct_driver");
     expect(options.idempotencyKey).toBe("checkout_payment-1");
     expect(session.payment_method_types).toEqual(["card"]);
+    expect(session).toHaveProperty("branding_settings", {
+      display_name: "Lieferdank", background_color: "#ffffff", button_color: "#1a5ce0",
+      font_family: "inter", border_style: "rounded",
+      icon: { type: "url", url: "https://lieferdank.de/pwa/icon-512.png" },
+      logo: { type: "url", url: "https://lieferdank.de/brand/checkout-logo.png" },
+    });
     expect(stripePaymentProvider.isAccountReady).toHaveBeenCalledWith("acct_driver", "driver-1");
   });
 
@@ -50,6 +56,22 @@ describe("Stripe Direct Charges", () => {
     await expect(stripePaymentProvider.createPayment({ ...input, destinationAccountId: null })).rejects.toThrow();
     await expect(stripePaymentProvider.createPayment({ ...input, driverId: undefined })).rejects.toThrow();
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("verwendet auch in Preview öffentliche Lieferdank-Brandassets statt lokaler oder Preview-URLs", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://127.0.0.1:3100");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://preview.vercel.app");
+    vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
+    vi.spyOn(stripePaymentProvider, "isAccountReady").mockResolvedValue(true);
+    const create = vi.spyOn(stripeClient().checkout.sessions, "create").mockResolvedValue({
+      id: "cs_test_branding", url: "https://checkout.stripe.com/test",
+    } as Stripe.Response<Stripe.Checkout.Session>);
+    await stripePaymentProvider.createPayment(input);
+    const [params, options] = create.mock.calls[0] as unknown as [Stripe.Checkout.SessionCreateParams, Stripe.RequestOptions];
+    expect(params).toHaveProperty("branding_settings.logo.url", "https://lieferdank.de/brand/checkout-logo.png");
+    expect(params).toHaveProperty("branding_settings.icon.url", "https://lieferdank.de/pwa/icon-512.png");
+    expect(options).toMatchObject({ stripeAccount: "acct_driver", idempotencyKey: "checkout_payment-1" });
   });
 
   it("verweigert ein unbereites Konto und startet keinen Plattform-Hold", async () => {

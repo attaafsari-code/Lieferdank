@@ -179,6 +179,43 @@ Checkout fordert `card` an; geeignete Geräte können Apple Pay/Google Pay anzei
 PayPal ist absichtlich nicht eingerichtet. Die tatsächliche Wallet-Anzeige hängt von
 Gerät, Browser, Stripe-Account und Dashboard-Einstellungen ab.
 
+Bei Direct Charges sind die Einstellungen des **Connected Accounts** maßgeblich:
+
+- Stripe → Einstellungen → Zahlungsmethoden → **Connected accounts**
+  (`/settings/payment_methods/connected_accounts`): in der Lieferdank-Konfiguration
+  Karte, Apple Pay und Google Pay auf **On by default** stellen. Das gilt für neue
+  Child-Konfigurationen. Keine fremde Plattform-Konfiguration ändern.
+- Bereits verbundene Standard-Konten können Google Pay ausdrücklich ausgeschaltet
+  haben. Deren effektive Einstellung muss separat geprüft werden; ein Plattform-Toggle
+  allein überschreibt eine vorhandene `off`-Präferenz nicht. Im jeweiligen Standard-Konto
+  unter Einstellungen → Zahlungsmethoden Google Pay einschalten. Geforderte Bedingungen
+  bestätigt der Kontoinhaber selbst.
+- `payment_method_types: ["card"]` bleibt bewusst erhalten: Wallets basieren auf Karte;
+  PayPal und andere Zahlarten werden dadurch nicht versehentlich aktiviert. Checkout
+  läuft auf `checkout.stripe.com`; Lieferdank rendert selbst keinen Wallet-Button.
+- Anzeige nur auf geeigneten Geräten mit eingerichteter Wallet. Ein fehlender Button
+  in einem Browser ohne Wallet ist kein Zahlungsfehler.
+
+Offizielle Grundlagen: [Google Pay](https://docs.stripe.com/google-pay?platform=web),
+[Connect-Zahlmethoden](https://docs.stripe.com/connect/multiple-payment-method-configurations).
+
+### Checkout-Branding
+
+Jede neue Session erhält über das dokumentierte `branding_settings` Lieferdank-Name,
+Blau (`#1a5ce0`), weißen Hintergrund, abgerundete Buttons, Logo und PWA-Icon. Dies gilt
+auch bei Direct Charges auf bestehenden Standard-Konten. Es verändert weder Merchant,
+Gebühren, Kontotyp noch globale Stripe-/Webhook-API-Versionen. Die festen Bild-URLs
+liegen auf `https://lieferdank.de`; das Logo `/brand/checkout-logo.png` enthält keine
+Nutzerdaten. Die PNG-Dateien in `assets/brand/stripe/` sind dafür nicht erforderlich.
+
+Das aktuelle SDK typisiert `branding_settings` noch nicht; der ergänzende Parametertyp
+in `stripe.ts` verwendet die offiziellen Felder aus `checkout-branding.ts`. Akzeptanz
+wurde mit der bestehenden API-Version in Stripe-Sandbox geprüft. Nach Deployment
+die öffentlichen PNG-URLs und eine **unbezahlte Sandbox-Session** visuell prüfen.
+Branding für Hosted Connect Onboarding bleibt eine separate Connect-Dashboard-Einstellung.
+
+[Stripe Checkout Appearance](https://docs.stripe.com/payments/checkout/customization/appearance?payment-ui=stripe-hosted).
+
 ### Webhooks
 
 **Stripe Dashboard → Developers → Webhooks**: zwei Ziele unter

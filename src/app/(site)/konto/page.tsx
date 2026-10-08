@@ -121,8 +121,8 @@ export default async function CustomerAccountPage({
       )}
 
       <section className="mt-14 space-y-4 rounded-2xl border border-line bg-white p-6 shadow-xs">
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm text-ink-soft">Angemeldet als {user.email}</span>
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <span className="min-w-0 break-words text-sm text-ink-soft">Angemeldet als {user.email}</span>
           <form action={logoutAction}>
             <button type="submit" className="btn btn-quiet">
               Abmelden

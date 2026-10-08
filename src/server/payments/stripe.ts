@@ -7,6 +7,7 @@ import { isProductionRuntime } from "@/lib/runtime";
 import { ServiceError } from "../errors";
 import { errorMessage, logEvent } from "../events";
 import type { PaymentProvider } from "./types";
+import { CHECKOUT_BRANDING } from "./checkout-branding";
 
 /** Trinkgelder sind Direct Charges; nur Kartenkäufe belasten das Plattformkonto. */
 let stripe: Stripe | null = null;
@@ -162,10 +163,11 @@ export const stripePaymentProvider: PaymentProvider = {
       throw new Error("Kartenbestellungen dürfen keine Fahrer-Application-Fee enthalten.");
     }
     const metadata = { paymentId: input.paymentId, purpose: input.purpose, referenceId: input.referenceId };
-    const session = await stripeClient().checkout.sessions.create({
+    const params: Stripe.Checkout.SessionCreateParams & { branding_settings: typeof CHECKOUT_BRANDING } = {
       mode: "payment",
       locale: "de",
       submit_type: "pay",
+      branding_settings: CHECKOUT_BRANDING,
       // Kartenbasierte Wallets bleiben möglich; PayPal ist bewusst nicht aktiviert.
       payment_method_types: ["card"],
       line_items: [{ quantity: 1, price_data: {
@@ -179,7 +181,8 @@ export const stripePaymentProvider: PaymentProvider = {
       metadata,
       success_url: input.returnUrl,
       cancel_url: input.cancelUrl,
-    }, {
+    };
+    const session = await stripeClient().checkout.sessions.create(params, {
       idempotencyKey: `checkout_${input.paymentId}`,
       ...(direct ? { stripeAccount: input.destinationAccountId! } : {}),
     });

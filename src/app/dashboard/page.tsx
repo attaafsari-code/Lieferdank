@@ -136,7 +136,7 @@ export default async function DashboardPage({
               : "Zeig den QR-Code am Handy oder druck deine Karte aus und trag sie sichtbar."}
           </p>
           <div className="mt-5 flex flex-col gap-2.5">
-            <Link href="/dashboard/karte" className="btn btn-primary btn-sm">
+            <Link href="/dashboard/karte" className="btn btn-primary btn-sm whitespace-normal text-center">
               Karte gestalten & herunterladen
               <ArrowRight className="h-4 w-4" />
             </Link>

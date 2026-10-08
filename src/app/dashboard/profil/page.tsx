@@ -92,8 +92,8 @@ export default async function ProfilePage() {
               <Download className="h-4 w-4" /> Laden
             </a>
           </div>
-          <div className="flex items-start justify-between gap-4 border-t border-line pt-5">
-            <span>
+          <div className="flex flex-col items-start justify-between gap-4 border-t border-line pt-5 sm:flex-row">
+            <span className="min-w-0 break-words">
               <span className="block font-semibold text-ink">Passwort ändern</span>
               <span className="mt-1 block text-[0.9375rem] text-ink-soft">
                 Wir schicken dir einen Link an {user.email}. Für eine neue E-Mail-Adresse{" "}
