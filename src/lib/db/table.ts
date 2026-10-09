@@ -21,6 +21,7 @@ export type Query<T> = {
   since?: { field: keyof T & string; value: string };
   /** Nur Zeilen, deren Feld in der Liste enthalten ist. */
   in?: { field: keyof T & string; values: string[] };
+  before?: { createdAt: string; id: string };
   orderBy?: keyof T & string;
   desc?: boolean;
   limit?: number;
@@ -41,7 +42,7 @@ export interface Table<T extends { id: string }> {
 export type Db = { [K in TableName]: Table<Tables[K]> };
 
 /** Prüft eine Zeile gegen eine Query – gemeinsam genutzt von Memory-Adapter und Tests. */
-export function matches<T>(row: T, query: Pick<Query<T>, "where" | "since" | "in">): boolean {
+export function matches<T>(row: T, query: Pick<Query<T>, "where" | "since" | "in" | "before">): boolean {
   if (query.where) {
     for (const [key, value] of Object.entries(query.where)) {
       if ((row as Record<string, unknown>)[key] !== value) return false;
@@ -50,6 +51,10 @@ export function matches<T>(row: T, query: Pick<Query<T>, "where" | "since" | "in
   if (query.since) {
     const value = (row as Record<string, unknown>)[query.since.field];
     if (typeof value !== "string" || value < query.since.value) return false;
+  }
+  if (query.before) {
+    const item = row as { createdAt?: string; id?: string };
+    if (!item.createdAt || !item.id || !(item.createdAt < query.before.createdAt || (item.createdAt === query.before.createdAt && item.id < query.before.id))) return false;
   }
   if (query.in) {
     const value = (row as Record<string, unknown>)[query.in.field];

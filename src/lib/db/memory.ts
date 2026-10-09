@@ -59,6 +59,12 @@ function memoryTable<N extends TableName>(name: N): Table<Tables[N]> {
   type Row = Tables[N];
   const rows = () => load()[name] as Row[];
 
+  function checkPushToken(row: Row) {
+    if (name !== "mobileSessions") return;
+    const value = row as unknown as { id: string; pushToken: string | null };
+    if (value.pushToken && rows().some(e => e.id !== value.id && (e as unknown as { pushToken: string | null }).pushToken === value.pushToken))
+      throw new Error("mobile_sessions_push_token_idx");
+  }
   return {
     async get(id) {
       return clone(rows().find((row) => row.id === id) ?? null);
@@ -74,7 +80,7 @@ function memoryTable<N extends TableName>(name: N): Table<Tables[N]> {
         result = [...result].sort((a, b) => {
           const av = a[key] as unknown as string | number;
           const bv = b[key] as unknown as string | number;
-          return av < bv ? -dir : av > bv ? dir : 0;
+          return av < bv ? -dir : av > bv ? dir : a.id.localeCompare(b.id) * dir;
         });
       }
       if (query.limit !== undefined) result = result.slice(0, query.limit);
@@ -84,6 +90,7 @@ function memoryTable<N extends TableName>(name: N): Table<Tables[N]> {
       return rows().filter((row) => matches(row, query)).length;
     },
     async insert(row) {
+      checkPushToken(row);
       if (rows().some((existing) => existing.id === row.id)) {
         throw new Error(`${name}: Zeile ${row.id} existiert bereits`);
       }
@@ -103,6 +110,10 @@ function memoryTable<N extends TableName>(name: N): Table<Tables[N]> {
           throw new Error("thank_yous_free_daily_visitor_idx: Danke für diesen Tag existiert bereits");
         }
       }
+      if (name === "pushDeliveries" && rows().some(e => {
+        const a = e as unknown as { sessionId: string; eventKey: string }; const b = row as typeof e & { sessionId: string; eventKey: string };
+        return a.sessionId === b.sessionId && a.eventKey === b.eventKey;
+      })) throw new Error("push_deliveries_session_id_event_key_key");
       rows().push(clone(row));
       persist();
       return clone(row);
@@ -110,6 +121,7 @@ function memoryTable<N extends TableName>(name: N): Table<Tables[N]> {
     async update(id, patch) {
       const row = rows().find((existing) => existing.id === id);
       if (row) {
+        checkPushToken({ ...row, ...patch });
         Object.assign(row, clone(patch));
         persist();
       }
@@ -117,6 +129,7 @@ function memoryTable<N extends TableName>(name: N): Table<Tables[N]> {
     async updateIf(id, where, patch) {
       const row = rows().find((existing) => existing.id === id && matches(existing, { where }));
       if (!row) return false;
+      checkPushToken({ ...row, ...patch });
       Object.assign(row, clone(patch));
       persist();
       return true;

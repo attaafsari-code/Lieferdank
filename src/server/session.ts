@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT, jwtVerify, decodeJwt, type JWTPayload } from "jose";
 import { getDb } from "@/lib/db";
 import type { CustomerProfile, DriverProfile, User } from "@/lib/db/types";
 
@@ -46,8 +46,8 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 /* ---------- Tokens ---------- */
 
-export async function signSessionToken(user: Pick<User, "id" | "tokenVersion">): Promise<string> {
-  return new SignJWT({ sub: user.id, v: user.tokenVersion ?? 0 })
+export async function signSessionToken(user: Pick<User, "id" | "tokenVersion">, sessionId?: string): Promise<string> {
+  return new SignJWT({ sub: user.id, v: user.tokenVersion ?? 0, ...(sessionId ? { sid: sessionId } : {}) })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_MAX_AGE_SECONDS}s`)
@@ -55,18 +55,24 @@ export async function signSessionToken(user: Pick<User, "id" | "tokenVersion">):
 }
 
 async function userFromToken(token: string): Promise<User | null> {
+  let payload: JWTPayload;
   try {
-    const { payload } = await jwtVerify(token, secret());
-    // Sitzungstokens tragen keinen Zweck. Alles mit Zweck (z. B. E-Mail-Bestätigung) ist keine Sitzung.
-    if (typeof payload.sub !== "string" || payload.typ !== undefined) return null;
-    const user = await getDb().users.get(payload.sub);
-    if (!user || user.blockedAt) return null;
-    const version = typeof payload.v === "number" ? payload.v : 0;
-    if (version !== (user.tokenVersion ?? 0)) return null;
-    return user;
+    ({ payload } = await jwtVerify(token, secret()));
   } catch {
     return null;
   }
+  if (typeof payload.sub !== "string" || payload.typ !== undefined) return null;
+  // Infrastructure failures propagate as server errors, not expired sessions.
+  const user = await getDb().users.get(payload.sub);
+  if (!user || user.blockedAt) return null;
+  const version = typeof payload.v === "number" ? payload.v : 0;
+  if (version !== (user.tokenVersion ?? 0)) return null;
+  if (payload.sid !== undefined) {
+    if (typeof payload.sid !== "string") return null;
+    const device = await getDb().mobileSessions.get(payload.sid);
+    if (!device || device.userId !== user.id || device.revokedAt || new Date(device.expiresAt).getTime() <= Date.now()) return null;
+  }
+  return user;
 }
 
 /* ---------- E-Mail-Bestätigung ---------- */
@@ -126,6 +132,7 @@ export type Session = {
   user: User;
   driver: DriverProfile | null;
   customer: CustomerProfile | null;
+  mobileSessionId?: string;
 };
 
 async function sessionFor(user: User | null): Promise<Session | null> {
@@ -157,5 +164,11 @@ export async function getAdminSession(): Promise<Session | null> {
 export async function getBearerSession(request: Request): Promise<Session | null> {
   const header = request.headers.get("authorization") ?? "";
   const match = header.match(/^Bearer\s+(.+)$/i);
-  return sessionFor(match ? await userFromToken(match[1].trim()) : null);
+  const token = match?.[1].trim();
+  const session = await sessionFor(token ? await userFromToken(token) : null);
+  if (session && token) {
+    const payload = decodeJwt(token);
+    if (typeof payload.sid === "string") session.mobileSessionId = payload.sid;
+  }
+  return session;
 }

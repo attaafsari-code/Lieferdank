@@ -1,4 +1,5 @@
 import "server-only";
+import { isProductionRuntime } from "@/lib/runtime";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import type { DriverProfile, User } from "@/lib/db/types";
@@ -210,6 +211,14 @@ export async function deleteAccount(user: User): Promise<void> {
     blockedAt: now,
     blockedReason: "Vom Nutzer gelöscht",
   });
+
+  // App tables are optional until the additive migration has been enabled.
+  if (!isProductionRuntime() || process.env.DRIVER_APP_ENABLED === "true") {
+    for (const device of await db.mobileSessions.findMany({ where: { userId: user.id } })) {
+      for (const notification of await db.pushDeliveries.findMany({ where: { sessionId: device.id } })) await db.pushDeliveries.remove(notification.id);
+      await db.mobileSessions.remove(device.id);
+    }
+  }
 
   await db.adminActions.insert({
     id: newId(),

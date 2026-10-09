@@ -29,7 +29,7 @@ type CheckError = { code?: string; message?: string } | null;
 
 async function checkSchemaOnce(): Promise<{ state: SchemaState; errors: { table: string; code: string; message: string }[] }> {
   const client = supabaseClient();
-  const results = await Promise.all(SCHEMA_CHECKS.map(async ([table, columns]) => {
+  const results = await Promise.all([...SCHEMA_CHECKS, ...(process.env.DRIVER_APP_ENABLED === "true" ? [["mobile_sessions", "token_version, expires_at, revoked_at, push_token"], ["push_deliveries", "session_id, event_key, status, ticket_id"]] : [])].map(async ([table, columns]) => {
     try {
       const { error } = await client.from(table).select(columns).limit(1);
       return { table, error: error as CheckError };

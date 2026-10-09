@@ -35,3 +35,18 @@ node_modules
 .env
 .env.local
 .DS_Store
+
+# Native app generated files and signing credentials
+apps/**/node_modules/
+apps/**/.expo/
+apps/**/dist/
+apps/**/ios/
+apps/**/android/
+*.jks
+*.keystore
+*.p12
+*.p8
+*.mobileprovision
+credentials.json
+GoogleService-Info.plist
+google-services.json

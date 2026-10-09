@@ -1,0 +1,2 @@
+export const metadata = { robots: { index: false, follow: false } };
+export default function ReturnToApp() { return <main className="mx-auto max-w-lg px-6 py-16"><h1 className="text-2xl font-bold">Zur LieferDank-App</h1><p className="my-6">Dieser Stripe-Link ist abgelaufen. Öffne die Fahrer-App und starte die Einrichtung erneut.</p><a href="lieferdank://stripe-return" className="btn btn-primary">Fahrer-App öffnen</a><p className="mt-8"><a href="/dashboard/einnahmen">Im Web fortsetzen</a></p></main>; }

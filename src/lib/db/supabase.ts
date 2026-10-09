@@ -64,12 +64,17 @@ function supabaseTable<N extends TableName>(name: N): Table<Tables[N]> {
   // Der Query-Builder von supabase-js ist generisch schwer zu typisieren;
   // die Schnittstelle nach außen bleibt trotzdem vollständig typisiert.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function applyFilters(builder: any, query: Pick<Query<Row>, "where" | "since" | "in">): any {
+  function applyFilters(builder: any, query: Pick<Query<Row>, "where" | "since" | "in" | "before">): any {
     let b = builder;
     for (const [key, value] of Object.entries(query.where ?? {})) {
       b = value === null ? b.is(toSnake(key), null) : b.eq(toSnake(key), value);
     }
     if (query.since) b = b.gte(toSnake(query.since.field), query.since.value);
+    if (query.before) {
+      const { createdAt, id } = query.before;
+      if (!isUuid(id) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(createdAt)) throw new Error("Ungültiger Cursor.");
+      b = b.or(`created_at.lt.${createdAt},and(created_at.eq.${createdAt},id.lt.${id})`);
+    }
     if (query.in) b = b.in(toSnake(query.in.field), query.in.values);
     return b;
   }
@@ -103,6 +108,7 @@ function supabaseTable<N extends TableName>(name: N): Table<Tables[N]> {
         let builder = applyFilters(supabaseClient().from(table).select("*"), query);
         if (query.orderBy) {
           builder = builder.order(toSnake(query.orderBy), { ascending: !query.desc });
+          if (query.before || query.orderBy === "createdAt") builder = builder.order("id", { ascending: !query.desc });
         } else {
           builder = builder.order("id", { ascending: true });
         }

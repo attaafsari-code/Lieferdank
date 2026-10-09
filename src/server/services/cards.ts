@@ -70,7 +70,7 @@ export async function cardContext(driver: DriverProfile, user: User) {
 }
 
 /** Karte als fertiges SVG, z. B. für die Druckansicht. */
-export async function renderDriverCard(driver: DriverProfile, user: User, idPrefix = "ld"): Promise<string> {
+export async function renderDriverCard(driver: DriverProfile, user: User, idPrefix = "ld", photoHref?: string | null): Promise<string> {
   const ctx = await cardContext(driver, user);
   return renderCardSvg({
     layout: ctx.design.layout,
@@ -81,7 +81,7 @@ export async function renderDriverCard(driver: DriverProfile, user: User, idPref
     qrSvg: ctx.qr,
     avatar:
       ctx.design.showPhoto || ctx.design.layout === "personal"
-        ? { href: ctx.design.showPhoto ? ctx.photoUrl : null, initials: ctx.initials }
+        ? { href: ctx.design.showPhoto ? (photoHref === undefined ? ctx.photoUrl : photoHref) : null, initials: ctx.initials }
         : null,
     idPrefix,
   });

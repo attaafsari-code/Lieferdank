@@ -280,8 +280,21 @@ export type SystemEvent = {
   createdAt: string;
 };
 
+export type MobileSession = {
+  id: string; userId: string; tokenVersion: number; expiresAt: string; revokedAt: string | null;
+  pushToken: string | null; pushEnabled: boolean; createdAt: string;
+};
+export type PushDelivery = {
+  id: string; sessionId: string; eventKey: string;
+  title: string; body: string; screen: "earnings" | "thanks" | "stripe";
+  status: "pending" | "sending" | "sent" | "delivered" | "failed";
+  ticketId: string | null; tokenAtSend: string | null; leaseUntil: string | null; attempts: number; createdAt: string;
+};
+
 /** Alle Tabellen mit ihrem Zeilentyp. Der Schlüssel ist der Name im Code. */
 export type Tables = {
+  mobileSessions: MobileSession;
+  pushDeliveries: PushDelivery;
   users: User;
   driverProfiles: DriverProfile;
   customerProfiles: CustomerProfile;
@@ -305,6 +318,8 @@ export type TableName = keyof Tables;
 export type Database = { [K in TableName]: Tables[K][] };
 
 export const TABLE_NAMES: TableName[] = [
+  "mobileSessions",
+  "pushDeliveries",
   "users",
   "driverProfiles",
   "customerProfiles",

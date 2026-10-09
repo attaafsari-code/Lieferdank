@@ -20,7 +20,7 @@ const PAYOUT_RETURN_PATH = "/dashboard/einnahmen?konto=fertig";
  * Startet die Einrichtung beim Zahlungsdienstleister. Dort passiert auch die Identitätsprüfung (KYC).
  * Liefert die Adresse, zu der weitergeleitet wird: Stripe oder – bei fertigem Konto – die Einnahmen-Seite.
  */
-export async function startPayoutOnboarding(user: User, driver: DriverProfile): Promise<string> {
+export async function startPayoutOnboarding(user: User, driver: DriverProfile, appReturn = false): Promise<string> {
   if (user.role !== "driver" || driver.userId !== user.id) {
     throw new ServiceError("forbidden", "Dieses Auszahlungskonto gehört nicht zu deinem Profil.", 403);
   }
@@ -42,7 +42,7 @@ export async function startPayoutOnboarding(user: User, driver: DriverProfile): 
     // Schlägt die Prüfung fehl, entscheidet onboardDriver (Support-Hinweis bzw. Störung).
     const existing = accountId;
     const ready = await syncPayoutReadiness(driver.id, () => provider.isAccountReady(existing, driver.id)).catch(() => null);
-    if (ready) return PAYOUT_RETURN_PATH;
+    if (ready) return appReturn ? `${baseUrl()}/app/stripe-return` : PAYOUT_RETURN_PATH;
     // Nur wenn Stripe gerade sicher „nicht bereit“ gemeldet hat, kommt ein Tausch überhaupt in Frage.
     if (ready === false) accountId = await replaceLegacyAccount(driver.id, existing, createAccount);
   } else {
@@ -52,8 +52,8 @@ export async function startPayoutOnboarding(user: User, driver: DriverProfile): 
   const link = await provider.onboardDriver({
     accountId,
     driverId: driver.id,
-    returnUrl: `${baseUrl()}${PAYOUT_RETURN_PATH}`,
-    refreshUrl: `${baseUrl()}/dashboard/einnahmen?konto=neu`,
+    returnUrl: appReturn ? `${baseUrl()}/app/stripe-return` : `${baseUrl()}${PAYOUT_RETURN_PATH}`,
+    refreshUrl: appReturn ? `${baseUrl()}/app/stripe-refresh` : `${baseUrl()}/dashboard/einnahmen?konto=neu`,
   });
   return link.url;
 }

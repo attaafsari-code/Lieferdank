@@ -1,0 +1,26 @@
+# Cloud native builds contain only the standalone LieferDank driver app.
+# Web/backend sources, personal files, production env and test data stay local.
+/*
+!/apps
+/apps/*
+!/apps/driver
+/apps/driver/node_modules
+/apps/driver/.expo
+/apps/driver/dist
+/apps/driver/ios
+/apps/driver/android
+/apps/driver/coverage
+**/.env
+**/.env.*
+**/*.pem
+**/*.p12
+**/*.p8
+**/*.jks
+**/*.keystore
+**/*.mobileprovision
+**/credentials.json
+**/GoogleService-Info.plist
+**/google-services.json
+**/.DS_Store
+**/*.tsbuildinfo
+**/npm-debug.log*

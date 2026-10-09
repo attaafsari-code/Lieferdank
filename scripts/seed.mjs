@@ -44,6 +44,7 @@ function isoAt(daysAgo, hour, minute) {
 /* ---------- Bestand ---------- */
 
 const db = {
+  mobileSessions: [], pushDeliveries: [],
   users: [],
   driverProfiles: [],
   customerProfiles: [],
