@@ -45,3 +45,10 @@ Gates: 410/410 Web-/Backendtests, 35/35 App-Tests, 15/15 zusätzliche echte HTTP
 Dependency-Audit: Web-Runtime (`--omit=dev`) 0 Befunde. Gesamte Web-Toolchain meldet 5 High-Einträge aus dem ungepatchten `braces`-Advisory GHSA-vfj7-8cjw-p6xm; Expo-/Metro-Toolchain 14 High-Einträge aus `braces` und `node-forge` GHSA-86w9-cpqp-85rv. Diese Bibliotheken werden für Globs/Zertifikate in Entwickler-/Buildtools verwendet, nicht von der App-UI als API zur Verarbeitung öffentlicher Nutzereingaben. Keine erzwungene Expo-/Next-Major-Downgrade. DAST mit HawkScan nicht durchgeführt: CLI und API-Zugang fehlen.
 
 Die Inhaberfreigabe bestätigte anschließend die ausschließliche LieferDank-Zuordnung von `lbvanxjqvobzspkycivm`. Die App-Migration wurde gezielt dort ausgeführt und verifiziert; der GETLEND-MCP-Connector wurde nicht verwendet. Vercel-App-Freischaltung ausschließlich im LieferDank-Production-Scope vorbereitet (`DRIVER_APP_ENABLED=true`, `APPLE_TEAM_ID=66V45RP7TP`); Wirksamkeit erst nach Backend-Deployment prüfen. APNs/FCM bleiben ohne verifizierte Credentials und echtes Gerät ungeprüft; Push bleibt deaktiviert.
+
+
+## Backend-Freischaltung und saubere CI-Installation
+
+Commit `9c53a2a` wurde über den vorhandenen GitHub-SSH-Zugang gepusht und bei Vercel als Production-Deployment `FPfec6AJCybCw4xobFK8sZqFVkBi` erfolgreich bereitgestellt. Der Production-App-Preflight besteht: Health HTTP 200, ungültige Login-Anfrage HTTP 400 / `invalid_input`. Das beweist die aktivierte Route; ein echter nativer Benutzerlogin wird damit nicht vorgetäuscht. Keine Testkonten oder Zahlungen in Production erzeugt.
+
+Die erste GitHub-App-CI fand eine fehlende explizite Vitest-Peer-Abhängigkeit: Lokal wurde Vite vom Web-Elternprojekt aufgelöst. `vite@8.3.1` ist jetzt exakt als App-DevDependency gesetzt. Eine saubere Offline-Installation in einem eigenen temporären Verzeichnis ohne Web-node_modules besteht 35/35 Tests, Typecheck, Lint und iOS-/Android-Hermes-Export. Die Offline-Installation liefert keinen gültigen aktuellen Security-Audit; hierfür gilt der zuvor separat ausgeführte Netzwerk-Audit.
