@@ -19,7 +19,7 @@ let ip = 0;
 const ctx = { params: Promise.resolve({}) };
 function req(path: string, token?: string, body?: unknown, method = "GET") { return new Request(`http://localhost${path}`, { method, headers: { "x-forwarded-for": `10.88.${Math.floor(++ip/200)}.${ip%200}`, ...(token ? { authorization: `Bearer ${token}` } : {}), "content-type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }); }
 async function device() { const { user, driver } = await makeDriver(); const { token } = await mobileLogin({ email: user.email, password: "sicheres-passwort" }); const session = (await getBearerSession(req("/", token)))!; return { user, driver, token, session }; }
-beforeEach(() => { freshDb(); vi.restoreAllMocks(); vi.spyOn(console, "info").mockImplementation(() => undefined); });
+beforeEach(() => { freshDb(); vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.stubEnv("DRIVER_APP_ENABLED", "true"); vi.stubEnv("PUSH_ENABLED", "true"); vi.spyOn(console, "info").mockImplementation(() => undefined); });
 
 describe("Native device authentication", () => {
   it("uses existing users and creates a revocable device session", async () => { const d = await device(); expect(d.session.user.id).toBe(d.user.id); expect(d.session.mobileSessionId).toBeTruthy(); expect(await getDb().users.count()).toBe(1); });

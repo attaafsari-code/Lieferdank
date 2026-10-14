@@ -61,6 +61,9 @@ const db = {
   scans: [],
   passwordResets: [],
   systemEvents: [],
+  blockedSenders: [],
+  messageReports: [],
+  marketingConsents: [],
 };
 
 function addUser({ firstName, lastName, email, password, role, phone = null }) {
@@ -199,6 +202,7 @@ function addDay(driver, daysAgo, tipAmounts, freeThanks, customerId = null) {
       visitorHash: null,
       presetId: rnd() < 0.65 ? pick(PRESETS) : null,
       message: null,
+      senderKey: null,
       createdAt,
     });
   }
@@ -213,6 +217,7 @@ function addDay(driver, daysAgo, tipAmounts, freeThanks, customerId = null) {
       visitorHash: null,
       presetId: rnd() < 0.5 ? pick(PRESETS) : null,
       message: null,
+      senderKey: null,
       createdAt: nextTime(),
     });
   }

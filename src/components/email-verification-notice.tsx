@@ -13,7 +13,8 @@ export function EmailVerificationNotice({ email, requirement }: { email: string;
     <div className="no-print rounded-2xl border border-coral-100 bg-coral-50 px-5 py-4 text-sm text-ink">
       <p className="font-semibold">Bitte bestätige deine E-Mail-Adresse.</p>
       <p className="mt-1 leading-relaxed text-ink-soft">
-        Wir haben dir einen Link an <span className="font-semibold break-all text-ink">{email}</span> geschickt.
+        Den Bestätigungslink senden wir an <span className="font-semibold break-all text-ink">{email}</span>. Nichts
+        angekommen? Fordere ihn hier erneut an.
         {requirement ? ` ${requirement}` : ""}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">

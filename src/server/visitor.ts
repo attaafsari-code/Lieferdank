@@ -57,3 +57,12 @@ export function dailyVisitorHash(id: string, driverId: string, day: string): str
   if (!/^[0-9a-f]{32}$/.test(id)) throw new Error("Ungültiger Besucherbezeichner.");
   return createHmac("sha256", secret()).update(`${driverId}:${day}:${id}`).digest("hex");
 }
+
+/**
+ * Pro Zusteller stabiler Absenderschlüssel. Er wird nur an Nachrichten gespeichert, damit ein
+ * Zusteller einen Absender blockieren kann; verschiedene Zusteller sehen nie denselben Schlüssel.
+ */
+export function senderKey(id: string, driverId: string): string {
+  if (!/^[0-9a-f]{32}$/.test(id)) throw new Error("Ungültiger Besucherbezeichner.");
+  return createHmac("sha256", secret()).update(`sender:${driverId}:${id}`).digest("hex");
+}

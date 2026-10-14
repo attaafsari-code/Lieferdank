@@ -188,6 +188,9 @@ export async function deleteAccount(user: User): Promise<void> {
   for (const verification of await db.verifications.findMany({ where: { userId: user.id } })) {
     await db.verifications.remove(verification.id);
   }
+  for (const consent of await db.marketingConsents.findMany({ where: { userId: user.id } })) {
+    await db.marketingConsents.remove(consent.id);
+  }
 
   if (user.role === "customer") {
     const [favorites, tips, thankYous] = await Promise.all([

@@ -20,6 +20,10 @@ const SCHEMA_CHECKS = [
   ["driver_profiles", "payout_sync_version"],
   ["tips", "refunded_cents, fee_refunded_cents"],
   ["users", "email_verified_at"],
+  ["thank_yous", "sender_key"],
+  ["blocked_senders", "driver_id, sender_key"],
+  ["message_reports", "thank_you_id, status"],
+  ["marketing_consents", "user_id, status"],
 ] as const;
 
 /** Nur diese Fehler bedeuten „Spalte bzw. Tabelle fehlt“ – alles andere ist eine Störung. */

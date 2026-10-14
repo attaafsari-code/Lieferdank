@@ -53,6 +53,15 @@ export default function PrivacyPage() {
           Abs. 1 lit. b DSGVO) und unser berechtigtes Interesse an der Missbrauchsabwehr (lit. f). Die Daten bleiben
           gespeichert, solange das Konto des Zustellers besteht.
         </p>
+        <p>
+          Zu einer selbst geschriebenen Nachricht speichern wir außerdem einen aus der Besucherkennung abgeleiteten
+          Absenderschlüssel, der nur für diesen einen Zusteller gilt. Er verrät niemandem, wer du bist, ermöglicht dem
+          Zusteller aber, weitere Nachrichten desselben Absenders zu blockieren. Nachrichten mit Links, Kontaktdaten oder
+          schweren Beleidigungen werden nicht zugestellt. Meldet ein Zusteller eine Nachricht, wird sie für ihn sofort
+          ausgeblendet und der Text bis zur Prüfung durch uns aufbewahrt; nach der Prüfung löschen wir ihn.
+          Rechtsgrundlage ist unser berechtigtes Interesse am Schutz der Zusteller vor Missbrauch (Art. 6 Abs. 1 lit. f
+          DSGVO).
+        </p>
 
         <h3>Trinkgeld</h3>
         <p>
@@ -179,10 +188,11 @@ export default function PrivacyPage() {
             30 Tage oder bis zur Abmeldung).
           </li>
           <li>
-            <strong>ld_visitor</strong> – Begrenzung kostenloser Danksagungen auf einmal pro Zusteller und Tag. Das anonyme
-            Besucher-Cookie enthält eine zufällige, signierte Kennung (Speicherdauer: 90 Tage). In der Datenbank speichern
-            wir nur einen pro Zusteller und Tag abgeleiteten Hash, keine Besucherkennung im Klartext. Durch Löschen des
-            Cookies lässt sich die Begrenzung umgehen.
+            <strong>ld_visitor</strong> – Begrenzung kostenloser Danksagungen auf einmal pro Zusteller und Tag sowie
+            Blockieren unerwünschter Nachrichten. Das anonyme Besucher-Cookie enthält eine zufällige, signierte Kennung
+            (Speicherdauer: 90 Tage). In der Datenbank speichern wir nur daraus abgeleitete Hashes (pro Zusteller und Tag
+            bzw. bei Nachrichten pro Zusteller), keine Besucherkennung im Klartext. Durch Löschen des Cookies lässt sich
+            die Begrenzung umgehen.
           </li>
           <li>
             <strong>ld_message_grant</strong> – erlaubt nur dem Browser, der ein Danke gesendet oder ein Trinkgeld

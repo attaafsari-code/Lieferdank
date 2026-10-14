@@ -174,6 +174,8 @@ create table if not exists public.thank_yous (
   visitor_hash text,
   preset_id    text,
   message      text check (char_length(message) <= 140),
+  -- Pro Zusteller stabiler, pseudonymer Absenderschlüssel – nur bei Nachrichten, nur zum Blockieren.
+  sender_key   text check (sender_key is null or sender_key ~ '^[0-9a-f]{64}$'),
   created_at   timestamptz not null default now(),
   constraint thank_yous_free_identity_check check (
     (free_day is null and visitor_hash is null) or
@@ -245,6 +247,35 @@ create table if not exists public.admin_actions (
   created_at   timestamptz not null default now()
 );
 
+create table if not exists public.blocked_senders (
+  id          uuid primary key,
+  driver_id   uuid not null references public.driver_profiles (id) on delete cascade,
+  sender_key  text not null check (sender_key ~ '^[0-9a-f]{64}$'),
+  created_at  timestamptz not null default now(),
+  constraint blocked_senders_unique unique (driver_id, sender_key)
+);
+
+create table if not exists public.message_reports (
+  id            uuid primary key,
+  thank_you_id  uuid references public.thank_yous (id) on delete set null,
+  driver_id     uuid not null references public.driver_profiles (id) on delete cascade,
+  message       text check (message is null or char_length(message) <= 140),
+  status        text not null default 'open' check (status in ('open', 'resolved')),
+  created_at    timestamptz not null default now(),
+  resolved_at   timestamptz,
+  constraint message_reports_once unique (thank_you_id)
+);
+
+create table if not exists public.marketing_consents (
+  id            uuid primary key,
+  user_id       uuid not null unique references public.users (id) on delete cascade,
+  status        text not null check (status in ('pending', 'confirmed', 'revoked')),
+  source        text not null check (source in ('web', 'app')),
+  requested_at  timestamptz not null default now(),
+  confirmed_at  timestamptz,
+  revoked_at    timestamptz
+);
+
 create table if not exists public.system_events (
   id          uuid primary key,
   level       text not null check (level in ('info', 'warning', 'error')),
@@ -303,6 +334,9 @@ alter table public.milestones         enable row level security;
 alter table public.scans              enable row level security;
 alter table public.admin_actions      enable row level security;
 alter table public.system_events      enable row level security;
+alter table public.blocked_senders    enable row level security;
+alter table public.message_reports    enable row level security;
+alter table public.marketing_consents enable row level security;
 
 -- ---------- Tabellenrechte: nur der Service-Role-Key -----------------------
 -- Neuere Supabase-Projekte vergeben für per SQL angelegte Tabellen keine

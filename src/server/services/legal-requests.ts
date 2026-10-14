@@ -151,7 +151,7 @@ export async function submitLegalRequest<K extends LegalRequestKind>(
   raw: unknown,
   clientIp: string,
   now = new Date(),
-): Promise<{ receivedAt: string; lines: string[] }> {
+): Promise<{ receivedAt: string; lines: string[]; receiptSent: boolean }> {
   const input = parseLegalRequest(kind, raw);
   enforceRateLimitFor(`legal-${kind}:${clientIp}`, 5, 60 * 60_000);
   enforceRateLimitFor(`legal-${kind}-mail:${input.email}`, 3, 60 * 60_000);
@@ -166,5 +166,6 @@ export async function submitLegalRequest<K extends LegalRequestKind>(
   if (!receipt.delivered && isProductionRuntime()) {
     await logEvent("warning", "legal", "Eingangsbestätigung nicht zugestellt", { kind }).catch((error) => console.error(errorMessage(error)));
   }
-  return { receivedAt, lines: prepared.receiptLines };
+  // Without a mail provider outside production nothing is sent, but nothing is promised either way in tests.
+  return { receivedAt, lines: prepared.receiptLines, receiptSent: receipt.delivered || !isProductionRuntime() };
 }

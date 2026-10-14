@@ -20,7 +20,7 @@ async function withPassword(userId: string) { await getDb().users.update(userId,
 async function makeAdmin() {
   return getDb().users.insert({ id: newId(), email: "admin-rolle@test.de", firstName: "Ada", lastName: "Admin", phone: null, role: "admin", passwordHash: await hashPassword(PASSWORD), tokenVersion: 0, createdAt: new Date().toISOString(), emailVerifiedAt: new Date().toISOString(), blockedAt: null, blockedReason: null });
 }
-beforeEach(() => { freshDb(); vi.restoreAllMocks(); vi.spyOn(console, "info").mockImplementation(() => undefined); });
+beforeEach(() => { freshDb(); vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.stubEnv("DRIVER_APP_ENABLED", "true"); vi.stubEnv("PUSH_ENABLED", "true"); vi.spyOn(console, "info").mockImplementation(() => undefined); });
 
 describe("Existing web accounts of every role can sign in natively", () => {
   it("customer gets a device session, own history, and no driver data", async () => {
@@ -86,5 +86,36 @@ describe("Milestone pushes", () => {
     await collectPushEvents(); await collectPushEvents();
     const rows = await getDb().pushDeliveries.findMany();
     expect(rows).toHaveLength(1); expect(rows[0].body).toContain("100× Danke");
+  });
+});
+
+describe("PUSH_ENABLED", () => {
+  it("without PUSH_ENABLED the app is told push is unavailable and cannot register a token", async () => {
+    vi.stubEnv("PUSH_ENABLED", "");
+    const { GET } = await import("@/app/api/v1/me/push/route");
+    const { registerPush } = await import("@/server/services/push");
+    const { user } = await makeDriver(); await withPassword(user.id);
+    const { token } = await mobileLogin({ email: user.email, password: PASSWORD });
+    expect(await (await GET(req("/api/v1/me/push", token), ctx)).json()).toEqual({ available: false, enabled: false });
+    const session = (await getBearerSession(req("/", token)))!;
+    await expect(registerPush(session, { token: "ExpoPushToken[offDevice]", enabled: true })).rejects.toMatchObject({ code: "push_unavailable" });
+    expect((await getDb().mobileSessions.get(session.mobileSessionId!))?.pushToken).toBeNull();
+  });
+  it("a stored opt-in is not shown as active once push is switched off", async () => {
+    const { GET } = await import("@/app/api/v1/me/push/route");
+    const { registerPush } = await import("@/server/services/push");
+    const { user } = await makeDriver(); await withPassword(user.id);
+    const { token } = await mobileLogin({ email: user.email, password: PASSWORD });
+    await registerPush((await getBearerSession(req("/", token)))!, { token: "ExpoPushToken[onDevice]", enabled: true });
+    expect((await (await GET(req("/api/v1/me/push", token), ctx)).json()).enabled).toBe(true);
+    vi.stubEnv("PUSH_ENABLED", "false");
+    expect(await (await GET(req("/api/v1/me/push", token), ctx)).json()).toEqual({ available: false, enabled: false });
+  });
+});
+
+describe("Registration reports whether the welcome mail went out", () => {
+  it("tells the new account owner when no mail could be sent", async () => {
+    const result = await mobileRegister({ role: "customer", email: "nomail@test.de", password: PASSWORD, acceptedTerms: true });
+    expect(result).toHaveProperty("mailSent", false);
   });
 });

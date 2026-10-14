@@ -65,7 +65,7 @@ export async function attachMessageAction(
 ): Promise<FlowResult> {
   try {
     await enforceRateLimit("message", 20, 60_000);
-    await attachMessage(thankYouId, presetId, message, await messageGrantsFromCookie());
+    await attachMessage(thankYouId, presetId, message, await messageGrantsFromCookie(), await visitorId());
     return { ok: true };
   } catch (error) {
     return toResult(error);

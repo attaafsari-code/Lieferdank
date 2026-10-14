@@ -52,7 +52,7 @@ function LieferDankApp() {
   const [firstName, setFirstName] = useState(""); const [lastName, setLastName] = useState(""); const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [resetToken, setResetToken] = useState(""); const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState("");
   const [deletePassword, setDeletePassword] = useState(""); const [newCode, setNewCode] = useState("");
-  const [consent, setConsent] = useState(false); const [pushEnabled, setPushEnabled] = useState(false); const [filter, setFilter] = useState("all");
+  const [consent, setConsent] = useState(false); const [pushEnabled, setPushEnabled] = useState(false); const [pushAvailable, setPushAvailable] = useState(false); const [filter, setFilter] = useState("all");
   const [thanksCursor, setThanksCursor] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null); const [lastUpdated, setLastUpdated] = useState("");
   const role: Role | null = me?.role ?? null;
@@ -72,9 +72,9 @@ function LieferDankApp() {
     if (active !== tokenRef.current) return;
     setMe(account);
     if (account.role === "driver") {
-      const values = await Promise.all([api<Stats>("/api/v1/me/stats"), api<Profile>("/api/v1/me/profile"), api<StripeStatus>("/api/v1/me/stripe"), api<{ items: Earning[]; nextCursor: string | null }>("/api/v1/me/earnings"), api<{ items: Thank[]; nextCursor: string | null }>("/api/v1/me/thanks"), api<{ enabled: boolean }>("/api/v1/me/push")]);
+      const values = await Promise.all([api<Stats>("/api/v1/me/stats"), api<Profile>("/api/v1/me/profile"), api<StripeStatus>("/api/v1/me/stripe"), api<{ items: Earning[]; nextCursor: string | null }>("/api/v1/me/earnings"), api<{ items: Thank[]; nextCursor: string | null }>("/api/v1/me/thanks"), api<{ enabled: boolean; available?: boolean }>("/api/v1/me/push")]);
       if (active !== tokenRef.current) return;
-      setStats(values[0]); if (!profileDirty.current) setProfile(values[1]); setStripe(values[2]); setEarnings(values[3].items); setNextCursor(values[3].nextCursor); setThanks(values[4].items); setThanksCursor(values[4].nextCursor); setPushEnabled(values[5].enabled);
+      setStats(values[0]); if (!profileDirty.current) setProfile(values[1]); setStripe(values[2]); setEarnings(values[3].items); setNextCursor(values[3].nextCursor); setThanks(values[4].items); setThanksCursor(values[4].nextCursor); setPushEnabled(values[5].enabled); setPushAvailable(values[5].available === true);
     } else if (account.role === "customer") {
       const [saved, given] = await Promise.all([api<{ favorites: Favorite[] }>("/api/v1/me/favorites"), api<History>("/api/v1/me/history")]);
       if (active !== tokenRef.current) return;
@@ -151,9 +151,12 @@ function LieferDankApp() {
   }
   async function register() {
     const body = registerRole === "customer" ? { role: "customer", firstName, email, password, acceptedTerms } : { role: "driver", firstName, lastName, email, password, acceptedTerms };
-    const session = await callApi<{ token: string; role: Role }>(BASE, "/api/v1/auth/mobile/register", null, { method: "POST", body: JSON.stringify(body) });
+    const session = await callApi<{ token: string; role: Role; mailSent?: boolean }>(BASE, "/api/v1/auth/mobile/register", null, { method: "POST", body: JSON.stringify(body) });
     await saveSession(session); setAcceptedTerms(false); if (session.role === "driver") setScreen("profile");
-    Alert.alert("Willkommen bei LieferDank", `Wir haben dir eine E-Mail an ${email.trim().toLowerCase()} geschickt. Bitte bestätige darin deine Adresse.${session.role === "driver" ? " Dein Danke-Code ist bereits bereit." : ""}`);
+    const address = email.trim().toLowerCase();
+    Alert.alert("Willkommen bei LieferDank", (session.mailSent === false
+      ? `Die Bestätigungs-E-Mail an ${address} konnte gerade nicht verschickt werden. Du kannst sie später in der App erneut anfordern.`
+      : `Wir haben dir eine E-Mail an ${address} geschickt. Bitte bestätige darin deine Adresse.`) + (session.role === "driver" ? " Dein Danke-Code ist bereits bereit." : ""));
   }
   async function login() {
     const session = await callApi<{ token: string; role: Role }>(BASE, "/api/v1/auth/mobile/login", null, { method: "POST", body: JSON.stringify({ email, password }) });
@@ -278,7 +281,11 @@ function LieferDankApp() {
     </>}
     {screen === "thanks" && <><Text style={styles.heading}>Deine Danke</Text>
       {thanks.map(t => <Card key={t.id}><Text style={styles.text}>{t.message || "❤️ Danke für deinen Einsatz"}</Text><Text style={styles.muted}>{date(t.createdAt)}{t.tipId ? " · mit Trinkgeld" : ""}</Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap" }}>{t.message && <TextLink title="Nachricht entfernen" align="flex-start" onPress={() => run(async () => { await api(`/api/v1/me/thanks/${t.id}`, { method: "DELETE" }); await refresh(); })} />}<TextLink small title="Inhalt melden" align="flex-start" onPress={() => openLegal("/kontakt")} /></View></Card>)}
+        {t.message && <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 8 }}>
+          <TextLink title="Entfernen" align="flex-start" onPress={() => run(async () => { await api(`/api/v1/me/thanks/${t.id}`, { method: "DELETE" }); await refresh(); })} />
+          <TextLink title="Melden" align="flex-start" onPress={() => Alert.alert("Nachricht melden?", "Die Nachricht wird sofort ausgeblendet und von uns geprüft.", [{ text: "Abbrechen", style: "cancel" }, { text: "Melden", style: "destructive", onPress: () => run(async () => { await api(`/api/v1/me/thanks/${t.id}/report`, { method: "POST" }); await refresh(); setInfo("Danke für deine Meldung. Die Nachricht ist ausgeblendet und wird von uns geprüft."); }) }])} />
+          {t.canBlock && <TextLink title="Absender blockieren" align="flex-start" onPress={() => Alert.alert("Absender blockieren?", "Weitere Nachrichten dieses Absenders erreichen dich nicht mehr. Wer es ist, bleibt auch für uns anonym.", [{ text: "Abbrechen", style: "cancel" }, { text: "Blockieren", style: "destructive", onPress: () => run(async () => { await api(`/api/v1/me/thanks/${t.id}/block`, { method: "POST" }); await refresh(); setInfo("Absender blockiert. Seine Nachrichten erreichen dich nicht mehr."); }) }])} />}
+        </View>}</Card>)}
       {thanksCursor && <Button title="Weitere laden" subtle disabled={busy} onPress={() => run(async () => { const page = await api<{ items: Thank[]; nextCursor: string | null }>(`/api/v1/me/thanks?before=${encodeURIComponent(thanksCursor)}`); setThanks(previous => [...previous, ...page.items.filter(i => !previous.some(p => p.id === i.id))]); setThanksCursor(page.nextCursor); })} />}
       {!thanks.length && <Card><Text style={styles.text}>Teile deinen QR-Code, damit Kunden Danke sagen können.</Text><Button title="Meinen QR-Code öffnen" onPress={() => setScreen("qr")} /></Card>}</>}
     {screen === "qr" && <><Text style={styles.heading}>Dein Danke-Code</Text>
@@ -352,7 +359,7 @@ function LieferDankApp() {
   const settingsScreen = screen === "settings" && <><Text style={styles.heading}>{role === "driver" ? "Einstellungen" : "Dein Konto"}</Text>
     <Card><Text style={styles.muted}>Angemeldet als</Text><Text style={styles.title} numberOfLines={1}>{me?.email}</Text>{role && <Text style={styles.muted}>{roleLabel[role]}</Text>}</Card>
     {role === "driver" && <Card>
-      <View style={styles.switchRow}><View style={{ flex: 1 }}><Text style={styles.text}>Mitteilungen</Text><Text style={styles.muted}>Bei neuem Trinkgeld, Danke und Meilensteinen</Text></View><Switch accessibilityLabel="Mitteilungen aktivieren" value={pushEnabled} trackColor={{ true: colors.blue }} onValueChange={v => run(() => enablePush(v))} disabled={busy} /></View>
+      {pushAvailable && <View style={styles.switchRow}><View style={{ flex: 1 }}><Text style={styles.text}>Mitteilungen</Text><Text style={styles.muted}>Bei neuem Trinkgeld, Danke und Meilensteinen</Text></View><Switch accessibilityLabel="Mitteilungen aktivieren" value={pushEnabled} trackColor={{ true: colors.blue }} onValueChange={v => run(() => enablePush(v))} disabled={busy} /></View>}
       <TextLink title="Auszahlung verwalten" align="flex-start" onPress={() => setScreen("stripe")} />
     </Card>}
     <Card><Text style={styles.title}>Passwort ändern</Text>

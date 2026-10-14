@@ -92,7 +92,7 @@ describe("Produktions-Health-Check", () => {
     vi.stubEnv("STRIPE_CONNECT_WEBHOOK_SECRET", "local-test-connect-value");
     vi.stubEnv("RESEND_API_KEY", "local-test-value");
     // Jeweils genau eine Migration fehlt (nicht ausgeführt oder für die API noch unsichtbar).
-    const columns = ["driver_profiles.payout_sync_version", "payments.refunded_amount_cents", "tips.refunded_cents, fee_refunded_cents", "users.email_verified_at"];
+    const columns = ["driver_profiles.payout_sync_version", "payments.refunded_amount_cents", "tips.refunded_cents, fee_refunded_cents", "users.email_verified_at", "thank_yous.sender_key", "blocked_senders.driver_id, sender_key", "message_reports.thank_you_id, status", "marketing_consents.user_id, status"].sort();
     const client = (missing: string | null, checked: string[] = []) => ({ from: (table: string) => ({ select: (column: string) => ({ limit: async () => {
       checked.push(`${table}.${column}`);
       return { error: `${table}.${column}` === missing ? { code: "42703", message: "column does not exist" } : null };
