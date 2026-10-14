@@ -101,7 +101,8 @@ export async function resendVerificationAction(): Promise<FormState> {
     if (!session) throw new ServiceError("unauthenticated", "Bitte melde dich zuerst an.", 401);
     await enforceRateLimit("verify-resend", 10, 60 * 60_000);
     enforceRateLimitFor(`verify-resend-user:${session.user.id}`, 3, 60 * 60_000);
-    const { link } = await requestEmailVerification(session.user);
+    const { link, status } = await requestEmailVerification(session.user);
+    if (status === "not_sent") throw new ServiceError("mail_not_sent", "Die E-Mail konnte gerade nicht verschickt werden. Bitte versuche es später erneut.", 503);
     return { saved: true, devLink: localMailLink(link) };
   });
 }

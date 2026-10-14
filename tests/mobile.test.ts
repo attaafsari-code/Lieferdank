@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { freshDb, makeDriver, makeCustomer } from "./helpers";
+import { freshDb, makeDriver } from "./helpers";
 import { getDb } from "@/lib/db";
 import { getBearerSession, signSessionToken } from "@/server/session";
 import { mobileLogin, mobileLogout, changeMobilePassword } from "@/server/services/mobile";
@@ -25,7 +25,6 @@ describe("Native device authentication", () => {
   it("uses existing users and creates a revocable device session", async () => { const d = await device(); expect(d.session.user.id).toBe(d.user.id); expect(d.session.mobileSessionId).toBeTruthy(); expect(await getDb().users.count()).toBe(1); });
   it("logout revokes copied bearer tokens but leaves other devices valid", async () => { const d = await device(); const other = await mobileLogin({ email:d.user.email,password:"sicheres-passwort" }); await mobileLogout(d.session); expect(await getBearerSession(req("/",d.token))).toBeNull(); expect(await getBearerSession(req("/",other.token))).not.toBeNull(); });
   it("rejects expired device rows even while JWT has time remaining", async () => { const d=await device(); await getDb().mobileSessions.update(d.session.mobileSessionId!,{ expiresAt:new Date(0).toISOString() }); expect(await getBearerSession(req("/",d.token))).toBeNull(); });
-  it("rejects customers without creating sessions",async()=>{ const u=await makeCustomer(); await expect(mobileLogin({email:u.email,password:"sicheres-passwort"})).rejects.toMatchObject({code:"driver_only"});expect(await getDb().mobileSessions.count()).toBe(0); });
   it("invalid password returns 401 with no token",async()=>{const d=await makeDriver();const r=await loginRoute(req("/api/v1/auth/mobile/login",undefined,{email:d.user.email,password:"wrong"},"POST"),ctx);expect(r.status).toBe(401);expect(await r.json()).not.toHaveProperty("token");});
   it("password change revokes all old sessions",async()=>{const d=await device();const web=await signSessionToken(d.user);await changeMobilePassword(d.session,{currentPassword:"sicheres-passwort",newPassword:"anderes-passwort"});expect(await getBearerSession(req("/",d.token))).toBeNull();expect(await getBearerSession(req("/",web))).toBeNull();});
   it("never exposes reset tokens in API responses",async()=>{const d=await makeDriver();const r=await resetRoute(req("/api/v1/auth/reset",undefined,{email:d.user.email},"POST"),ctx);expect(await r.json()).toEqual({ok:true});});
@@ -74,7 +73,7 @@ describe("Confirmed push, deduplication and logout",()=>{
     await checkPushReceipts(fetcher);expect(await getDb().pushDeliveries.count({where:{status:"delivered"}})).toBe(100);
     await checkPushReceipts(fetcher);expect(await getDb().pushDeliveries.count({where:{status:"delivered"}})).toBe(101);
   });
-  it("confirmed payment uses exact gross amount and queues once across retries",async()=>{const d=await ready();const payment=await startTip(d.driver.code,300,null);await confirmPayment(payment.paymentId,{providerIntentId:"pi_mobile",method:"card"});await collectPushEvents();await collectPushEvents();const rows=await getDb().pushDeliveries.findMany();expect(rows).toHaveLength(1);expect(rows[0].body).toContain("3 €");const earnings=await earningsRoute(req("/api/v1/me/earnings",d.token),ctx);expect((await earnings.json()).items[0].shareBeforeStripeCents).toBe(240);});
+  it("confirmed payment uses exact gross amount and queues once across retries",async()=>{const d=await ready();const payment=await startTip(d.driver.code,300,null);await confirmPayment(payment.paymentId,{providerIntentId:"pi_mobile",method:"card"});await collectPushEvents();await collectPushEvents();const rows=(await getDb().pushDeliveries.findMany()).filter(r=>r.screen==="earnings");expect(rows).toHaveLength(1);expect(rows[0].body).toContain("3 €");expect(await getDb().pushDeliveries.count()).toBe(1);const earnings=await earningsRoute(req("/api/v1/me/earnings",d.token),ctx);expect((await earnings.json()).items[0].shareBeforeStripeCents).toBe(240);});
 });
 
 describe("Native paging and deletion",()=>{

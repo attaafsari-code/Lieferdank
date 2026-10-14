@@ -246,11 +246,13 @@ export function assertEmailVerified(user: Pick<User, "emailVerifiedAt">): void {
 }
 
 /** Schickt den Bestätigungslink erneut. Bereits bestätigte Konten bekommen keine Mail. */
-export async function requestEmailVerification(user: User): Promise<{ link: string | null }> {
-  if (user.emailVerifiedAt || user.blockedAt) return { link: null };
+export async function requestEmailVerification(user: User): Promise<{ link: string | null; status: "sent" | "already_verified" | "not_sent" }> {
+  if (user.emailVerifiedAt || user.blockedAt) return { link: null, status: "already_verified" };
   const link = await emailVerificationLink(user);
-  await sendMail(user.email, emails.verifyEmail(user.firstName, link, EMAIL_VERIFICATION_TTL_DAYS), "verify_email");
-  return { link };
+  const { delivered } = await sendMail(user.email, emails.verifyEmail(user.firstName, link, EMAIL_VERIFICATION_TTL_DAYS), "verify_email");
+  // Without a mail provider (local development) the link is shown on screen instead.
+  const devMode = !mailConfigured() && process.env.NODE_ENV !== "production";
+  return { link, status: delivered || devMode ? "sent" : "not_sent" };
 }
 
 /** Bestätigt die Adresse. Mehrfaches Bestätigen ist harmlos; der Link macht niemanden angemeldet. */

@@ -24,7 +24,7 @@ export async function callApi<T>(base: string, path: string, token: string | nul
     throw new Error("Keine Verbindung zu LieferDank. Prüfe deine Internetverbindung und versuche es erneut.");
   } finally { clearTimeout(timer); }
 }
-export type Screen = "dashboard" | "earnings" | "qr" | "thanks" | "profile" | "stripe" | "settings";
+export type Screen = "dashboard" | "earnings" | "qr" | "thanks" | "profile" | "stripe" | "settings" | "saved" | "history" | "admin";
 export function deepLink(value: string): { screen?: Screen; resetToken?: string; verificationToken?: string } | null {
   try {
     const u = new URL(value);
@@ -40,6 +40,16 @@ export function deepLink(value: string): { screen?: Screen; resetToken?: string;
 }
 export function trustedBrowserUrl(value: string): boolean {
   try { const u = new URL(value); return !u.username && !u.password && u.protocol === "https:" && !u.port && ["lieferdank.de", "connect.stripe.com", "dashboard.stripe.com"].includes(u.hostname); } catch { return false; }
+}
+/** In-app sheet targets for legal and help pages (never an arbitrary URL). */
+export const legalPages = [["Datenschutz", "/legal/datenschutz"], ["AGB", "/legal/agb"], ["Impressum", "/legal/impressum"], ["Hilfe", "/kontakt"]] as const;
+/** Milestone wording, identical to the web (src/lib/milestone-rules.ts). */
+export function describeMilestone(type: string, value: number): { emoji: string; title: string } {
+  if (type === "thank_you_count") return value === 1 ? { emoji: "❤️", title: "Dein erstes Danke" } : { emoji: "🎉", title: `${value.toLocaleString("de-DE")}× Danke erhalten` };
+  if (type === "streak_days") return { emoji: "🔥", title: `${value} Tage hintereinander ein Danke` };
+  if (type === "first_tip") return { emoji: "💶", title: "Dein erstes Trinkgeld" };
+  if (type === "received_cents") return { emoji: "🏆", title: `${(value / 100).toLocaleString("de-DE")} € erhalten` };
+  return { emoji: "⭐", title: "Meilenstein erreicht" };
 }
 /** Build the public destination from the authenticated driver's code, never a supplied redirect. */
 export function driverThankUrl(code: string, base = "https://lieferdank.de", development = false): string {

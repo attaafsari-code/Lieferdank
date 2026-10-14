@@ -6,21 +6,27 @@ import { effectiveTip } from "@/lib/money";
 import { enforceRateLimitFor } from "../rate-limit";
 import { ServiceError } from "../errors";
 import { hashPassword, signSessionToken, verifyPassword, type Session } from "../session";
-import { authenticate, driverRegistrationSchema, loginSchema, parseInput, registerDriver } from "./auth";
+import { authenticate, customerRegistrationSchema, driverRegistrationSchema, loginSchema, parseInput, registerCustomer, registerDriver } from "./auth";
 import { exportUserData, deleteAccount } from "./profile";
 
 export function requireMobileEnabled() {
   if (process.env.NODE_ENV === "production" && process.env.DRIVER_APP_ENABLED !== "true")
     throw new ServiceError("app_unavailable", "Die Fahrer-App ist noch nicht freigeschaltet.", 503);
 }
+/**
+ * Native sign-in for every existing web account: drivers, customers and admins share the
+ * same user table and password check as lieferdank.de. The role only decides what the app
+ * shows; admin rights stay on the web (cookie sessions never accept device tokens).
+ */
 export async function mobileLogin(input: unknown) {
   requireMobileEnabled();
   const credentials = parseInput(loginSchema.extend({ password: z.string().min(1).max(200) }), input);
   enforceRateLimitFor(`mobile-login-email:${credentials.email}`, 20, 15 * 60000);
   const user = await authenticate(credentials);
-  if (user.role !== "driver") throw new ServiceError("driver_only", "Die App ist für Zusteller. Kunden nutzen lieferdank.de.", 403);
-  const driver = await getDb().driverProfiles.findOne({ userId: user.id });
-  if (!driver) throw new ServiceError("profile_missing", "Dein Profil konnte nicht geladen werden.", 409);
+  if (user.role === "driver" && !await getDb().driverProfiles.findOne({ userId: user.id }))
+    throw new ServiceError("profile_missing", "Dein Profil konnte nicht geladen werden. Bitte wende dich an den Support.", 409);
+  if (user.role === "customer" && !await getDb().customerProfiles.findOne({ userId: user.id }))
+    await getDb().customerProfiles.insert({ id: newId(), userId: user.id, createdAt: new Date().toISOString() });
   return createMobileSession(user);
 }
 
@@ -28,16 +34,22 @@ async function createMobileSession(user: import("@/lib/db/types").User) {
   const id = newId();
   const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
   await getDb().mobileSessions.insert({ id, userId: user.id, tokenVersion: user.tokenVersion ?? 0, expiresAt, revokedAt: null, pushToken: null, pushEnabled: false, createdAt: new Date().toISOString() });
-  return { token: await signSessionToken(user, id), expiresAt };
+  return { token: await signSessionToken(user, id), expiresAt, role: user.role };
 }
 /** Same account/profile/mail pipeline as the web; role and ownership are server-controlled. */
 export async function mobileRegister(input: unknown) {
   requireMobileEnabled();
-  const body = parseInput(driverRegistrationSchema.extend({ acceptedTerms: z.literal(true) }),
-    { ...(typeof input === "object" && input !== null ? input : {}), terms: (input as { acceptedTerms?: unknown })?.acceptedTerms === true ? "on" : undefined });
+  const raw = typeof input === "object" && input !== null ? input as Record<string, unknown> : {};
+  const terms = raw.acceptedTerms === true ? "on" : undefined;
+  // Only the two self-service roles exist; anything else (e.g. "admin") falls back to driver.
+  if (raw.role === "customer") {
+    const body = parseInput(customerRegistrationSchema.extend({ acceptedTerms: z.literal(true) }), { ...raw, saveCode: undefined, terms });
+    enforceRateLimitFor(`mobile-register-email:${body.email}`, 3, 3600000);
+    return createMobileSession(await registerCustomer(body));
+  }
+  const body = parseInput(driverRegistrationSchema.extend({ acceptedTerms: z.literal(true) }), { ...raw, terms });
   enforceRateLimitFor(`mobile-register-email:${body.email}`, 3, 3600000);
-  const user = await registerDriver(body);
-  return createMobileSession(user);
+  return createMobileSession(await registerDriver(body));
 }
 export function deviceId(session: Session): string {
   if (!session.mobileSessionId) throw new ServiceError("device_session_required", "Bitte melde dich in der App erneut an.", 401);
@@ -61,6 +73,8 @@ export async function changeMobilePassword(session: Session, input: unknown) {
 }
 export async function removeMobileAccount(session: Session, input: unknown) {
   const { password } = parseInput(z.object({ password: z.string().min(1).max(200) }), input);
+  if (session.user.role === "admin")
+    throw new ServiceError("admin_account", "Administratorkonten können nicht in der App gelöscht werden.", 403);
   if (!await verifyPassword(password, session.user.passwordHash)) throw new ServiceError("invalid_password", "Das Passwort ist falsch.", 400);
   await deleteAccount(session.user);
   await revokeMobileSessions(session.user.id);
