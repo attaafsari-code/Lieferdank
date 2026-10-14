@@ -54,7 +54,7 @@ export async function signSessionToken(user: Pick<User, "id" | "tokenVersion">, 
     .sign(secret());
 }
 
-async function userFromToken(token: string): Promise<User | null> {
+async function userFromToken(token: string, allowDevice = true): Promise<User | null> {
   let payload: JWTPayload;
   try {
     ({ payload } = await jwtVerify(token, secret()));
@@ -68,7 +68,9 @@ async function userFromToken(token: string): Promise<User | null> {
   const version = typeof payload.v === "number" ? payload.v : 0;
   if (version !== (user.tokenVersion ?? 0)) return null;
   if (payload.sid !== undefined) {
-    if (typeof payload.sid !== "string") return null;
+    // App device tokens are bearer-only: a copied app token must never become a web
+    // cookie session (and thus never reach the cookie-only admin area).
+    if (!allowDevice || typeof payload.sid !== "string") return null;
     const device = await getDb().mobileSessions.get(payload.sid);
     if (!device || device.userId !== user.id || device.revokedAt || new Date(device.expiresAt).getTime() <= Date.now()) return null;
   }
@@ -147,7 +149,7 @@ async function sessionFor(user: User | null): Promise<Session | null> {
 
 export async function getSession(): Promise<Session | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  return sessionFor(token ? await userFromToken(token) : null);
+  return sessionFor(token ? await userFromToken(token, false) : null);
 }
 
 export async function getAdminSession(): Promise<Session | null> {

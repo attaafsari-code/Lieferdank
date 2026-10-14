@@ -47,9 +47,17 @@ export async function sendMail(to: string, content: MailContent, tag: string): P
     });
 
     if (!response.ok) {
-      await logEvent("error", "mail", `Versand fehlgeschlagen (${response.status})`, { tag }).catch(() => undefined);
+      // Only the provider's error name is kept (e.g. "validation_error"), never addresses or content.
+      const body = await response.json().catch(() => null) as { name?: unknown } | null;
+      const reason = typeof body?.name === "string" && /^[a-z_]{1,60}$/.test(body.name) ? body.name : null;
+      await logEvent("error", "mail", `Versand fehlgeschlagen (${response.status})`, { tag, reason }).catch(() => undefined);
       return { delivered: false };
     }
+    // Provider acceptance is recorded with Resend's message id, so a support request
+    // can be traced in the Resend log ("accepted" is not yet "in the inbox").
+    const body = await response.json().catch(() => null) as { id?: unknown } | null;
+    const providerId = typeof body?.id === "string" && /^[A-Za-z0-9-]{1,80}$/.test(body.id) ? body.id : null;
+    await logEvent("info", "mail", "Vom Mailanbieter angenommen", { tag, providerId }).catch(() => undefined);
     return { delivered: true };
   } catch (error) {
     await logEvent("error", "mail", "Versand fehlgeschlagen", {

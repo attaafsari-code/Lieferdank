@@ -12,6 +12,7 @@ export const GET = api({ auth: "any" }, async ({ session }) => {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      emailVerified: Boolean(user.emailVerifiedAt),
     },
     driver: driver ? { ...toPublicDriver(driver, user), active: driver.active, payoutReady: driver.payoutReady } : null,
   };

@@ -197,7 +197,7 @@ describe("Löschfristen", () => {
       await db.passwordResets.insert({ id: newId(), userId: user.id, tokenHash: `${id}-${newId()}`, expiresAt: daysAgo(age), usedAt: null, createdAt: daysAgo(age === 400 ? 40 : 5) });
     }
     expect(await applyRetention(now)).toEqual({ systemEvents: 1, passwordResets: 1 });
-    expect((await db.systemEvents.findMany()).map((e) => e.message)).toEqual(["neu"]);
+    expect((await db.systemEvents.findMany({ where: { source: "test" } })).map((e) => e.message)).toEqual(["neu"]);
     expect(await db.passwordResets.count()).toBe(1);
     expect(await applyRetention(now)).toEqual({ systemEvents: 0, passwordResets: 0 });
   });
