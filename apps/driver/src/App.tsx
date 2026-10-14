@@ -1,6 +1,6 @@
 import fontAsset from "../assets/jakarta.ttf";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, AppState, BackHandler, Image, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, ScrollView, Share, Switch, Text, View } from "react-native";
+import { Alert, AppState, BackHandler, Image, KeyboardAvoidingView, Linking, LogBox, Platform, Pressable, RefreshControl, ScrollView, Share, Switch, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as SecureStore from "expo-secure-store";
@@ -20,6 +20,8 @@ import { Avatar, BrandMark, Button, Card, CardPreview, FilterChip, colors, Field
 
 const BASE = validateApiBase(process.env.EXPO_PUBLIC_API_URL ?? "https://lieferdank.de", __DEV__);
 const SESSION_KEY = "lieferdank.driver.session";
+// Simulator runs against a local test API only: keep developer warning toasts out of screenshots.
+if (__DEV__ && BASE !== "https://lieferdank.de") LogBox.ignoreAllLogs(true);
 const REVOKE_KEY = "lieferdank.driver.pending-revocation";
 const secureOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
 Notifications.setNotificationHandler({ handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }) });
@@ -100,6 +102,8 @@ function LieferDankApp() {
     const timer = setInterval(() => { if (AppState.currentState === "active") refresh().catch(e => setError(e.message)); }, 60000);
     return () => clearInterval(timer);
   }, [token, refresh]);
+  // Every screen starts at the top, like a native tab switch.
+  useEffect(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, [screen]);
   useEffect(() => { if (screen === "qr" && role === "driver" && !qr && tokenRef.current) api<Qr>("/api/v1/me/code").then(setQr).catch(e => setError(e.message)); }, [screen, role, qr, api]);
   useEffect(() => { if (role && !tabsFor[role].some(t => t.screen === screen) && !(role === "driver" && ["stripe", "settings"].includes(screen)) && screen !== "settings") setScreen(homeFor[role]); }, [role, screen]);
   useEffect(() => {
