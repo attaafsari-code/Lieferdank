@@ -70,6 +70,12 @@ export async function cardContext(driver: DriverProfile, user: User) {
 }
 
 /** Karte als fertiges SVG, z. B. für die Druckansicht. */
+/** Plain texts of the card for native previews (the app draws the card with native views). */
+export async function driverCardText(driver: DriverProfile, user: User): Promise<{ headline: string; publicName: string }> {
+  const ctx = await cardContext(driver, user);
+  return { headline: ctx.design.headline, publicName: ctx.publicName };
+}
+
 export async function renderDriverCard(driver: DriverProfile, user: User, idPrefix = "ld", photoHref?: string | null): Promise<string> {
   const ctx = await cardContext(driver, user);
   return renderCardSvg({

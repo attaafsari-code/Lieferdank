@@ -14,178 +14,382 @@ import * as Sharing from "expo-sharing";
 import { useFonts } from "expo-font";
 import { SvgXml } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { ApiError, callApi, deepLink, driverThankUrl, euro, trustedBrowserUrl, validateApiBase, type Screen } from "./api";
-import type { Earning, Profile, Qr, Stats, StripeStatus, Thank } from "./types";
-import { BrandMark, Button, Card, FilterChip, colors, Field, Loading, styles } from "./ui";
+import { ApiError, callApi, deepLink, describeMilestone, driverThankUrl, euro, legalPages, trustedBrowserUrl, validateApiBase, type Screen } from "./api";
+import type { Earning, Favorite, History, Me, Profile, Qr, Role, Stats, StripeStatus, Thank } from "./types";
+import { Avatar, BrandMark, Button, Card, CardPreview, FilterChip, colors, Field, Loading, Segmented, styles, TextLink } from "./ui";
 
 const BASE = validateApiBase(process.env.EXPO_PUBLIC_API_URL ?? "https://lieferdank.de", __DEV__);
 const SESSION_KEY = "lieferdank.driver.session";
 const REVOKE_KEY = "lieferdank.driver.pending-revocation";
 const secureOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
 Notifications.setNotificationHandler({ handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }) });
-const tabs: { screen: Screen; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { screen: "dashboard", label: "Übersicht", icon: "grid-outline" }, { screen: "earnings", label: "Einnahmen", icon: "wallet-outline" },
-  { screen: "qr", label: "QR-Code", icon: "qr-code-outline" }, { screen: "thanks", label: "Danke", icon: "heart-outline" }, { screen: "profile", label: "Profil", icon: "person-outline" }
-];
-export default function App() { return <SafeAreaProvider><DriverApp /></SafeAreaProvider>; }
-function DriverApp() {
+type Tab = { screen: Screen; label: string; icon: keyof typeof Ionicons.glyphMap };
+const tabsFor: Record<Role, Tab[]> = {
+  driver: [{ screen: "dashboard", label: "Übersicht", icon: "grid-outline" }, { screen: "earnings", label: "Einnahmen", icon: "wallet-outline" },
+    { screen: "qr", label: "QR-Code", icon: "qr-code-outline" }, { screen: "thanks", label: "Danke", icon: "heart-outline" }, { screen: "profile", label: "Profil", icon: "person-outline" }],
+  customer: [{ screen: "saved", label: "Gespeichert", icon: "bookmark-outline" }, { screen: "history", label: "Verlauf", icon: "time-outline" }, { screen: "settings", label: "Konto", icon: "person-circle-outline" }],
+  admin: [{ screen: "admin", label: "Übersicht", icon: "shield-checkmark-outline" }, { screen: "settings", label: "Konto", icon: "person-circle-outline" }],
+};
+const homeFor: Record<Role, Screen> = { driver: "dashboard", customer: "saved", admin: "admin" };
+const roleLabel: Record<Role, string> = { driver: "Zusteller:in", customer: "Kund:in", admin: "Administrator:in" };
+type AuthMode = "login" | "register" | "forgot" | "reset";
+
+export default function App() { return <SafeAreaProvider><LieferDankApp /></SafeAreaProvider>; }
+
+function LieferDankApp() {
   const [fontLoaded, fontError] = useFonts({ Jakarta: fontAsset });
   const [token, setToken] = useState<string | null>(null); const tokenRef = useRef<string | null>(null);
-  const profileDirty = useRef(false);
+  const [me, setMe] = useState<Me["user"] | null>(null);
+  const profileDirty = useRef(false); const scrollRef = useRef<ScrollView>(null);
   const [booted, setBooted] = useState(false); const [screen, setScreen] = useState<Screen>("dashboard");
-  const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const busyRef = useRef(false);
+  const [error, setError] = useState(""); const [info, setInfo] = useState(""); const [busy, setBusy] = useState(false); const busyRef = useRef(false);
   const [stats, setStats] = useState<Stats | null>(null); const [profile, setProfile] = useState<Profile | null>(null);
   const [stripe, setStripe] = useState<StripeStatus | null>(null); const [qr, setQr] = useState<Qr | null>(null);
   const [earnings, setEarnings] = useState<Earning[]>([]); const [thanks, setThanks] = useState<Thank[]>([]);
-  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [authMode, setAuthMode] = useState<"login" | "register" | "forgot" | "reset">("login");
+  const [favorites, setFavorites] = useState<Favorite[] | null>(null); const [history, setHistory] = useState<History | null>(null);
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [registerRole, setRegisterRole] = useState<"driver" | "customer">("driver");
   const [firstName, setFirstName] = useState(""); const [lastName, setLastName] = useState(""); const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [resetToken, setResetToken] = useState(""); const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState("");
+  const [deletePassword, setDeletePassword] = useState(""); const [newCode, setNewCode] = useState("");
   const [consent, setConsent] = useState(false); const [pushEnabled, setPushEnabled] = useState(false); const [filter, setFilter] = useState("all");
   const [thanksCursor, setThanksCursor] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null); const [lastUpdated, setLastUpdated] = useState("");
-  const clearSession = useCallback(async () => { profileDirty.current = false; tokenRef.current = null; setToken(null); setStats(null); setProfile(null); setStripe(null); setQr(null); setEarnings([]); setThanks([]); setPassword(""); setCurrentPassword(""); setNewPassword(""); setPushEnabled(false); await SecureStore.deleteItemAsync(SESSION_KEY); }, []);
+  const role: Role | null = me?.role ?? null;
+
+  const clearSession = useCallback(async () => {
+    profileDirty.current = false; tokenRef.current = null; setToken(null); setMe(null); setStats(null); setProfile(null); setStripe(null); setQr(null);
+    setEarnings([]); setThanks([]); setFavorites(null); setHistory(null); setPassword(""); setCurrentPassword(""); setNewPassword(""); setDeletePassword(""); setPushEnabled(false);
+    await SecureStore.deleteItemAsync(SESSION_KEY);
+  }, []);
   const api = useCallback(async <T,>(path: string, init?: RequestInit) => {
     try { return await callApi<T>(BASE, path, tokenRef.current, init); }
     catch (e) { if (e instanceof ApiError && e.status === 401 && tokenRef.current) await clearSession(); throw e; }
   }, [clearSession]);
   const refresh = useCallback(async () => {
     const active = tokenRef.current; if (!active) return;
-    const values = await Promise.all([api<Stats>("/api/v1/me/stats"), api<Profile>("/api/v1/me/profile"), api<StripeStatus>("/api/v1/me/stripe"), api<{ items: Earning[]; nextCursor: string | null }>("/api/v1/me/earnings"), api<{ items: Thank[]; nextCursor: string | null }>("/api/v1/me/thanks"), api<{ enabled: boolean }>("/api/v1/me/push")]);
+    const account = (await api<Me>("/api/v1/me")).user;
     if (active !== tokenRef.current) return;
-    setStats(values[0]); if (!profileDirty.current) setProfile(values[1]); setStripe(values[2]); setEarnings(values[3].items); setNextCursor(values[3].nextCursor); setThanks(values[4].items); setThanksCursor(values[4].nextCursor); setPushEnabled(values[5].enabled); setLastUpdated(new Date().toLocaleTimeString("de-DE"));
+    setMe(account);
+    if (account.role === "driver") {
+      const values = await Promise.all([api<Stats>("/api/v1/me/stats"), api<Profile>("/api/v1/me/profile"), api<StripeStatus>("/api/v1/me/stripe"), api<{ items: Earning[]; nextCursor: string | null }>("/api/v1/me/earnings"), api<{ items: Thank[]; nextCursor: string | null }>("/api/v1/me/thanks"), api<{ enabled: boolean }>("/api/v1/me/push")]);
+      if (active !== tokenRef.current) return;
+      setStats(values[0]); if (!profileDirty.current) setProfile(values[1]); setStripe(values[2]); setEarnings(values[3].items); setNextCursor(values[3].nextCursor); setThanks(values[4].items); setThanksCursor(values[4].nextCursor); setPushEnabled(values[5].enabled);
+    } else if (account.role === "customer") {
+      const [saved, given] = await Promise.all([api<{ favorites: Favorite[] }>("/api/v1/me/favorites"), api<History>("/api/v1/me/history")]);
+      if (active !== tokenRef.current) return;
+      setFavorites(saved.favorites); setHistory(given);
+    }
+    setLastUpdated(new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }));
   }, [api]);
-  async function run(action: () => Promise<void>) { if (busyRef.current) return; busyRef.current = true; setBusy(true); setError(""); try { await action(); } catch (e) { setError(e instanceof Error ? e.message : "Bitte versuche es erneut."); } finally { busyRef.current = false; setBusy(false); } }
-  useEffect(() => { SecureStore.getItemAsync(REVOKE_KEY).then(async pending => {
+  async function run(action: () => Promise<void>) {
+    if (busyRef.current) return; busyRef.current = true; setBusy(true); setError(""); setInfo("");
+    try { await action(); } catch (e) { setError(e instanceof Error ? e.message : "Bitte versuche es erneut."); } finally { busyRef.current = false; setBusy(false); }
+  }
+  useEffect(() => {
+    SecureStore.getItemAsync(REVOKE_KEY).then(async pending => {
       if (!pending) return;
       try { await callApi(BASE, "/api/v1/me/logout", pending, { method: "POST" }); await SecureStore.deleteItemAsync(REVOKE_KEY); }
       catch (e) { if (e instanceof ApiError && e.status === 401) await SecureStore.deleteItemAsync(REVOKE_KEY); }
     }).catch(() => setError("Eine frühere Abmeldung konnte noch nicht synchronisiert werden. Sie wird beim nächsten Start erneut versucht."));
-    SecureStore.getItemAsync(SESSION_KEY).then(t => { tokenRef.current = t; setToken(t); }).catch(() => setError("Die sichere Sitzung konnte nicht geladen werden. Bitte erneut anmelden.")).finally(() => setBooted(true)); }, []);
-  useEffect(() => { if (token) { refresh().catch(e => setError(e.message)); const timer = setInterval(() => { if (AppState.currentState === "active") refresh().catch(e => setError(e.message)); }, 60000); return () => clearInterval(timer); } }, [token, refresh]);
+    SecureStore.getItemAsync(SESSION_KEY).then(t => { tokenRef.current = t; setToken(t); }).catch(() => setError("Die sichere Sitzung konnte nicht geladen werden. Bitte melde dich erneut an.")).finally(() => setBooted(true));
+  }, []);
+  useEffect(() => {
+    if (!token) return;
+    refresh().catch(e => setError(e.message));
+    const timer = setInterval(() => { if (AppState.currentState === "active") refresh().catch(e => setError(e.message)); }, 60000);
+    return () => clearInterval(timer);
+  }, [token, refresh]);
+  useEffect(() => { if (screen === "qr" && role === "driver" && !qr && tokenRef.current) api<Qr>("/api/v1/me/code").then(setQr).catch(e => setError(e.message)); }, [screen, role, qr, api]);
+  useEffect(() => { if (role && !tabsFor[role].some(t => t.screen === screen) && !(role === "driver" && ["stripe", "settings"].includes(screen)) && screen !== "settings") setScreen(homeFor[role]); }, [role, screen]);
   useEffect(() => {
     const sub = AppState.addEventListener("change", state => { if (state === "active" && tokenRef.current) refresh().catch(e => setError(e.message)); });
-    const onLink = async (value: string) => { const parsed = deepLink(value); if (!parsed) return;
+    const onLink = async (value: string) => {
+      // Simulator-only test hooks against a local API; __DEV__ is false (and this branch removed) in release builds.
+      if (__DEV__ && BASE !== "https://lieferdank.de" && value.startsWith("lieferdank://dev-")) {
+        const u = new URL(value); const t = u.searchParams.get("token"); const s = u.searchParams.get("screen");
+        if (t) { await SecureStore.setItemAsync(SESSION_KEY, t, secureOptions); tokenRef.current = t; setToken(t); }
+        if (s) setScreen(s as Screen);
+        const m = u.searchParams.get("auth"); if (m) { await clearSession(); setAuthMode(m as AuthMode); setRegisterRole(u.searchParams.get("as") === "customer" ? "customer" : "driver"); }
+        if (u.searchParams.get("scroll") === "end") setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 1500);
+        return;
+      }
+      const parsed = deepLink(value); if (!parsed) return;
       if (parsed.resetToken) { await clearSession(); setResetToken(parsed.resetToken); setAuthMode("reset"); }
-      if (parsed.verificationToken) { await callApi(BASE, "/api/v1/auth/verification", null, { method: "POST", body: JSON.stringify({ token: parsed.verificationToken }) }); Alert.alert("E-Mail bestätigt", "Du kannst jetzt dein Auszahlungskonto einrichten."); }
-      if (parsed.screen) setScreen(parsed.screen); if (tokenRef.current) await refresh(); };
+      if (parsed.verificationToken) { await callApi(BASE, "/api/v1/auth/verification", null, { method: "POST", body: JSON.stringify({ token: parsed.verificationToken }) }); Alert.alert("E-Mail bestätigt", "Danke! Deine E-Mail-Adresse ist jetzt bestätigt."); }
+      if (parsed.screen) setScreen(parsed.screen);
+      if (tokenRef.current) await refresh();
+    };
     Linking.getInitialURL().then(url => { if (url) return onLink(url); }).catch(e => setError(e.message));
     const links = Linking.addEventListener("url", ({ url }) => { onLink(url).catch(e => setError(e.message)); });
-    const handleNotification = (response: Notifications.NotificationResponse) => { const target = response.notification.request.content.data?.screen;
-      if (["earnings", "thanks", "stripe"].includes(String(target))) setScreen(target as Screen); };
+    const handleNotification = (response: Notifications.NotificationResponse) => {
+      const target = response.notification.request.content.data?.screen;
+      if (["earnings", "thanks", "stripe"].includes(String(target))) setScreen(target as Screen);
+    };
     const notifications = Notifications.addNotificationResponseReceivedListener(handleNotification);
     Notifications.getLastNotificationResponseAsync().then(r => { if (r) handleNotification(r); }).catch(() => undefined);
     return () => { sub.remove(); links.remove(); notifications.remove(); };
   }, [refresh, clearSession]);
   useEffect(() => {
-    const back = BackHandler.addEventListener("hardwareBackPress", () => { if (!token && authMode !== "login") { setAuthMode("login"); return true; } if (screen !== "dashboard") { setScreen("dashboard"); return true; } return false; });
+    const back = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (!token && authMode !== "login") { setAuthMode("login"); return true; }
+      if (role && screen !== homeFor[role]) { setScreen(homeFor[role]); return true; }
+      return false;
+    });
     return () => back.remove();
-  }, [screen, token, authMode]);
-  async function openBrowser(url: string) { if (!trustedBrowserUrl(url)) throw new Error("Diese Weiterleitung ist nicht erlaubt."); await WebBrowser.openBrowserAsync(url); }
-  async function saveSession(session: { token: string }) {
-    await SecureStore.setItemAsync(SESSION_KEY, session.token, secureOptions); tokenRef.current = session.token; setToken(session.token); setPassword(""); setScreen("dashboard");
+  }, [screen, token, authMode, role]);
+
+  async function openBrowser(url: string) {
+    if (!trustedBrowserUrl(url)) throw new Error("Diese Seite kann in der App nicht geöffnet werden.");
+    await WebBrowser.openBrowserAsync(url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET, controlsColor: colors.blue, dismissButtonStyle: "close", enableBarCollapsing: true });
+  }
+  /** Legal texts and help open in an in-app sheet, never in external Safari. */
+  const openLegal = (path: string) => run(() => openBrowser(`https://lieferdank.de${path}`));
+  async function saveSession(session: { token: string; role?: Role }) {
+    await SecureStore.setItemAsync(SESSION_KEY, session.token, secureOptions);
+    tokenRef.current = session.token; setToken(session.token); setPassword(""); setScreen(homeFor[session.role ?? "driver"]);
   }
   async function register() {
-    const session = await callApi<{ token: string }>(BASE, "/api/v1/auth/mobile/register", null, { method: "POST", body: JSON.stringify({ firstName, lastName, email, password, acceptedTerms }) });
-    await saveSession(session); setScreen("profile"); setAcceptedTerms(false);
-    Alert.alert("Willkommen bei LieferDank", "Bestätige deine E-Mail-Adresse über den Link in deinem Postfach. Dein Danke-Code ist bereits bereit.");
+    const body = registerRole === "customer" ? { role: "customer", firstName, email, password, acceptedTerms } : { role: "driver", firstName, lastName, email, password, acceptedTerms };
+    const session = await callApi<{ token: string; role: Role }>(BASE, "/api/v1/auth/mobile/register", null, { method: "POST", body: JSON.stringify(body) });
+    await saveSession(session); setAcceptedTerms(false); if (session.role === "driver") setScreen("profile");
+    Alert.alert("Willkommen bei LieferDank", `Wir haben dir eine E-Mail an ${email.trim().toLowerCase()} geschickt. Bitte bestätige darin deine Adresse.${session.role === "driver" ? " Dein Danke-Code ist bereits bereit." : ""}`);
   }
-  async function login() { const session = await callApi<{ token: string }>(BASE, "/api/v1/auth/mobile/login", null, { method: "POST", body: JSON.stringify({ email, password }) });
-    await saveSession(session); }
+  async function login() {
+    const session = await callApi<{ token: string; role: Role }>(BASE, "/api/v1/auth/mobile/login", null, { method: "POST", body: JSON.stringify({ email, password }) });
+    await saveSession(session);
+  }
   async function logout() {
     const current = tokenRef.current; if (!current) return;
     // Local logout always succeeds offline. Revocation is retried on the next start.
     await SecureStore.setItemAsync(REVOKE_KEY, current, secureOptions);
     try { await api("/api/v1/me/logout", { method: "POST" }); await SecureStore.deleteItemAsync(REVOKE_KEY); }
     catch (e) { if (e instanceof ApiError && e.status === 401) await SecureStore.deleteItemAsync(REVOKE_KEY); }
-    await clearSession();
+    await clearSession(); setAuthMode("login");
+  }
+  async function resendVerification() {
+    await api("/api/v1/me/verification", { method: "POST" });
+    setInfo(`Wir haben die Bestätigungs-E-Mail an ${me?.email ?? "deine Adresse"} verschickt. Prüfe bitte auch den Spam-Ordner.`);
   }
   async function enablePush(value: boolean) {
     if (!value) { await api("/api/v1/me/push", { method: "DELETE" }); setPushEnabled(false); return; }
-    if (!Device.isDevice) throw new Error("Push wird auf einem echten iPhone oder Android-Gerät getestet.");
+    if (!Device.isDevice) throw new Error("Benachrichtigungen funktionieren nur auf einem echten iPhone.");
     const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
-    if (!projectId) throw new Error("Push ist für diesen Build noch nicht eingerichtet.");
+    if (!projectId) throw new Error("Benachrichtigungen sind in dieser Version noch nicht verfügbar.");
     if (Platform.OS === "android") await Notifications.setNotificationChannelAsync("default", { name: "LieferDank", importance: Notifications.AndroidImportance.DEFAULT });
-    const permission = await Notifications.requestPermissionsAsync(); if (permission.status !== "granted") throw new Error("Benachrichtigungen sind nicht erlaubt. Du kannst das in den Systemeinstellungen ändern.");
-    const valueToken = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    await api("/api/v1/me/push", { method: "POST", body: JSON.stringify({ token: valueToken, enabled: true }) }); setPushEnabled(true);
+    const permission = await Notifications.requestPermissionsAsync(); if (permission.status !== "granted") throw new Error("Benachrichtigungen sind nicht erlaubt. Du kannst das in den iPhone-Einstellungen ändern.");
+    const pushToken = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    await api("/api/v1/me/push", { method: "POST", body: JSON.stringify({ token: pushToken, enabled: true }) }); setPushEnabled(true);
   }
-  async function savePhoto() { const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, quality: 0.8 }); if (result.canceled) return;
+  async function savePhoto() {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.8 }); if (result.canceled) return;
     const file = new File(result.assets[0].uri); const bytes = await file.bytes();
-    await api("/api/v1/me/photo", { method: "PUT", headers: { "content-type": "application/octet-stream" }, body: bytes }); await refresh(); }
-  async function shareQr() { if (!qr) return; const file = new File(Paths.cache, "lieferdank-qr.png"); file.write(qr.qrPng.split(",")[1], { encoding: "base64" });
-    if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: "image/png", dialogTitle: "Dein LieferDank-Code" }); else await Share.share({ message: driverThankUrl(qr.code) }); }
+    await api("/api/v1/me/photo", { method: "PUT", headers: { "content-type": "application/octet-stream" }, body: bytes }); await refresh();
+  }
+  async function shareQr() {
+    if (!qr) return; const file = new File(Paths.cache, "lieferdank-qr.png"); file.write(qr.qrPng.split(",")[1], { encoding: "base64" });
+    if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: "image/png", dialogTitle: "Dein LieferDank-Code", UTI: "public.png" }); else await Share.share({ message: driverThankUrl(qr.code) });
+  }
+  async function exportData() {
+    const data = await api("/api/v1/me/export"); const file = new File(Paths.cache, "lieferdank-datenexport.json");
+    file.write(JSON.stringify(data, null, 2)); await Sharing.shareAsync(file.uri, { mimeType: "application/json", UTI: "public.json" }); file.delete();
+  }
+  function confirmDelete() {
+    if (!deletePassword) { setError("Bitte gib zur Bestätigung dein Passwort ein."); return; }
+    Alert.alert("Konto endgültig löschen?", role === "driver"
+      ? "Dein öffentliches Profil und dein QR-Code werden deaktiviert. Gesetzlich aufzubewahrende Zahlungsdaten bleiben erhalten."
+      : "Dein Konto und deine gespeicherten Zusteller werden gelöscht. Gesetzlich aufzubewahrende Zahlungsdaten bleiben erhalten.",
+    [{ text: "Abbrechen", style: "cancel" }, { text: "Konto löschen", style: "destructive", onPress: () => run(async () => {
+      await api("/api/v1/me/delete", { method: "POST", body: JSON.stringify({ password: deletePassword }) }); await clearSession();
+      Alert.alert("Konto gelöscht", "Dein Konto wurde gelöscht. Danke, dass du LieferDank genutzt hast.");
+    }) }]);
+  }
+
   if (!booted || (!fontLoaded && !fontError)) return <SafeAreaView style={styles.page}><Loading /></SafeAreaView>;
   const date = (value: string) => new Date(value).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
-  return <SafeAreaView style={styles.page}><StatusBar style="dark" /><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-    <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}><BrandMark /><Text style={styles.title}>Liefer<Text style={{ color: colors.coral }}>Dank</Text></Text></View>
-      {token && <Pressable accessibilityRole="button" accessibilityLabel="Einstellungen" onPress={() => setScreen("settings")} style={{ padding: 12 }}><Ionicons name="settings-outline" size={25} color={colors.navy} /></Pressable>}
+  const tabs = role ? tabsFor[role] : [];
+  const verifiedBanner = me && !me.emailVerified && <Card><Text style={styles.title}>Bitte bestätige deine E-Mail</Text>
+    <Text style={styles.muted}>Wir haben dir einen Link an {me.email} geschickt.{role === "driver" ? " Erst danach kannst du Trinkgeld aktivieren." : ""}</Text>
+    <Button title="E-Mail erneut senden" subtle disabled={busy} onPress={() => run(resendVerification)} /></Card>;
+
+  const authScreen = <>
+    <View style={{ gap: 6 }}>
+      <Text style={styles.heading}>{authMode === "login" ? "Willkommen zurück" : authMode === "register" ? "Konto erstellen" : authMode === "forgot" ? "Passwort vergessen?" : "Neues Passwort"}</Text>
+      <Text style={styles.muted}>{authMode === "login" ? "Melde dich mit deinem LieferDank-Konto an. Es ist dasselbe wie auf lieferdank.de." : authMode === "register" ? "Kostenlos und in einer Minute fertig." : authMode === "forgot" ? "Wir schicken dir einen Link, mit dem du ein neues Passwort festlegst." : "Wähle ein neues Passwort mit mindestens 8 Zeichen."}</Text>
     </View>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body} refreshControl={token ? <RefreshControl refreshing={busy} onRefresh={() => run(refresh)} tintColor={colors.blue} /> : undefined}>
-      {error ? <View accessibilityRole="alert"><Text style={styles.error}>{error}</Text>{token && <Button title="Erneut versuchen" subtle disabled={busy} onPress={() => run(refresh)} />}</View> : null}
-      {!token ? <>
-        <Text style={styles.heading}>{authMode === "login" ? "Schön, dass du da bist." : authMode === "register" ? "Dein Danke beginnt hier." : authMode === "forgot" ? "Passwort vergessen?" : "Neues Passwort"}</Text><Text style={styles.muted}>Dein Einsatz verdient ein Danke.</Text>
-        <Card>{authMode === "register" && <><Field label="Vorname" value={firstName} onChangeText={setFirstName} autoComplete="given-name" maxLength={60} /><Field label="Nachname" value={lastName} onChangeText={setLastName} autoComplete="family-name" maxLength={60} /></>}{authMode !== "reset" && <Field label="E-Mail" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" />}
-          {(authMode === "login" || authMode === "register") && <Field label={authMode === "register" ? "Passwort · mindestens 8 Zeichen" : "Passwort"} value={password} onChangeText={setPassword} secureTextEntry autoComplete={authMode === "register" ? "new-password" : "current-password"} />}
-          {authMode === "register" && <View style={{ gap: 8 }}><Text style={styles.muted}>Ich stimme den AGB zu und habe die Datenschutzhinweise gelesen. Die Links findest du unten.</Text><Switch accessibilityLabel="AGB und Datenschutzhinweise bestätigen" value={acceptedTerms} onValueChange={setAcceptedTerms} /></View>}
-          {authMode === "reset" && <Field label="Neues Passwort · mindestens 8 Zeichen" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoComplete="new-password" />}
-          <Button disabled={busy || (authMode === "register" && !acceptedTerms)} title={busy ? "Einen Moment …" : authMode === "register" ? "Kostenlos registrieren" : authMode === "login" ? "Anmelden" : authMode === "forgot" ? "Reset-Link senden" : "Passwort speichern"} onPress={() => run(async () => {
-            if (authMode === "register") await register();
-            else if (authMode === "login") await login();
-            else if (authMode === "forgot") { await callApi(BASE, "/api/v1/auth/reset", null, { method: "POST", body: JSON.stringify({ email }) }); Alert.alert("Prüfe dein Postfach", "Wenn ein Konto zu dieser Adresse existiert, bekommst du einen Reset-Link."); }
-            else { await callApi(BASE, "/api/v1/auth/reset", null, { method: "PATCH", body: JSON.stringify({ token: resetToken, password: newPassword }) }); setNewPassword(""); setResetToken(""); setAuthMode("login"); Alert.alert("Passwort geändert", "Du kannst dich jetzt anmelden."); }
-          })} />
-          <Button subtle title={authMode === "login" ? "Passwort vergessen" : "Zur Anmeldung"} onPress={() => setAuthMode(authMode === "login" ? "forgot" : "login")} />
-          {authMode === "login" && <Button subtle title="Kostenloses Zustellerkonto erstellen" onPress={() => { setError(""); setAuthMode("register"); }} />}
-        </Card>
-      </> : <>
-        {screen === "dashboard" && <>
-          <Text style={styles.heading}>Hallo {profile?.firstName || "👋"}</Text>
-          {profile && !profile.emailVerified && <Card><Text style={styles.title}>Bitte bestätige deine E-Mail</Text><Text style={styles.muted}>Öffne den Link in deinem Postfach, damit du Trinkgeld aktivieren kannst.</Text><Button title="Bestätigungs-E-Mail erneut senden" subtle disabled={busy} onPress={() => run(async () => { await api("/api/v1/me/verification", { method: "POST" }); Alert.alert("E-Mail gesendet", "Prüfe dein Postfach."); })} /></Card>}
-          {lastUpdated && <Text style={styles.muted}>Zuletzt aktualisiert: {lastUpdated}</Text>}
-          {!stats ? <Loading /> : <><Card><Text style={styles.title}>Heute</Text><Text style={styles.value}>{euro(stats.today.driverCents)}</Text><Text style={styles.muted}>{stats.today.tipCount} Trinkgelder</Text><Text style={styles.text}>❤️ {stats.today.thanks} Danke</Text></Card>
-            <Card><Text style={styles.title}>Seit Beginn</Text><Text style={styles.text}>{stats.total.thanks} Danke · {euro(stats.total.driverCents)}</Text><Text style={styles.muted}>Erstattungen sind berücksichtigt. Stripe zeigt dir deinen tatsächlich auszahlbaren Betrag.</Text></Card>
-            <Card><Text style={styles.title}>Deine letzten Trinkgelder</Text>{earnings.filter(e => e.paymentStatus === "succeeded").slice(0,3).map(e => <View key={e.id}><Text style={styles.text}>{euro(e.shareBeforeStripeCents)} Trinkgeld</Text><Text style={styles.muted}>{date(e.createdAt)}</Text></View>)}{!earnings.some(e => e.paymentStatus === "succeeded") && <Text style={styles.muted}>Hier erscheinen deine bestätigten Trinkgelder.</Text>}<Button title="Alle Einnahmen ansehen" subtle onPress={() => setScreen("earnings")} /></Card>
-            <Card><Text style={styles.title}>Deine letzten Nachrichten</Text>{thanks.slice(0,3).map(t => <Text key={t.id} style={styles.text}>{t.message || "❤️ Danke für deinen Einsatz"}</Text>)}{!thanks.length && <Text style={styles.muted}>Dein erstes Danke wartet auf dich.</Text>}</Card></>}
-          {stripe && !stripe.ready && <Card><Text style={{ ...styles.title, color: "#a42d34" }}>Auszahlung noch nicht eingerichtet</Text><Text style={styles.text}>Richte dein Auszahlungskonto ein, damit du Trinkgelder empfangen kannst. Dein QR-Code und kostenlose Danksagungen funktionieren bereits.</Text><Button title="Auszahlung einrichten" onPress={() => setScreen("stripe")} /></Card>}
-        </>}
-        {screen === "earnings" && <><Text style={styles.heading}>Deine Einnahmen</Text><Text style={styles.muted}>Trinkgeld nach LieferDank-Gebühr. Stripe zieht seine Kosten separat ab und zeigt dir den auszahlbaren Betrag.</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>{[["all","Alle"],["succeeded","Erhalten"], ...(earnings.some(e => e.refundedCents > 0) ? [["refunded","Erstattet"]] : []), ...(earnings.some(e => e.paymentStatus === "review_required") ? [["review_required","In Prüfung"]] : [])].map(([v,l]) => <FilterChip key={v} title={l} selected={filter === v} onPress={() => setFilter(v)} />)}</ScrollView>
-          {earnings.filter(e => filter === "all" || (filter === "refunded" ? e.refundedCents > 0 : e.paymentStatus === filter)).map(e => <Card key={e.id}><Text style={styles.value}>{euro(e.shareBeforeStripeCents)}</Text><Text style={styles.text}>{e.paymentStatus === "review_required" ? "In Prüfung · nicht verfügbar" : e.paymentStatus === "refunded" ? "Erstattet" : e.paymentStatus === "succeeded" ? "Erhalten" : "Noch nicht bestätigt"}</Text><Text style={styles.muted}>{date(e.createdAt)}{e.refundedCents > 0 ? ` · ${euro(e.refundedCents)} erstattet` : ""}</Text></Card>)}
-          {!earnings.length && <Card><Text style={styles.text}>Hier erscheinen deine ersten Trinkgelder.</Text></Card>}
-          {nextCursor && <Button disabled={busy} title="Weitere laden" subtle onPress={() => run(async () => { const page = await api<{ items: Earning[]; nextCursor: string | null }>(`/api/v1/me/earnings?before=${encodeURIComponent(nextCursor)}`); setEarnings(previous => [...previous, ...page.items.filter(i => !previous.some(p => p.id === i.id))]); setNextCursor(page.nextCursor); })} />}
-        </>}
-        {screen === "thanks" && <><Text style={styles.heading}>Deine Danke</Text>{thanks.map(t => <Card key={t.id}><Text style={styles.text}>{t.message || "❤️ Danke für deinen Einsatz"}</Text><Text style={styles.muted}>{date(t.createdAt)}{t.tipId ? " · mit Trinkgeld" : ""}</Text>{t.message && <Button title="Nachricht entfernen" subtle disabled={busy} onPress={() => run(async () => { await api(`/api/v1/me/thanks/${t.id}`, { method: "DELETE" }); await refresh(); })} />}<Button title="Inhalt melden" subtle onPress={() => run(() => openBrowser("https://lieferdank.de/kontakt"))} /></Card>)}{thanksCursor && <Button title="Weitere Danke laden" subtle disabled={busy} onPress={() => run(async () => { const page = await api<{ items: Thank[]; nextCursor: string | null }>(`/api/v1/me/thanks?before=${encodeURIComponent(thanksCursor)}`); setThanks(previous => [...previous, ...page.items.filter(i => !previous.some(p => p.id === i.id))]); setThanksCursor(page.nextCursor); })} />}{!thanks.length && <Card><Text style={styles.text}>Teile deinen Code und gib Kunden die Möglichkeit, Danke zu sagen.</Text><Button title="Meinen QR-Code öffnen" onPress={() => setScreen("qr")} /></Card>}</>}
-        {screen === "qr" && <><Text style={styles.heading}>Dein Danke-Code</Text>{!qr ? <Button title="QR-Code laden" disabled={busy} onPress={() => run(async () => setQr(await api<Qr>("/api/v1/me/code")))} /> : <><Card><Text style={styles.title}>{profile?.customName || profile?.firstName}</Text><View style={{ alignItems: "center" }}><SvgXml xml={qr.qrSvg} width="100%" height={260} accessibilityLabel="Dein persönlicher LieferDank-QR-Code" /></View><Text style={{ ...styles.muted, textAlign: "center" }}>{qr.code}
-Keine App nötig · Trinkgeld freiwillig</Text></Card><Card><Text style={styles.title}>Deine digitale Karte</Text><SvgXml xml={qr.cardSvg} width="100%" height={200} accessibilityLabel="Vorschau deiner persönlichen LieferDank-Karte" /></Card><Button title="QR-Code als Bild teilen / speichern" disabled={busy} onPress={() => run(shareQr)} /><Button subtle title="Link teilen" onPress={() => run(async () => { await Share.share({ message: driverThankUrl(qr.code) }); })} /><Button subtle title="Danke-Seite ansehen" onPress={() => run(() => openBrowser(driverThankUrl(qr.code)))} /></> }</>}
-        {screen === "profile" && <><View style={{ ...styles.row, alignItems: "center", justifyContent: "space-between" }}><Text style={styles.heading}>Dein Profil</Text><Pressable accessibilityRole="button" accessibilityLabel="Informationen zum öffentlichen Profil" onPress={() => Alert.alert("Dein öffentliches Profil", "Dein Anzeigename und dein persönlicher Text erscheinen auf deiner Danke-Seite. Dein Foto wird nur angezeigt, wenn du es freigibst. Deine E-Mail bleibt privat.")} style={{ padding: 12 }}><Ionicons name="information-circle-outline" size={26} color={colors.blue} /></Pressable></View>{!profile ? <Loading /> : <Card>
-          {profile.hasPhoto && token && <Image source={{ uri: `${BASE}/api/v1/me/photo`, headers: { authorization: `Bearer ${token}` } }} style={{ width: 90, height: 90, borderRadius: 45 }} accessibilityLabel="Dein Profilfoto" />}
-          <Field label="Vorname" value={profile.firstName} onChangeText={v => { profileDirty.current = true; setProfile({ ...profile, firstName: v }); }} maxLength={60} /><Field label="Nachname" value={profile.lastName} onChangeText={v => { profileDirty.current = true; setProfile({ ...profile, lastName: v }); }} maxLength={60} />
-          <Field label="Öffentlicher Anzeigename" value={profile.customName ?? profile.firstName} onChangeText={v => { profileDirty.current = true; setProfile({ ...profile, nameDisplay: "custom", customName: v }); }} maxLength={30} />
-          <Field label="Kurzer Satz über dich" value={profile.tagline ?? ""} onChangeText={v => { profileDirty.current = true; setProfile({ ...profile, tagline: v }); }} maxLength={80} />
-          <Field label="Persönlicher Text" value={profile.bio ?? ""} onChangeText={v => { profileDirty.current = true; setProfile({ ...profile, bio: v }); }} maxLength={280} multiline />
-          <View style={styles.row}><Text style={styles.text}>Foto öffentlich anzeigen</Text><Switch accessibilityLabel="Foto öffentlich anzeigen" value={profile.photoPublic} onValueChange={v => { profileDirty.current = true; setProfile({ ...profile, photoPublic: v }); }} /></View>
-          <View style={styles.row}><Text style={styles.text}>Öffentliches Profil aktiv</Text><Switch accessibilityLabel="Öffentliches Profil aktiv" value={profile.active} onValueChange={v => { profileDirty.current = true; setProfile({ ...profile, active: v }); }} /></View>
-          <Button title="Profil speichern" disabled={busy} onPress={() => run(async () => { await api("/api/v1/me/profile", { method: "PATCH", body: JSON.stringify(profile) }); profileDirty.current = false; setQr(null); await refresh(); Alert.alert("Gespeichert", "Dein Profil ist aktualisiert."); })} />
-          <Button subtle title="Profilfoto wählen" disabled={busy} onPress={() => run(savePhoto)} />{profile.hasPhoto && <Button subtle title="Profilfoto entfernen" disabled={busy} onPress={() => run(async () => { await api("/api/v1/me/photo", { method: "DELETE" }); await refresh(); })} />}
-        </Card>}</>}
-        {screen === "stripe" && <><Text style={styles.heading}>Stripe & Auszahlung</Text>{!stripe ? <Loading /> : <Card><Text style={styles.title}>{!stripe.verifiedNow ? "Status gerade nicht prüfbar" : stripe.ready ? "Dein Auszahlungskonto ist bereit" : stripe.connected ? "Einrichtung noch nicht abgeschlossen" : "Auszahlung einrichten"}</Text>
-          <Text style={styles.text}>Stripe ist unser Zahlungs- und Auszahlungspartner. Du brauchst noch kein Stripe-Konto. Die Einrichtung erfolgt im nächsten Schritt direkt bei Stripe.</Text>
-          {stripe.manualPayouts && <Text style={styles.error}>Dein Auszahlungsplan ist manuell. Prüfe ihn in deinem Stripe-Konto.</Text>}
-          {!stripe.emailVerified && <><Text style={styles.error}>Bestätige zuerst deine E-Mail-Adresse.</Text><Button title="Bestätigungs-E-Mail erneut senden" disabled={busy} onPress={() => run(async () => { await api("/api/v1/me/verification", { method: "POST" }); Alert.alert("E-Mail gesendet", "Prüfe dein Postfach."); })} /></>}
-          {stripe.ready ? <Button title="Bei Stripe anmelden" onPress={() => run(() => openBrowser("https://dashboard.stripe.com/login"))} /> : <>
-            {!stripe.connected && <><Text style={styles.muted}>Kunden zahlen direkt auf dein Stripe-Konto. LieferDank behält je Trinkgeld {Object.entries(stripe.applicationFees).map(([amount, fee]) => `${euro(fee)} bei ${euro(Number(amount))}`).join(", ")}. Stripe-Kosten kommen separat hinzu. Unbefristet, jederzeit kündbar; 14-tägiges Widerrufsrecht gemäß AGB.</Text>
-            <Text style={styles.muted}>Ich verlange ausdrücklich, dass Lieferdank vor Ablauf der Widerrufsfrist mit der Trinkgeld-Funktion beginnt. Mir ist bekannt, dass ich bei einem Widerruf einen anteiligen Betrag für die bis dahin erbrachten Leistungen zahle.</Text><Switch accessibilityLabel="Sofortigen Leistungsbeginn ausdrücklich verlangen" value={consent} onValueChange={setConsent} /></>}
-            <Button title={stripe.connected ? "Einrichtung fortsetzen" : "Trinkgeld zahlungspflichtig aktivieren"} disabled={busy || !stripe.emailVerified || (!stripe.connected && !consent)} onPress={() => run(async () => { const value = await api<{ url: string }>("/api/v1/me/stripe", { method: "POST", body: JSON.stringify({ immediateStart: consent }) }); await openBrowser(value.url); })} />
-          </>}
-          <Button title="Status aktualisieren" subtle disabled={busy} onPress={() => run(refresh)} />
-        </Card>}</>}
-        {screen === "settings" && <><Text style={styles.heading}>Einstellungen</Text><Card><Text style={styles.text}>{profile?.email}</Text><Text style={styles.muted}>Benachrichtigungen auf diesem Gerät</Text><Switch accessibilityLabel="Push-Benachrichtigungen aktivieren" value={pushEnabled} onValueChange={v => run(() => enablePush(v))} disabled={busy} /><Button title="Stripe & Auszahlung" subtle onPress={() => setScreen("stripe")} /><Button title="Datenexport teilen" subtle disabled={busy} onPress={() => run(async () => { const data = await api("/api/v1/me/export"); const file = new File(Paths.cache, "lieferdank-datenexport.json"); file.write(JSON.stringify(data, null, 2)); await Sharing.shareAsync(file.uri, { mimeType: "application/json" }); file.delete(); })} /></Card>
-          <Card><Text style={styles.title}>Passwort ändern</Text><Field label="Aktuelles Passwort" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry /><Field label="Neues Passwort · mindestens 8 Zeichen" value={newPassword} onChangeText={setNewPassword} secureTextEntry /><Button title="Passwort ändern und abmelden" disabled={busy} onPress={() => run(async () => { await api("/api/v1/me/password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) }); await clearSession(); })} /></Card>
-          <Button title="Abmelden" disabled={busy} onPress={() => run(logout)} /><Button title="Konto löschen" danger disabled={busy} onPress={() => Alert.alert("Konto löschen?", "Dein Profil wird deaktiviert. Gesetzlich aufzubewahrende Zahlungsdaten bleiben erhalten. Gib zur Bestätigung oben dein aktuelles Passwort ein.", [{ text: "Abbrechen", style: "cancel" }, { text: "Konto löschen", style: "destructive", onPress: () => run(async () => { await api("/api/v1/me/delete", { method: "POST", body: JSON.stringify({ password: currentPassword }) }); await clearSession(); }) }])} />
-        </>}
+    <Card>
+      {authMode === "register" && <Segmented label="Ich bin" value={registerRole} onChange={setRegisterRole} options={[["driver", "Zusteller:in"], ["customer", "Kund:in"]]} />}
+      {authMode === "register" && <Text style={styles.muted}>{registerRole === "driver" ? "Du bekommst deinen persönlichen QR-Code für Danke und Trinkgeld." : "Speichere deine Zusteller und sieh, wem du schon Danke gesagt hast."}</Text>}
+      {authMode === "register" && <Field label={registerRole === "customer" ? "Vorname (optional)" : "Vorname"} value={firstName} onChangeText={setFirstName} autoComplete="given-name" textContentType="givenName" autoCapitalize="words" maxLength={60} />}
+      {authMode === "register" && registerRole === "driver" && <Field label="Nachname" value={lastName} onChangeText={setLastName} autoComplete="family-name" textContentType="familyName" autoCapitalize="words" maxLength={60} />}
+      {authMode !== "reset" && <Field label="E-Mail" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" textContentType={authMode === "login" ? "username" : "emailAddress"} keyboardType="email-address" inputMode="email" returnKeyType="next" maxLength={200} />}
+      {(authMode === "login" || authMode === "register") && <Field label={authMode === "register" ? "Passwort (mindestens 8 Zeichen)" : "Passwort"} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoComplete={authMode === "register" ? "new-password" : "current-password"} textContentType={authMode === "register" ? "newPassword" : "password"} maxLength={200} />}
+      {authMode === "register" && <View style={styles.switchRow}>
+        <Text style={[styles.muted, { flex: 1 }]}>Ich bin mindestens 18 Jahre alt und habe die AGB und die Datenschutzhinweise gelesen.{registerRole === "driver" ? " Die Regeln meines Arbeit- bzw. Auftraggebers beachte ich selbst." : ""}</Text>
+        <Switch accessibilityLabel="AGB und Datenschutzhinweise bestätigen" value={acceptedTerms} onValueChange={setAcceptedTerms} trackColor={{ true: colors.blue }} />
+      </View>}
+      {authMode === "register" && <View style={{ flexDirection: "row", gap: 4 }}><TextLink title="AGB lesen" align="flex-start" onPress={() => openLegal("/legal/agb")} /><TextLink title="Datenschutz lesen" align="flex-start" onPress={() => openLegal("/legal/datenschutz")} /></View>}
+      {authMode === "reset" && <Field label="Neues Passwort (mindestens 8 Zeichen)" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" maxLength={200} />}
+      <Button disabled={busy || (authMode === "register" && !acceptedTerms)} title={busy ? "Einen Moment …" : authMode === "register" ? "Kostenlos registrieren" : authMode === "login" ? "Anmelden" : authMode === "forgot" ? "Link anfordern" : "Passwort speichern"} onPress={() => run(async () => {
+        if (authMode === "register") await register();
+        else if (authMode === "login") await login();
+        else if (authMode === "forgot") {
+          await callApi(BASE, "/api/v1/auth/reset", null, { method: "POST", body: JSON.stringify({ email }) });
+          setAuthMode("login");
+          setInfo("Wenn es zu dieser Adresse ein Konto gibt, ist ein Link unterwegs. Er gilt 60 Minuten. Kommt nichts an, prüfe bitte den Spam-Ordner.");
+        } else {
+          await callApi(BASE, "/api/v1/auth/reset", null, { method: "PATCH", body: JSON.stringify({ token: resetToken, password: newPassword }) });
+          setNewPassword(""); setResetToken(""); setAuthMode("login"); setInfo("Dein Passwort ist geändert. Du kannst dich jetzt anmelden.");
+        }
+      })} />
+      {authMode === "login" && <TextLink title="Passwort vergessen?" onPress={() => { setError(""); setInfo(""); setAuthMode("forgot"); }} />}
+      {authMode !== "login" && <TextLink title="Zurück zur Anmeldung" onPress={() => { setError(""); setAuthMode("login"); }} />}
+    </Card>
+    {authMode === "login" && <View style={{ alignItems: "center", gap: 2 }}><Text style={styles.muted}>Noch kein Konto?</Text><TextLink title="Kostenlos registrieren" onPress={() => { setError(""); setInfo(""); setAuthMode("register"); }} /></View>}
+  </>;
+
+  const driverScreens = <>
+    {screen === "dashboard" && <>
+      <Text style={styles.heading}>Hallo {profile?.firstName || me?.firstName || ""}</Text>
+      {verifiedBanner}
+      {!stats ? <Loading /> : <>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={[styles.card, { flex: 1 }]}><Text style={styles.muted}>Heute</Text><Text style={styles.value}>{euro(stats.today.driverCents)}</Text><Text style={styles.muted}>{stats.today.tipCount} Trinkgeld{stats.today.tipCount === 1 ? "" : "er"}{"\n"}{stats.today.thanks} Danke</Text></View>
+          <View style={[styles.card, { flex: 1 }]}><Text style={styles.muted}>Seit Beginn</Text><Text style={styles.value}>{euro(stats.total.driverCents)}</Text><Text style={styles.muted}>{stats.total.thanks} Danke</Text></View>
+        </View>
+        {stats.milestones.length > 0 && <Card><Text style={styles.title}>Deine Meilensteine</Text>{stats.milestones.slice(0, 4).map(m => { const d = describeMilestone(m.type, m.value); return <Text key={m.id} style={styles.text}>{d.emoji}  {d.title}</Text>; })}</Card>}
+        <Card><Text style={styles.title}>Letzte Trinkgelder</Text>
+          {earnings.filter(e => e.paymentStatus === "succeeded").slice(0, 3).map(e => <View key={e.id} style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}><Text style={styles.text}>{euro(e.shareBeforeStripeCents)}</Text><Text style={styles.muted}>{date(e.createdAt)}</Text></View>)}
+          {!earnings.some(e => e.paymentStatus === "succeeded") && <Text style={styles.muted}>Hier erscheinen deine bestätigten Trinkgelder.</Text>}
+          <TextLink title="Alle Einnahmen ansehen" align="flex-start" onPress={() => setScreen("earnings")} /></Card>
+        <Card><Text style={styles.title}>Letzte Nachrichten</Text>{thanks.slice(0, 3).map(t => <Text key={t.id} style={styles.text}>{t.message || "❤️ Danke für deinen Einsatz"}</Text>)}{!thanks.length && <Text style={styles.muted}>Dein erstes Danke wartet auf dich.</Text>}</Card>
       </>}
-      {(screen === "settings" || screen === "stripe" || !token) && <View style={{ gap: 10 }}>{[["Datenschutz","/legal/datenschutz"],["AGB","/legal/agb"],["Impressum","/legal/impressum"],["Kontakt / Support","/kontakt"]].map(([label,path]) => <Button key={path} title={label} subtle onPress={() => run(() => openBrowser(`https://lieferdank.de${path}`))} />)}</View>}
-    </ScrollView>
-    {token && <View style={{ flexDirection: "row", backgroundColor: "white", borderTopWidth: 1, borderTopColor: colors.line }}>{tabs.map(t => <View key={t.screen} collapsable={false} style={{flex:1}}><Pressable accessible accessibilityRole="button" accessibilityLabel={t.label} accessibilityState={{ selected: screen === t.screen }} onPress={() => { setScreen(t.screen); setError(""); }} style={({pressed}) => ({flex:1,minHeight:64,alignItems:"center",justifyContent:"center",gap:4,paddingVertical:8,paddingHorizontal:2,opacity:pressed?0.7:1,backgroundColor:screen===t.screen?"#edf3f9":"white"})}><Ionicons name={t.icon} size={22} color={screen === t.screen ? colors.blue : colors.muted} accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" /><Text style={{fontSize:12,fontWeight:"600",color:screen===t.screen?colors.blue:colors.muted,textAlign:"center"}}>{t.label}</Text></Pressable></View>)}</View>}
-  </KeyboardAvoidingView></SafeAreaView>;
+      {stripe && !stripe.ready && <Card><Text style={[styles.title, { color: colors.danger }]}>Auszahlung noch nicht eingerichtet</Text><Text style={styles.text}>Richte dein Auszahlungskonto ein, damit du Trinkgeld empfangen kannst. Dein QR-Code und kostenlose Danksagungen funktionieren schon.</Text><Button title="Auszahlung einrichten" onPress={() => setScreen("stripe")} /></Card>}
+      {lastUpdated ? <Text style={[styles.muted, { textAlign: "center" }]}>Aktualisiert um {lastUpdated} Uhr</Text> : null}
+    </>}
+    {screen === "earnings" && <><Text style={styles.heading}>Einnahmen</Text><Text style={styles.muted}>Dein Trinkgeld nach der LieferDank-Gebühr. Den tatsächlich ausgezahlten Betrag siehst du in deinem Stripe-Konto.</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>{[["all", "Alle"], ["succeeded", "Erhalten"], ...(earnings.some(e => e.refundedCents > 0) ? [["refunded", "Erstattet"]] : []), ...(earnings.some(e => e.paymentStatus === "review_required") ? [["review_required", "In Prüfung"]] : [])].map(([v, l]) => <FilterChip key={v} title={l} selected={filter === v} onPress={() => setFilter(v)} />)}</ScrollView>
+      {earnings.filter(e => filter === "all" || (filter === "refunded" ? e.refundedCents > 0 : e.paymentStatus === filter)).map(e => <Card key={e.id}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}><Text style={styles.value}>{euro(e.shareBeforeStripeCents)}</Text>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: e.paymentStatus === "succeeded" && !e.refundedCents ? colors.success : colors.muted }} numberOfLines={1}>{e.paymentStatus === "review_required" ? "In Prüfung" : e.paymentStatus === "refunded" ? "Erstattet" : e.paymentStatus === "succeeded" ? "Erhalten" : "Ausstehend"}</Text></View>
+        <Text style={styles.muted}>{date(e.createdAt)}{e.refundedCents > 0 ? ` · ${euro(e.refundedCents)} erstattet` : ""}</Text></Card>)}
+      {!earnings.length && <Card><Text style={styles.text}>Hier erscheinen deine ersten Trinkgelder.</Text></Card>}
+      {nextCursor && <Button disabled={busy} title="Weitere laden" subtle onPress={() => run(async () => { const page = await api<{ items: Earning[]; nextCursor: string | null }>(`/api/v1/me/earnings?before=${encodeURIComponent(nextCursor)}`); setEarnings(previous => [...previous, ...page.items.filter(i => !previous.some(p => p.id === i.id))]); setNextCursor(page.nextCursor); })} />}
+    </>}
+    {screen === "thanks" && <><Text style={styles.heading}>Deine Danke</Text>
+      {thanks.map(t => <Card key={t.id}><Text style={styles.text}>{t.message || "❤️ Danke für deinen Einsatz"}</Text><Text style={styles.muted}>{date(t.createdAt)}{t.tipId ? " · mit Trinkgeld" : ""}</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap" }}>{t.message && <TextLink title="Nachricht entfernen" align="flex-start" onPress={() => run(async () => { await api(`/api/v1/me/thanks/${t.id}`, { method: "DELETE" }); await refresh(); })} />}<TextLink small title="Inhalt melden" align="flex-start" onPress={() => openLegal("/kontakt")} /></View></Card>)}
+      {thanksCursor && <Button title="Weitere laden" subtle disabled={busy} onPress={() => run(async () => { const page = await api<{ items: Thank[]; nextCursor: string | null }>(`/api/v1/me/thanks?before=${encodeURIComponent(thanksCursor)}`); setThanks(previous => [...previous, ...page.items.filter(i => !previous.some(p => p.id === i.id))]); setThanksCursor(page.nextCursor); })} />}
+      {!thanks.length && <Card><Text style={styles.text}>Teile deinen QR-Code, damit Kunden Danke sagen können.</Text><Button title="Meinen QR-Code öffnen" onPress={() => setScreen("qr")} /></Card>}</>}
+    {screen === "qr" && <><Text style={styles.heading}>Dein Danke-Code</Text>
+      {!qr ? <Loading label="Dein QR-Code wird geladen …" /> : <>
+        <Card><Text style={[styles.title, { textAlign: "center" }]}>{profile?.customName || profile?.firstName}</Text><View style={{ alignItems: "center" }}><SvgXml xml={qr.qrSvg} width="100%" height={260} accessibilityLabel="Dein persönlicher LieferDank-QR-Code" /></View>
+          <Text style={[styles.title, { textAlign: "center", letterSpacing: 1 }]}>{qr.code}</Text><Text style={[styles.muted, { textAlign: "center" }]}>Keine App nötig · Trinkgeld freiwillig</Text></Card>
+        <Text style={styles.muted}>Kunden scannen den Code und landen auf deiner Danke-Seite.</Text>
+        <Card><Text style={styles.title}>So sieht deine Karte aus</Text><CardPreview qrSvg={qr.qrSvg} code={qr.code} headline={qr.card?.headline ?? "Danke für deine Wertschätzung"} name={qr.card?.publicName ?? profile?.customName ?? profile?.firstName ?? ""} QrView={SvgXml} /><Text style={styles.muted}>Druckvorlage und Kartenbestellung findest du auf lieferdank.de im Dashboard.</Text></Card>
+        <Button title="QR-Code teilen oder speichern" disabled={busy} onPress={() => run(shareQr)} />
+        <View style={{ flexDirection: "row", gap: 10 }}><View style={{ flex: 1 }}><Button subtle title="Link teilen" onPress={() => run(async () => { await Share.share({ message: driverThankUrl(qr.code) }); })} /></View><View style={{ flex: 1 }}><Button subtle title="Seite ansehen" onPress={() => run(() => openBrowser(driverThankUrl(qr.code)))} /></View></View>
+      </>}</>}
+    {screen === "profile" && <><View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><Text style={styles.heading}>Dein Profil</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Informationen zum öffentlichen Profil" onPress={() => Alert.alert("Dein öffentliches Profil", "Anzeigename, kurzer Satz und persönlicher Text erscheinen auf deiner Danke-Seite. Dein Foto nur, wenn du es freigibst. Nachname, E-Mail und Telefonnummer bleiben privat.")} style={{ padding: 10 }}><Ionicons name="information-circle-outline" size={26} color={colors.blue} /></Pressable></View>
+      {!profile ? <Loading /> : <>
+        <Card>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            {profile.hasPhoto && token ? <Image source={{ uri: `${BASE}/api/v1/me/photo`, headers: { authorization: `Bearer ${token}` } }} style={{ width: 72, height: 72, borderRadius: 36 }} accessibilityLabel="Dein Profilfoto" /> : <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.soft, alignItems: "center", justifyContent: "center" }}><Ionicons name="person" size={32} color={colors.blue} /></View>}
+            <View style={{ flex: 1 }}><TextLink title={profile.hasPhoto ? "Foto ändern" : "Foto hinzufügen"} align="flex-start" onPress={() => run(savePhoto)} />{profile.hasPhoto && <TextLink small title="Foto entfernen" align="flex-start" onPress={() => run(async () => { await api("/api/v1/me/photo", { method: "DELETE" }); await refresh(); })} />}</View>
+          </View>
+          {profile.hasPhoto && <View style={styles.switchRow}><Text style={[styles.text, { flex: 1 }]}>Foto öffentlich zeigen</Text><Switch accessibilityLabel="Foto öffentlich anzeigen" value={profile.photoPublic} trackColor={{ true: colors.blue }} onValueChange={v => { profileDirty.current = true; setProfile({ ...profile, photoPublic: v }); }} /></View>}
+        </Card>
+        <Card><Text style={styles.title}>Privat</Text>
+          <Field label="Vorname" value={profile.firstName} autoCapitalize="words" onChangeText={v => { profileDirty.current = true; setProfile({ ...profile, firstName: v }); }} maxLength={60} />
+          <Field label="Nachname" value={profile.lastName} autoCapitalize="words" onChangeText={v => { profileDirty.current = true; setProfile({ ...profile, lastName: v }); }} maxLength={60} />
+        </Card>
+        <Card><Text style={styles.title}>Auf deiner Danke-Seite</Text>
+          <Field label="Anzeigename" value={profile.customName ?? profile.firstName} autoCapitalize="words" onChangeText={v => { profileDirty.current = true; setProfile({ ...profile, nameDisplay: "custom", customName: v }); }} maxLength={30} />
+          <Field label="Kurzer Satz über dich" value={profile.tagline ?? ""} autoCapitalize="sentences" autoCorrect onChangeText={v => { profileDirty.current = true; setProfile({ ...profile, tagline: v }); }} maxLength={80} placeholder="z. B. Seit 5 Jahren für euch unterwegs" />
+          <Field label="Persönlicher Text" value={profile.bio ?? ""} autoCapitalize="sentences" autoCorrect onChangeText={v => { profileDirty.current = true; setProfile({ ...profile, bio: v }); }} maxLength={280} multiline />
+          <View style={styles.switchRow}><Text style={[styles.text, { flex: 1 }]}>Danke-Seite aktiv</Text><Switch accessibilityLabel="Öffentliches Profil aktiv" value={profile.active} trackColor={{ true: colors.blue }} onValueChange={v => { profileDirty.current = true; setProfile({ ...profile, active: v }); }} /></View>
+        </Card>
+        <Button title="Profil speichern" disabled={busy} onPress={() => run(async () => { await api("/api/v1/me/profile", { method: "PATCH", body: JSON.stringify(profile) }); profileDirty.current = false; setQr(null); await refresh(); setInfo("Dein Profil ist gespeichert."); })} />
+      </>}</>}
+    {screen === "stripe" && <><Text style={styles.heading}>Auszahlung</Text>{!stripe ? <Loading /> : <Card>
+      <Text style={styles.title}>{!stripe.verifiedNow ? "Status gerade nicht abrufbar" : stripe.ready ? "Dein Auszahlungskonto ist bereit" : stripe.connected ? "Einrichtung noch nicht abgeschlossen" : "Auszahlung einrichten"}</Text>
+      <Text style={styles.text}>Trinkgeld geht direkt auf dein eigenes Konto bei Stripe, unserem Zahlungspartner. Die Einrichtung erfolgt sicher bei Stripe.</Text>
+      {stripe.manualPayouts && <Text style={styles.notice}>Deine Auszahlungen sind auf „manuell“ gestellt. Du kannst das in deinem Stripe-Konto ändern.</Text>}
+      {!stripe.emailVerified && <><Text style={styles.notice}>Bitte bestätige zuerst deine E-Mail-Adresse.</Text><Button title="Bestätigungs-E-Mail senden" subtle disabled={busy} onPress={() => run(resendVerification)} /></>}
+      {stripe.ready ? <Button title="Stripe-Konto öffnen" onPress={() => run(() => openBrowser("https://dashboard.stripe.com/login"))} /> : <>
+        {!stripe.connected && <><Text style={styles.muted}>LieferDank behält je Trinkgeld {Object.entries(stripe.applicationFees).map(([amount, fee]) => `${euro(fee)} bei ${euro(Number(amount))}`).join(", ")}. Die Kosten von Stripe kommen separat hinzu. Unbefristet und jederzeit kündbar; 14 Tage Widerrufsrecht laut AGB.</Text>
+          <View style={styles.switchRow}><Text style={[styles.muted, { flex: 1 }]}>Ich verlange ausdrücklich, dass LieferDank vor Ablauf der Widerrufsfrist mit der Trinkgeld-Funktion beginnt. Mir ist bekannt, dass ich bei einem Widerruf einen anteiligen Betrag für die bis dahin erbrachten Leistungen zahle.</Text><Switch accessibilityLabel="Sofortigen Leistungsbeginn ausdrücklich verlangen" value={consent} trackColor={{ true: colors.blue }} onValueChange={setConsent} /></View></>}
+        <Button title={stripe.connected ? "Einrichtung fortsetzen" : "Trinkgeld zahlungspflichtig aktivieren"} disabled={busy || !stripe.emailVerified || (!stripe.connected && !consent)} onPress={() => run(async () => { const value = await api<{ url: string }>("/api/v1/me/stripe", { method: "POST", body: JSON.stringify({ immediateStart: consent }) }); await openBrowser(value.url); })} />
+      </>}
+      <TextLink title="Status aktualisieren" onPress={() => run(refresh)} />
+    </Card>}</>}
+  </>;
+
+  const customerScreens = <>
+    {screen === "saved" && <><Text style={styles.heading}>Hallo{me?.firstName ? ` ${me.firstName}` : ""}</Text>{verifiedBanner}
+      <Card><Text style={styles.title}>Zusteller speichern</Text><Text style={styles.muted}>Den Code findest du unter dem QR-Code auf der Karte deines Zustellers, z. B. LD-ABCDE.</Text>
+        <Field label="Danke-Code" value={newCode} onChangeText={v => setNewCode(v.toUpperCase())} autoCapitalize="characters" maxLength={20} placeholder="LD-…" />
+        <Button title="Speichern" disabled={busy || newCode.trim().length < 3} onPress={() => run(async () => { await api("/api/v1/me/favorites", { method: "POST", body: JSON.stringify({ code: newCode.trim() }) }); setNewCode(""); await refresh(); setInfo("Zusteller gespeichert."); })} /></Card>
+      {!favorites ? <Loading /> : favorites.length === 0 ? <Card><Text style={styles.text}>Du hast noch keine Zusteller gespeichert.</Text><Text style={styles.muted}>Nach einem Danke auf lieferdank.de kannst du deinen Zusteller auch dort speichern.</Text></Card> :
+        favorites.map(f => <Card key={f.favoriteId}><View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}><Avatar initials={f.driver.initials} /><View style={{ flex: 1 }}><Text style={styles.title} numberOfLines={1}>{f.nickname || f.driver.name}</Text><Text style={styles.muted} numberOfLines={2}>{f.active ? f.driver.tagline || f.driver.code : "Derzeit nicht erreichbar"}</Text></View></View>
+          <View style={{ flexDirection: "row", gap: 10 }}>{f.active && <View style={{ flex: 1 }}><Button title="Danke sagen" onPress={() => run(() => openBrowser(driverThankUrl(f.driver.code)))} /></View>}<View style={{ flex: 1 }}><Button subtle title="Entfernen" onPress={() => run(async () => { await api(`/api/v1/me/favorites/${f.favoriteId}`, { method: "DELETE" }); await refresh(); })} /></View></View></Card>)}
+    </>}
+    {screen === "history" && <><Text style={styles.heading}>Dein Verlauf</Text>
+      {!history ? <Loading /> : <>
+        <Card><Text style={styles.muted}>Während du angemeldet warst</Text><Text style={styles.value}>{history.thankYous.length} Danke</Text><Text style={styles.muted}>{history.tipCount} Trinkgeld{history.tipCount === 1 ? "" : "er"} · {euro(history.totalTipCents)}</Text></Card>
+        {history.thankYous.map(t => <Card key={t.id}><Text style={styles.title} numberOfLines={1}>{t.driver?.name ?? "Zusteller"}</Text><Text style={styles.text}>{t.message || "❤️ Danke"}</Text><Text style={styles.muted}>{date(t.createdAt)}{t.withTip ? " · mit Trinkgeld" : ""}</Text></Card>)}
+        {!history.thankYous.length && <Card><Text style={styles.text}>Hier erscheinen deine Danke, sobald du angemeldet einem Zusteller dankst.</Text></Card>}
+      </>}</>}
+  </>;
+
+  const adminScreen = screen === "admin" && <><Text style={styles.heading}>Hallo{me?.firstName ? ` ${me.firstName}` : ""}</Text>
+    <Card><View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}><Ionicons name="shield-checkmark" size={24} color={colors.blue} /><Text style={styles.title}>Administratorkonto</Text></View>
+      <Text style={styles.text}>Du bist mit deinem Administratorkonto angemeldet. Nutzer, Zahlungen, Auszahlungen und Systemmeldungen verwaltest du aus Sicherheitsgründen ausschließlich im Browser.</Text>
+      <Button title="Administration öffnen" onPress={() => run(() => openBrowser("https://lieferdank.de/admin"))} />
+      <Text style={styles.muted}>Dort meldest du dich separat an. Die App erhält keine Administratorrechte.</Text></Card></>;
+
+  const settingsScreen = screen === "settings" && <><Text style={styles.heading}>{role === "driver" ? "Einstellungen" : "Dein Konto"}</Text>
+    <Card><Text style={styles.muted}>Angemeldet als</Text><Text style={styles.title} numberOfLines={1}>{me?.email}</Text>{role && <Text style={styles.muted}>{roleLabel[role]}</Text>}</Card>
+    {role === "driver" && <Card>
+      <View style={styles.switchRow}><View style={{ flex: 1 }}><Text style={styles.text}>Mitteilungen</Text><Text style={styles.muted}>Bei neuem Trinkgeld, Danke und Meilensteinen</Text></View><Switch accessibilityLabel="Mitteilungen aktivieren" value={pushEnabled} trackColor={{ true: colors.blue }} onValueChange={v => run(() => enablePush(v))} disabled={busy} /></View>
+      <TextLink title="Auszahlung verwalten" align="flex-start" onPress={() => setScreen("stripe")} />
+    </Card>}
+    <Card><Text style={styles.title}>Passwort ändern</Text>
+      <Field label="Aktuelles Passwort" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry autoCapitalize="none" textContentType="password" autoComplete="current-password" />
+      <Field label="Neues Passwort (mindestens 8 Zeichen)" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoCapitalize="none" textContentType="newPassword" autoComplete="new-password" />
+      <Button title="Passwort ändern" disabled={busy || !currentPassword || newPassword.length < 8} onPress={() => run(async () => { await api("/api/v1/me/password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) }); await clearSession(); setInfo("Dein Passwort ist geändert. Bitte melde dich mit dem neuen Passwort an. Alle Geräte wurden abgemeldet."); })} />
+    </Card>
+    <Card><Text style={styles.title}>Deine Daten</Text><Text style={styles.muted}>Lade eine Kopie deiner bei LieferDank gespeicherten Daten herunter.</Text><Button title="Datenexport erstellen" subtle disabled={busy} onPress={() => run(exportData)} /></Card>
+    <Button title="Abmelden" subtle disabled={busy} onPress={() => run(logout)} />
+    {role !== "admin" && <Card><Text style={styles.title}>Konto löschen</Text><Text style={styles.muted}>Gib zur Bestätigung dein Passwort ein. Das Löschen lässt sich nicht rückgängig machen.</Text>
+      <Field label="Passwort" value={deletePassword} onChangeText={setDeletePassword} secureTextEntry autoCapitalize="none" textContentType="password" autoComplete="current-password" />
+      <Button title="Konto löschen" danger disabled={busy} onPress={confirmDelete} /></Card>}
+  </>;
+
+  return <SafeAreaView style={styles.page} edges={["top", "left", "right"]}><StatusBar style="dark" />
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 56 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }} accessible accessibilityRole="header" accessibilityLabel="LieferDank"><BrandMark size={34} /><Text style={{ fontSize: 22, fontWeight: "800", color: colors.navy, letterSpacing: -0.5 }}>Liefer<Text style={{ color: colors.coral }}>Dank</Text></Text></View>
+        {token && role === "driver" && <Pressable accessibilityRole="button" accessibilityLabel="Einstellungen" onPress={() => setScreen("settings")} style={{ padding: 10 }}><Ionicons name="settings-outline" size={24} color={colors.navy} /></Pressable>}
+      </View>
+      <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body} refreshControl={token ? <RefreshControl refreshing={busy} onRefresh={() => run(refresh)} tintColor={colors.blue} /> : undefined}>
+        {error ? <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ gap: 8 }}><Text style={styles.error}>{error}</Text>{token && <Button title="Erneut versuchen" subtle disabled={busy} onPress={() => run(refresh)} />}</View> : null}
+        {info ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{info}</Text> : null}
+        {!token ? authScreen : !role ? <Loading label="Dein Konto wird geladen …" /> : <>
+          {role === "driver" && driverScreens}
+          {role === "customer" && customerScreens}
+          {role === "admin" && adminScreen}
+          {settingsScreen}
+        </>}
+        {(!token || screen === "settings") && <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", columnGap: 4, marginTop: 4 }}>
+          {legalPages.map(([label, path]) => <TextLink key={path} small title={label} onPress={() => openLegal(path)} />)}
+        </View>}
+      </ScrollView>
+      {token && role && <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "white", borderTopWidth: 1, borderTopColor: colors.line }}><View style={{ flexDirection: "row" }}>
+        {tabs.map(t => { const active = screen === t.screen || (t.screen === "settings" && screen === "settings"); return <Pressable key={t.screen} accessibilityRole="tab" accessibilityLabel={t.label} accessibilityState={{ selected: active }} onPress={() => { setScreen(t.screen); setError(""); setInfo(""); }} style={({ pressed }) => ({ flex: 1, minHeight: 56, alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 6, opacity: pressed ? 0.7 : 1 })}>
+          <Ionicons name={active ? (t.icon.replace("-outline", "") as keyof typeof Ionicons.glyphMap) : t.icon} size={23} color={active ? colors.blue : colors.muted} accessible={false} importantForAccessibility="no-hide-descendants" />
+          <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: "600", color: active ? colors.blue : colors.muted }}>{t.label}</Text></Pressable>; })}
+      </View></SafeAreaView>}
+    </KeyboardAvoidingView></SafeAreaView>;
 }

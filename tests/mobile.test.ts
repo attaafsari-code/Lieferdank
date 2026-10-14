@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { freshDb, makeDriver, makeCustomer } from "./helpers";
+import { freshDb, makeDriver } from "./helpers";
 import { getDb } from "@/lib/db";
 import { getBearerSession, signSessionToken } from "@/server/session";
 import { mobileLogin, mobileLogout, changeMobilePassword } from "@/server/services/mobile";
@@ -73,7 +73,7 @@ describe("Confirmed push, deduplication and logout",()=>{
     await checkPushReceipts(fetcher);expect(await getDb().pushDeliveries.count({where:{status:"delivered"}})).toBe(100);
     await checkPushReceipts(fetcher);expect(await getDb().pushDeliveries.count({where:{status:"delivered"}})).toBe(101);
   });
-  it("confirmed payment uses exact gross amount and queues once across retries",async()=>{const d=await ready();const payment=await startTip(d.driver.code,300,null);await confirmPayment(payment.paymentId,{providerIntentId:"pi_mobile",method:"card"});await collectPushEvents();await collectPushEvents();const rows=await getDb().pushDeliveries.findMany();expect(rows).toHaveLength(1);expect(rows[0].body).toContain("3 €");const earnings=await earningsRoute(req("/api/v1/me/earnings",d.token),ctx);expect((await earnings.json()).items[0].shareBeforeStripeCents).toBe(240);});
+  it("confirmed payment uses exact gross amount and queues once across retries",async()=>{const d=await ready();const payment=await startTip(d.driver.code,300,null);await confirmPayment(payment.paymentId,{providerIntentId:"pi_mobile",method:"card"});await collectPushEvents();await collectPushEvents();const rows=(await getDb().pushDeliveries.findMany()).filter(r=>r.screen==="earnings");expect(rows).toHaveLength(1);expect(rows[0].body).toContain("3 €");expect(await getDb().pushDeliveries.count()).toBe(1);const earnings=await earningsRoute(req("/api/v1/me/earnings",d.token),ctx);expect((await earnings.json()).items[0].shareBeforeStripeCents).toBe(240);});
 });
 
 describe("Native paging and deletion",()=>{

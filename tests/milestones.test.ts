@@ -8,7 +8,9 @@ describe("Meilensteine", () => {
     expect(nextThankYouMilestone(1)).toBe(10);
     expect(nextThankYouMilestone(9)).toBe(10);
     expect(nextThankYouMilestone(10)).toBe(50);
-    expect(nextThankYouMilestone(1000)).toBeNull();
+    expect(nextThankYouMilestone(1000)).toBe(2000);
+    expect(nextThankYouMilestone(4999)).toBe(5000);
+    expect(nextThankYouMilestone(10000)).toBeNull();
   });
   it("vergibt nichts ohne Danke", () => {
     expect(reachedMilestones({ thankYouCount: 0, streakDays: 0, tipCount: 0, receivedCents: 0 })).toEqual([]);

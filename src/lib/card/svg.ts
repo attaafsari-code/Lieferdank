@@ -116,15 +116,14 @@ function embedQr(qrSvg: string, x: number, y: number, size: number): string {
 }
 
 function logoMark(x: number, y: number, size: number, onDark: boolean): string {
+  // Same mark as web and app: all-blue parcel (white on dark cards), heart without a rim.
   const lines = onDark ? "rgba(255,255,255,0.6)" : COLORS.brand400;
-  const box = onDark ? COLORS.white : COLORS.brand900;
-  const inner = onDark ? "rgba(255,255,255,0.75)" : COLORS.brand;
-  const heartStroke = onDark ? COLORS.brand : COLORS.white;
-  return `<svg x="${x}" y="${y}" width="${size}" height="${size}" viewBox="0 0 40 40">
-<g stroke="${lines}" stroke-width="2.6" stroke-linecap="round"><line x1="2" y1="12.5" x2="9" y2="12.5"/><line x1="1" y1="19.5" x2="7" y2="19.5"/><line x1="3" y1="26.5" x2="9" y2="26.5"/></g>
-<path d="M13.5 11.5 23.5 6.5l10 5v12l-10 5-10-5z" fill="none" stroke="${box}" stroke-width="2.8" stroke-linejoin="round"/>
-<path d="M13.5 11.5 23.5 16.5l10-5M23.5 16.5v12" fill="none" stroke="${inner}" stroke-width="2.2" stroke-linejoin="round"/>
-<path d="M24.6 27.6c0-2.1 1.7-3.6 3.5-3.6 1.05 0 2 .5 2.55 1.3.55-.8 1.5-1.3 2.55-1.3 1.8 0 3.5 1.5 3.5 3.6 0 3.2-4.35 5.95-6.05 7-1.7-1.05-6.05-3.8-6.05-7z" fill="${COLORS.coral}" stroke="${heartStroke}" stroke-width="2.2"/>
+  const box = onDark ? COLORS.white : COLORS.brand;
+  return `<svg x="${x}" y="${y}" width="${size}" height="${size}" viewBox="-1 -2.5 45 45">
+<g stroke="${lines}" stroke-width="2.6" stroke-linecap="round"><line x1="2" y1="13" x2="9" y2="13"/><line x1="1" y1="20" x2="7" y2="20"/><line x1="3" y1="27" x2="9" y2="27"/></g>
+<path d="M13.5 12 23.5 7l10 5v12l-10 5-10-5z" fill="none" stroke="${box}" stroke-width="2.8" stroke-linejoin="round"/>
+<path d="M13.5 12 23.5 17l10-5M23.5 17v12" fill="none" stroke="${box}" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M28 27.4c0-2.55 2-4.35 4.2-4.35 1.3 0 2.45.6 3.1 1.55.65-.95 1.8-1.55 3.1-1.55 2.2 0 4.2 1.8 4.2 4.35 0 3.9-5.25 7.2-7.3 8.5-2.05-1.3-7.3-4.6-7.3-8.5z" fill="${COLORS.coral}"/>
 </svg>`;
 }
 

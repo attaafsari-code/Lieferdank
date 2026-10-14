@@ -8,6 +8,7 @@ import { deviceId } from "./mobile";
 import { parseInput } from "./auth";
 import { ServiceError } from "../errors";
 import { logEvent } from "../events";
+import { describeMilestone } from "@/lib/milestone-rules";
 
 export async function registerPush(session: Session, input: unknown) {
   const value = parseInput(z.object({ token: z.string().max(250).regex(/^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]+\]$/), enabled: z.boolean() }), input);
@@ -47,6 +48,11 @@ export async function collectPushEvents() {
     const thanks = await db.thankYous.findMany({ where: { driverId: driver.id, tipId: null }, since: { field: "createdAt", value: device.createdAt } });
     for (const thank of thanks)
       await queuePush(device, { eventKey: `thanks:${thank.id}`, title: "LieferDank", body: thank.message ? "❤️ Du hast eine neue Nachricht erhalten" : "❤️ Du hast ein neues Danke erhalten", screen: "thanks" });
+    // Milestones are persisted once per driver/type/value; the event key keeps the push at most once per device.
+    const milestones = await db.milestones.findMany({ where: { driverId: driver.id }, since: { field: "achievedAt", value: device.createdAt } });
+    // Small first steps already arrive as the tip/thanks push itself; only the big ones get their own push.
+    for (const milestone of milestones.filter(m => (m.type === "thank_you_count" && m.value >= 100) || m.type === "received_cents"))
+      await queuePush(device, { eventKey: `milestone:${milestone.id}`, title: "Meilenstein erreicht", body: `${describeMilestone(milestone.type, milestone.value).emoji} ${describeMilestone(milestone.type, milestone.value).title}`, screen: "thanks" });
   }
 }
 export async function deliverPush(fetcher: typeof fetch = fetch) {
