@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "../guards";
 import { logAdminAction, regenerateCode, reviewBadge, setProviderVerified, setUserBlocked } from "../services/admin";
 import { updateCardOrderStatus } from "../services/cards";
+import { resolveReport } from "../services/moderation";
 import { refundTip } from "../services/refunds";
 import { formAction, type FormState } from "./form-state";
 import type { CardOrderStatus } from "@/lib/db/types";
@@ -78,6 +79,16 @@ export async function refundTipAction(
   return formAction(async () => {
     const { user } = await requireAdmin();
     await refundTip(user, tipId, { amountCents, expectedRefundedCents, reason });
+    refresh();
+  });
+}
+
+/** Gemeldete Nachricht erledigen: Meldung schließen, gemeldeter Text wird dabei gelöscht. */
+export async function resolveMessageReportAction(reportId: string): Promise<FormState> {
+  return formAction(async () => {
+    const { user } = await requireAdmin();
+    await resolveReport(reportId);
+    await logAdminAction(user, reportId, "message_report_resolved");
     refresh();
   });
 }

@@ -5,10 +5,10 @@ import { ipFromHeaders } from "../rate-limit";
 import { formatReceivedAt, submitLegalRequest, type LegalRequestKind } from "../services/legal-requests";
 import { formAction, type FormState } from "./form-state";
 
-export type LegalFormState = FormState & { receivedAt?: string; lines?: string[] };
+export type LegalFormState = FormState & { receivedAt?: string; lines?: string[]; receiptSent?: boolean };
 
 async function submit(kind: LegalRequestKind, formData: FormData): Promise<LegalFormState> {
-  let result: { receivedAt: string; lines: string[] } | null = null;
+  let result: { receivedAt: string; lines: string[]; receiptSent?: boolean } | null = null;
   const state = await formAction(async () => {
     // Unsichtbares Feld: Wer es ausfüllt, ist ein Bot – keine Mail, aber auch kein Hinweis darauf.
     if (String(formData.get("website") ?? "") !== "") {
@@ -18,7 +18,7 @@ async function submit(kind: LegalRequestKind, formData: FormData): Promise<Legal
     const raw = Object.fromEntries([...formData.entries()].filter(([key]) => key !== "website"));
     result = await submitLegalRequest(kind, raw, ipFromHeaders(await headers()));
   });
-  return result ? { ...state, ...(result as { receivedAt: string; lines: string[] }) } : state;
+  return result ? { ...state, ...(result as { receivedAt: string; lines: string[]; receiptSent?: boolean }) } : state;
 }
 
 export async function contactAction(_prev: LegalFormState, formData: FormData): Promise<LegalFormState> {

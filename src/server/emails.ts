@@ -108,6 +108,19 @@ export const emails = {
     );
   },
 
+  newsletterConfirm(firstName: string, link: string): MailContent {
+    return mail(
+      "Bitte bestätige deine Newsletter-Anmeldung",
+      "Ein Klick, dann bekommst du Neuigkeiten von Lieferdank",
+      "Newsletter bestätigen",
+      [
+        { kind: "p", text: `Hallo ${firstName || "du"}, du hast dich für Neuigkeiten von Lieferdank angemeldet. Bitte bestätige das mit einem Klick.` },
+        { kind: "button", label: "Anmeldung bestätigen", href: link },
+        { kind: "note", text: "Ohne Bestätigung schicken wir dir keinen Newsletter. Abmelden kannst du dich jederzeit in deinen Einstellungen." },
+      ],
+    );
+  },
+
   passwordReset(firstName: string, link: string, ttlMinutes: number): MailContent {
     return mail(
       "Neues Passwort für Lieferdank",

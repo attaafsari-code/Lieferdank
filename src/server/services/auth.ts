@@ -62,7 +62,7 @@ async function assertEmailFree(address: string): Promise<void> {
 
 /* ---------- Registrierung ---------- */
 
-export async function registerDriver(input: z.infer<typeof driverRegistrationSchema>): Promise<User> {
+export async function registerDriver(input: z.infer<typeof driverRegistrationSchema>): Promise<User & { welcomeMailSent: boolean }> {
   await assertEmailFree(input.email);
   const now = new Date().toISOString();
   const db = getDb();
@@ -99,11 +99,11 @@ export async function registerDriver(input: z.infer<typeof driverRegistrationSch
     throw error;
   }
 
-  await sendMail(user.email, emails.welcomeDriver(user.firstName, driver.code, `${baseUrl()}/dashboard`, await emailVerificationLink(user)), "welcome_driver");
-  return user;
+  const mail = await sendMail(user.email, emails.welcomeDriver(user.firstName, driver.code, `${baseUrl()}/dashboard`, await emailVerificationLink(user)), "welcome_driver");
+  return { ...user, welcomeMailSent: mail.delivered };
 }
 
-export async function registerCustomer(input: z.infer<typeof customerRegistrationSchema>): Promise<User> {
+export async function registerCustomer(input: z.infer<typeof customerRegistrationSchema>): Promise<User & { welcomeMailSent: boolean }> {
   await assertEmailFree(input.email);
   const now = new Date().toISOString();
   const db = getDb();
@@ -134,8 +134,8 @@ export async function registerCustomer(input: z.infer<typeof customerRegistratio
     await addFavoriteByCode(user.id, input.saveCode).catch(() => undefined);
   }
 
-  await sendMail(user.email, emails.welcomeCustomer(user.firstName, `${baseUrl()}/konto`, await emailVerificationLink(user)), "welcome_customer");
-  return user;
+  const mail = await sendMail(user.email, emails.welcomeCustomer(user.firstName, `${baseUrl()}/konto`, await emailVerificationLink(user)), "welcome_customer");
+  return { ...user, welcomeMailSent: mail.delivered };
 }
 
 /* ---------- Anmeldung ---------- */

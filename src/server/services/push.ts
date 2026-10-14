@@ -10,7 +10,13 @@ import { ServiceError } from "../errors";
 import { logEvent } from "../events";
 import { describeMilestone } from "@/lib/milestone-rules";
 
+/** Push only runs when the app API and the push sender are both switched on (PUSH_ENABLED requires APNs credentials in EAS). */
+export function pushAvailable(): boolean {
+  return process.env.DRIVER_APP_ENABLED === "true" && process.env.PUSH_ENABLED === "true";
+}
+
 export async function registerPush(session: Session, input: unknown) {
+  if (!pushAvailable()) throw new ServiceError("push_unavailable", "Mitteilungen sind in dieser Version noch nicht verfügbar.", 503);
   const value = parseInput(z.object({ token: z.string().max(250).regex(/^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]+\]$/), enabled: z.boolean() }), input);
   const id = deviceId(session);
   // Do not let another account take over a still-active device token.

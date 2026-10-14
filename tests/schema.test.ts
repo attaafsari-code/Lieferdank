@@ -43,7 +43,7 @@ const KEYS: { [K in TableName]: Keys<Tables[K]> } = {
     currency: true, paymentStatus: true,
     payoutStatus: true, payoutId: true, destinationAccountId: true, createdAt: true,
   },
-  thankYous: { id: true, driverId: true, tipId: true, customerId: true, freeDay: true, visitorHash: true, presetId: true, message: true, createdAt: true },
+  thankYous: { id: true, driverId: true, tipId: true, customerId: true, freeDay: true, visitorHash: true, presetId: true, message: true, senderKey: true, createdAt: true },
   payouts: {
     id: true, driverId: true, amountCents: true, transferredCents: true, feeCents: true, status: true, provider: true,
     providerTransferId: true, tipIds: true, failureReason: true, createdAt: true, completedAt: true,
@@ -55,6 +55,9 @@ const KEYS: { [K in TableName]: Keys<Tables[K]> } = {
   scans: { id: true, driverId: true, createdAt: true },
   passwordResets: { id: true, userId: true, tokenHash: true, expiresAt: true, usedAt: true, createdAt: true },
   systemEvents: { id: true, level: true, source: true, message: true, context: true, createdAt: true },
+  blockedSenders: { id: true, driverId: true, senderKey: true, createdAt: true },
+  messageReports: { id: true, thankYouId: true, driverId: true, message: true, status: true, createdAt: true, resolvedAt: true },
+  marketingConsents: { id: true, userId: true, status: true, source: true, requestedAt: true, confirmedAt: true, revokedAt: true },
 };
 
 const toSnake = (key: string) => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);

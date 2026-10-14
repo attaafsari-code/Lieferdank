@@ -165,7 +165,24 @@ export type ThankYou = {
   visitorHash?: string | null;
   presetId: string | null;
   message: string | null;
+  /** Pro Zusteller stabiler, pseudonymer Absenderschlüssel; nur bei Nachrichten, nur zum Blockieren. */
+  senderKey?: string | null;
   createdAt: string;
+};
+
+/** Ein Zusteller blockiert künftige Nachrichten eines (pseudonymen) Absenders. */
+export type BlockedSender = { id: string; driverId: string; senderKey: string; createdAt: string };
+
+/** Vom Zusteller gemeldete Nachricht; der Text bleibt für die Prüfung durch den Betreiber erhalten. */
+export type MessageReport = {
+  id: string; thankYouId: string | null; driverId: string; message: string | null;
+  status: "open" | "resolved"; createdAt: string; resolvedAt: string | null;
+};
+
+/** Freiwillige Newsletter-Einwilligung mit Double-Opt-in; getrennt von Systemnachrichten. */
+export type MarketingConsent = {
+  id: string; userId: string; status: "pending" | "confirmed" | "revoked"; source: "web" | "app";
+  requestedAt: string; confirmedAt: string | null; revokedAt: string | null;
 };
 
 export type Payout = {
@@ -311,6 +328,9 @@ export type Tables = {
   scans: Scan;
   passwordResets: PasswordReset;
   systemEvents: SystemEvent;
+  blockedSenders: BlockedSender;
+  messageReports: MessageReport;
+  marketingConsents: MarketingConsent;
 };
 
 export type TableName = keyof Tables;
@@ -336,6 +356,9 @@ export const TABLE_NAMES: TableName[] = [
   "scans",
   "passwordResets",
   "systemEvents",
+  "blockedSenders",
+  "messageReports",
+  "marketingConsents",
 ];
 
 export function emptyDatabase(): Database {

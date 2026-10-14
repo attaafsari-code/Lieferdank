@@ -14,7 +14,8 @@ import { logEvent, errorMessage } from "../events";
 import { driverPublicName, findReceivingDriver } from "./drivers";
 import { refreshMilestones } from "./milestones";
 import { dayKey } from "@/lib/time";
-import { dailyVisitorHash } from "../visitor";
+import { dailyVisitorHash, senderKey } from "../visitor";
+import { isBlockedSender, screenMessage } from "./moderation";
 import { rateLimit } from "../rate-limit";
 
 /**
@@ -398,6 +399,7 @@ export async function attachMessage(
   presetId: string | null,
   message: string | null,
   grants: readonly string[],
+  visitor: string | null = null,
 ): Promise<void> {
   const db = getDb();
   // Ohne Schreibrecht dieselbe Antwort wie bei einer unbekannten ID: verrät nicht, ob es das Danke gibt.
@@ -413,11 +415,14 @@ export async function attachMessage(
   if (thankYou.presetId || thankYou.message) return;
 
   const preset = presetById(presetId);
-  const trimmed = (message ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_CUSTOM_MESSAGE_LENGTH);
+  const trimmed = screenMessage((message ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_CUSTOM_MESSAGE_LENGTH));
   if (!preset && !trimmed) return;
+  const key = trimmed && visitor ? senderKey(visitor, thankYou.driverId) : null;
+  // Blocked senders get the same answer as everyone else, but nothing reaches the driver.
+  if (trimmed && await isBlockedSender(thankYou.driverId, key)) return;
 
   // Genau einmal, auch bei gleichzeitigen Anfragen: geschrieben wird nur, solange noch nichts steht.
-  await db.thankYous.updateIf(thankYou.id, { presetId: null, message: null }, { presetId: preset?.id ?? null, message: trimmed || null });
+  await db.thankYous.updateIf(thankYou.id, { presetId: null, message: null }, { presetId: preset?.id ?? null, message: trimmed || null, ...(key ? { senderKey: key } : {}) });
 }
 
 /** Der Zusteller entfernt eine Nachricht aus seinem Dashboard. Das Danke bleibt bestehen. */

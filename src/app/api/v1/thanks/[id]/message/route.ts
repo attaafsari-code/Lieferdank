@@ -2,6 +2,7 @@ import { z } from "zod";
 import { api, readJson } from "@/server/api/handler";
 import { attachMessage } from "@/server/services/thanks";
 import { readMessageGrant } from "@/server/message-grant";
+import { visitorFromRequest } from "@/server/visitor";
 
 const body = z.object({
   presetId: z.string().nullable().optional(),
@@ -12,6 +13,6 @@ const body = z.object({
 
 export const POST = api<{ id: string }>({ rateLimit: { key: "api-message", limit: 20, windowMs: 60_000 } }, async ({ request, params }) => {
   const { presetId, message, messageToken } = body.parse(await readJson(request));
-  await attachMessage(params.id, presetId ?? null, message ?? null, await readMessageGrant(messageToken));
+  await attachMessage(params.id, presetId ?? null, message ?? null, await readMessageGrant(messageToken), visitorFromRequest(request).id);
   return { ok: true };
 });

@@ -44,7 +44,11 @@ function Receipt({ title, state, note }: { title: string; state: LegalFormState;
           {state.lines.map((line) => <li key={line}>{line}</li>)}
         </ul>
       )}
-      <p className="mt-3 text-sm text-ink-soft">{note}</p>
+      <p className="mt-3 text-sm text-ink-soft">
+        {state.receiptSent === false
+          ? "Die Eingangsbestätigung per E-Mail konnte gerade nicht verschickt werden. Bitte drucke oder speichere diese Bestätigung."
+          : note}
+      </p>
       <button type="button" onClick={() => window.print()} className="btn btn-ghost btn-sm mt-4 no-print">
         Bestätigung drucken oder als PDF speichern
       </button>

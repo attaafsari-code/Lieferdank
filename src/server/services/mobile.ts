@@ -45,11 +45,13 @@ export async function mobileRegister(input: unknown) {
   if (raw.role === "customer") {
     const body = parseInput(customerRegistrationSchema.extend({ acceptedTerms: z.literal(true) }), { ...raw, saveCode: undefined, terms });
     enforceRateLimitFor(`mobile-register-email:${body.email}`, 3, 3600000);
-    return createMobileSession(await registerCustomer(body));
+    const user = await registerCustomer(body);
+    return { ...await createMobileSession(user), mailSent: user.welcomeMailSent };
   }
   const body = parseInput(driverRegistrationSchema.extend({ acceptedTerms: z.literal(true) }), { ...raw, terms });
   enforceRateLimitFor(`mobile-register-email:${body.email}`, 3, 3600000);
-  return createMobileSession(await registerDriver(body));
+  const user = await registerDriver(body);
+  return { ...await createMobileSession(user), mailSent: user.welcomeMailSent };
 }
 export function deviceId(session: Session): string {
   if (!session.mobileSessionId) throw new ServiceError("device_session_required", "Bitte melde dich in der App erneut an.", 401);
