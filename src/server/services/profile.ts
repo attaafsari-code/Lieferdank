@@ -192,7 +192,7 @@ export async function deleteAccount(user: User): Promise<void> {
     await db.marketingConsents.remove(consent.id);
   }
 
-  if (user.role === "customer") {
+  if (await db.customerProfiles.findOne({ userId: user.id })) {
     const [favorites, tips, thankYous] = await Promise.all([
       db.driverFavorites.findMany({ where: { customerId: user.id } }),
       db.tips.findMany({ where: { customerId: user.id } }),

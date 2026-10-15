@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCustomer } from "../guards";
-import { destroySession } from "../session";
+import { destroySession, getSession } from "../session";
+import { enableDriver } from "../services/roles";
+import { enforceRateLimit } from "../rate-limit";
 import { removeFavorite, renameFavorite } from "../services/favorites";
 import { deleteAccount } from "../services/profile";
 import { formAction, type FormState } from "./form-state";
@@ -29,4 +31,14 @@ export async function deleteCustomerAccountAction(): Promise<void> {
   await deleteAccount(user);
   await destroySession();
   redirect("/?geloescht=1");
+}
+
+export async function enableDriverAction(_prev: FormState, form: FormData): Promise<FormState> {
+  return formAction(async () => {
+    await enforceRateLimit("enable-driver", 5, 600000);
+    const session = await getSession();
+    if (!session) redirect("/login");
+    await enableDriver(session.user, { firstName: form.get("firstName"), lastName: form.get("lastName"), acceptedTerms: form.get("acceptedTerms") === "on" });
+    redirect("/dashboard");
+  });
 }

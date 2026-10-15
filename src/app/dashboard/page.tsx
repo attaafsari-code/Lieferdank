@@ -2,7 +2,6 @@ import Link from "next/link";
 import { requireDriver } from "@/server/guards";
 import { getDriverStats } from "@/server/services/stats";
 import { cardContext, cardOrdersAvailable } from "@/server/services/cards";
-import { isDemoPayment } from "@/server/payments";
 import { formatDateTime, formatEuro } from "@/lib/format";
 import { effectiveTip } from "@/lib/money";
 import { dativeName } from "@/lib/names";
@@ -10,7 +9,6 @@ import { ArrowRight, Check, Euro, Heart } from "@/components/icons";
 import { CardPreview } from "@/components/card-preview";
 import { EmptyState, MilestoneList, SectionTitle, StatTile, ThankYouList } from "@/components/dashboard-ui";
 import { nextThankYouMilestone } from "@/lib/milestone-rules";
-import { PayoutSetup } from "./einnahmen/payout-setup";
 
 export const dynamic = "force-dynamic";
 
@@ -50,17 +48,9 @@ export default async function DashboardPage({
       </header>
 
       {!driver.payoutReady && (
-        <aside role="status" className="rounded-2xl border border-coral-100 bg-coral-50 px-5 py-4 sm:px-6 sm:py-5">
-          <p className="font-extrabold text-coral-600">Auszahlung noch nicht eingerichtet</p>
-          <p className="mt-1 text-sm leading-relaxed text-coral-600">
-            Richte dein Auszahlungskonto ein, damit du Trinkgelder empfangen kannst. Dein QR-Code und kostenlose Danksagungen funktionieren bereits.
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-coral-600">
-            Stripe ist unser Zahlungs- und Auszahlungspartner. Du brauchst noch kein Stripe-Konto. Die Einrichtung erfolgt im nächsten Schritt direkt bei Stripe.
-          </p>
-          <div className="mt-4 max-w-sm">
-            <PayoutSetup hasAccount={Boolean(driver.payoutAccountId)} ready={false} buttonLabel="Auszahlung einrichten" hints={!isDemoPayment()} />
-          </div>
+        <aside role="status" className="flex flex-col gap-3 rounded-2xl border border-brand-100 bg-brand-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="font-bold text-brand-900">Auszahlungskonto einrichten</p><p className="mt-1 text-sm text-ink-soft">Verbinde dein Bankkonto, damit du Trinkgeld empfangen kannst.</p></div>
+          <Link href="/dashboard/einnahmen#auszahlung" className="btn btn-primary shrink-0">Jetzt einrichten</Link>
         </aside>
       )}
 

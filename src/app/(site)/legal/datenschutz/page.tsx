@@ -120,6 +120,14 @@ export default function PrivacyPage() {
           Erstattungen, Mitteilungen zu einer Kontosperre, einem ersetzten Danke-Code oder einer Abzeichen-Anfrage
           und – abschaltbar – Benachrichtigungen über erhaltene Trinkgelder (Art. 6 Abs. 1 lit. b DSGVO).
         </p>
+        <h3>Newsletter (freiwillig)</h3>
+        <p>
+          Die Newsletter-Anmeldung ist von deinem Konto und den Systemmails unabhängig. Erst nach deiner ausdrücklichen
+          Anmeldung und Bestätigung des E-Mail-Links wird sie aktiv. Wir speichern die Zuordnung zu deinem Konto,
+          den Anmeldeweg (Website oder App), den Status sowie Anmelde-, Bestätigungs- und gegebenenfalls Abmeldezeitpunkt.
+          Du kannst die Anmeldung jederzeit im Konto oder über den Abmeldelink zurücknehmen. Eine Anmeldung löst
+          keinen regelmäßigen Versand aus; derzeit gibt es keinen automatischen Newsletter-Versandjob.
+        </p>
 
         <h3>Kontakt, Meldungen, Widerruf und Kündigung</h3>
         <p>

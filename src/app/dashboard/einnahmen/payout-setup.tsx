@@ -11,7 +11,6 @@ export function PayoutSetup({
   ready,
   buttonLabel,
   manageUrl = null,
-  hints = false,
 }: {
   hasAccount: boolean;
   ready: boolean;
@@ -96,7 +95,7 @@ export function PayoutSetup({
           onClick={() => run(() => startPayoutOnboardingAction({ immediateStart }))}
           className="btn btn-primary flex-1"
         >
-          {pending ? "Einen Moment …" : needsContract ? "Trinkgeld zahlungspflichtig aktivieren" : buttonLabel ?? "Einrichtung fortsetzen"}
+          {pending ? "Einen Moment …" : needsContract ? "Jetzt einrichten" : buttonLabel ?? "Einrichtung fortsetzen"}
         </button>
         {hasAccount && (
           <button type="button" disabled={pending} onClick={() => run(refreshPayoutStatusAction)} className="btn btn-ghost">
@@ -109,27 +108,7 @@ export function PayoutSetup({
           {error}
         </p>
       )}
-      {hints && (
-        <div className="mt-4 text-[0.8125rem] leading-relaxed text-ink-soft">
-          <p className="font-semibold text-ink">Gut zu wissen, bevor es zu Stripe geht</p>
-          <ul className="mt-1.5 list-disc space-y-1 pl-4">
-            <li>
-              Branche, Website und Beschreibung haben wir für dich ausgefüllt. Du musst sie bei Stripe nur bestätigen und
-              nichts daran ändern.
-            </li>
-            <li>
-              Selbst angeben musst du nur Persönliches: Geburtsdatum, Anschrift und Bankverbindung. Manchmal bittet Stripe
-              zusätzlich um ein Ausweisfoto.
-            </li>
-            <li>Hast du keine USt-IdNr., kannst du das Feld leer lassen, solange Stripe es nicht als Pflichtfeld markiert.</li>
-            <li>
-              Soll deine Telefonnummer privat bleiben, achte bei „Öffentliche Details“ auf die Option „Telefonnummer auf Belegen
-              und Rechnungen anzeigen“.
-            </li>
-            <li>Lass die Auszahlung auf „Automatisch“, damit dein Trinkgeld von selbst auf dein Konto kommt.</li>
-          </ul>
-        </div>
-      )}
+
     </div>
   );
 }

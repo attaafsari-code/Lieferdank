@@ -108,7 +108,7 @@ export const emails = {
     );
   },
 
-  newsletterConfirm(firstName: string, link: string): MailContent {
+  newsletterConfirm(firstName: string, link: string, unsubscribeUrl?: string): MailContent {
     return mail(
       "Bitte bestätige deine Newsletter-Anmeldung",
       "Ein Klick, dann bekommst du Neuigkeiten von Lieferdank",
@@ -117,6 +117,7 @@ export const emails = {
         { kind: "p", text: `Hallo ${firstName || "du"}, du hast dich für Neuigkeiten von Lieferdank angemeldet. Bitte bestätige das mit einem Klick.` },
         { kind: "button", label: "Anmeldung bestätigen", href: link },
         { kind: "note", text: "Ohne Bestätigung schicken wir dir keinen Newsletter. Abmelden kannst du dich jederzeit in deinen Einstellungen." },
+        ...(unsubscribeUrl ? [{ kind: "button" as const, label: "Newsletter-Anmeldung zurücknehmen", href: unsubscribeUrl }] : []),
       ],
     );
   },

@@ -91,6 +91,10 @@ function memoryTable<N extends TableName>(name: N): Table<Tables[N]> {
     },
     async insert(row) {
       checkPushToken(row);
+      // Mirror existing PostgreSQL uniqueness rules in deterministic integration tests.
+      const uniqueField = ({ users: "email", driverProfiles: "userId", customerProfiles: "userId", cardDesigns: "driverId", marketingConsents: "userId" } as Record<string, string>)[name];
+      if (uniqueField && rows().some(e => (e as unknown as Record<string, unknown>)[uniqueField] === (row as unknown as Record<string, unknown>)[uniqueField]))
+        throw new Error(`${name}_${uniqueField}_key: duplicate key`);
       if (rows().some((existing) => existing.id === row.id)) {
         throw new Error(`${name}: Zeile ${row.id} existiert bereits`);
       }

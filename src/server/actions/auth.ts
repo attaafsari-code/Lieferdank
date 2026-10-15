@@ -22,6 +22,7 @@ import {
 import { addFavoriteByCode } from "../services/favorites";
 import { formAction, formString, type FormState } from "./form-state";
 import { ServiceError } from "../errors";
+import { getDb } from "@/lib/db";
 
 export async function registerDriverAction(_prev: FormState, formData: FormData): Promise<FormState> {
   return formAction(async () => {
@@ -54,7 +55,7 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
 
     // „Lieferant speichern“ nach der Anmeldung nachholen.
     const saveCode = formString(formData, "saveCode");
-    if (saveCode && user.role === "customer") {
+    if (saveCode && user.role !== "admin" && await getDb().customerProfiles.findOne({ userId: user.id })) {
       await addFavoriteByCode(user.id, saveCode).catch(() => undefined);
       redirect("/konto?gespeichert=1");
     }

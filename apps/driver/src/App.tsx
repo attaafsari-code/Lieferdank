@@ -11,6 +11,8 @@ import * as WebBrowser from "expo-web-browser";
 import * as ImagePicker from "expo-image-picker";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import * as Print from "expo-print";
+import { cardDocument, CARD_PAPER, printWasCancelled } from "./card-document";
 import { useFonts } from "expo-font";
 import { SvgXml } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -42,6 +44,10 @@ function LieferDankApp() {
   const [fontLoaded, fontError] = useFonts({ Jakarta: fontAsset });
   const [token, setToken] = useState<string | null>(null); const tokenRef = useRef<string | null>(null);
   const [me, setMe] = useState<Me["user"] | null>(null);
+  const [viewRole, setViewRole] = useState<Role | null>(null);
+  const [activationOpen, setActivationOpen] = useState(false);
+  const [newsletter, setNewsletter] = useState<{ available: boolean; status: string } | null>(null);
+  const [newsletterOpen, setNewsletterOpen] = useState(false); const [newsletterConsent, setNewsletterConsent] = useState(false);
   const profileDirty = useRef(false); const scrollRef = useRef<ScrollView>(null);
   const [booted, setBooted] = useState(false); const [screen, setScreen] = useState<Screen>("dashboard");
   const [error, setError] = useState(""); const [info, setInfo] = useState(""); const [busy, setBusy] = useState(false); const busyRef = useRef(false);
@@ -57,11 +63,12 @@ function LieferDankApp() {
   const [consent, setConsent] = useState(false); const [pushEnabled, setPushEnabled] = useState(false); const [pushAvailable, setPushAvailable] = useState(false); const [filter, setFilter] = useState("all");
   const [thanksCursor, setThanksCursor] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null); const [lastUpdated, setLastUpdated] = useState("");
-  const role: Role | null = me?.role ?? null;
+  const role: Role | null = me && viewRole && (me.roles ?? [me.role]).includes(viewRole) ? viewRole : me?.role ?? null;
 
   const clearSession = useCallback(async () => {
-    profileDirty.current = false; tokenRef.current = null; setToken(null); setMe(null); setStats(null); setProfile(null); setStripe(null); setQr(null);
+    profileDirty.current = false; tokenRef.current = null; setToken(null); setMe(null); setViewRole(null); setNewsletter(null); setStats(null); setProfile(null); setStripe(null); setQr(null);
     setEarnings([]); setThanks([]); setFavorites(null); setHistory(null); setPassword(""); setCurrentPassword(""); setNewPassword(""); setDeletePassword(""); setPushEnabled(false);
+    setNewsletterConsent(false); setNewsletterOpen(false); setAcceptedTerms(false); setActivationOpen(false);
     await SecureStore.deleteItemAsync(SESSION_KEY);
   }, []);
   const api = useCallback(async <T,>(path: string, init?: RequestInit) => {
@@ -73,17 +80,30 @@ function LieferDankApp() {
     const account = (await api<Me>("/api/v1/me")).user;
     if (active !== tokenRef.current) return;
     setMe(account);
-    if (account.role === "driver") {
+    if ((account.roles ?? [account.role]).includes("driver")) {
       const values = await Promise.all([api<Stats>("/api/v1/me/stats"), api<Profile>("/api/v1/me/profile"), api<StripeStatus>("/api/v1/me/stripe"), api<{ items: Earning[]; nextCursor: string | null }>("/api/v1/me/earnings"), api<{ items: Thank[]; nextCursor: string | null }>("/api/v1/me/thanks"), api<{ enabled: boolean; available?: boolean }>("/api/v1/me/push")]);
       if (active !== tokenRef.current) return;
       setStats(values[0]); if (!profileDirty.current) setProfile(values[1]); setStripe(values[2]); setEarnings(values[3].items); setNextCursor(values[3].nextCursor); setThanks(values[4].items); setThanksCursor(values[4].nextCursor); setPushEnabled(values[5].enabled); setPushAvailable(values[5].available === true);
-    } else if (account.role === "customer") {
+    }
+    if ((account.roles ?? [account.role]).includes("customer")) {
       const [saved, given] = await Promise.all([api<{ favorites: Favorite[] }>("/api/v1/me/favorites"), api<History>("/api/v1/me/history")]);
       if (active !== tokenRef.current) return;
       setFavorites(saved.favorites); setHistory(given);
     }
     setLastUpdated(new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }));
+    const preference = await api<{ available: boolean; status: string }>("/api/v1/me/newsletter");
+    if (active === tokenRef.current) setNewsletter(preference);
   }, [api]);
+  useEffect(() => {
+    if (!me?.id) return;
+    const id = me.id;
+    SecureStore.getItemAsync(`lieferdank.view.${id}`).then(value => { if (value === "driver" || value === "customer") setViewRole(value); }).catch(() => undefined);
+  }, [me?.id]);
+  async function switchRole(value: Role) {
+    if (!me || !(me.roles ?? [me.role]).includes(value)) return;
+    await SecureStore.setItemAsync(`lieferdank.view.${me.id}`, value, secureOptions);
+    setViewRole(value); setScreen(homeFor[value]); setInfo(""); setError("");
+  }
   async function run(action: () => Promise<void>) {
     if (busyRef.current) return; busyRef.current = true; setBusy(true); setError(""); setInfo("");
     try { await action(); } catch (e) { setError(e instanceof Error ? e.message : "Bitte versuche es erneut."); } finally { busyRef.current = false; setBusy(false); }
@@ -197,6 +217,20 @@ function LieferDankApp() {
     if (!qr) return; const file = new File(Paths.cache, "lieferdank-qr.png"); file.write(qr.qrPng.split(",")[1], { encoding: "base64" });
     if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: "image/png", dialogTitle: "Dein LieferDank-Code", UTI: "public.png" }); else await Share.share({ message: driverThankUrl(qr.code) });
   }
+  async function exportCard(print: boolean) {
+    if (!qr) return;
+    const result = await Print.printToFileAsync({ html: cardDocument(qr.cardSvg), ...CARD_PAPER, margins: { top: 0, right: 0, bottom: 0, left: 0 } });
+    if (result.numberOfPages !== 1) throw new Error("Das Kartenformat konnte nicht erstellt werden. Bitte versuche es erneut.");
+    if (print) {
+      try { await Print.printAsync({ uri: result.uri }); }
+      catch (error) { if (!printWasCancelled(error)) throw new Error("Die Karte konnte nicht gedruckt werden. Bitte prüfe deinen Drucker und versuche es erneut."); }
+    }
+    else {
+      const file = new File(Paths.cache, `LieferDank-Karte-${qr.code}-${Date.now()}.pdf`); new File(result.uri).copy(file);
+      if (!await Sharing.isAvailableAsync()) throw new Error("Das Teilen-Menü ist gerade nicht verfügbar.");
+      await Sharing.shareAsync(file.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf", dialogTitle: "Karte speichern oder teilen" });
+    }
+  }
   async function exportData() {
     const data = await api("/api/v1/me/export"); const file = new File(Paths.cache, "lieferdank-datenexport.json");
     file.write(JSON.stringify(data, null, 2)); await Sharing.shareAsync(file.uri, { mimeType: "application/json", UTI: "public.json" }); file.delete();
@@ -258,6 +292,7 @@ function LieferDankApp() {
   const driverScreens = <>
     {screen === "dashboard" && <>
       <Text style={styles.heading}>Hallo {profile?.firstName || me?.firstName || ""}</Text>
+      {stripe && !stripe.ready && <View style={{ borderRadius: 16, backgroundColor: colors.soft, padding: 16, gap: 8 }}><Text style={styles.title}>Auszahlungskonto einrichten</Text><Text style={styles.muted}>Verbinde dein Bankkonto, damit du Trinkgeld empfangen kannst.</Text><Button title="Jetzt einrichten" onPress={() => setScreen("stripe")} /></View>}
       {verifiedBanner}
       {!stats ? <Loading /> : <>
         <View style={{ flexDirection: "row", gap: 12 }}>
@@ -271,7 +306,6 @@ function LieferDankApp() {
           <TextLink title="Alle Einnahmen ansehen" align="flex-start" onPress={() => setScreen("earnings")} /></Card>
         <Card><Text style={styles.title}>Letzte Nachrichten</Text>{thanks.slice(0, 3).map(t => <Text key={t.id} style={styles.text}>{t.message || "❤️ Danke für deinen Einsatz"}</Text>)}{!thanks.length && <Text style={styles.muted}>Dein erstes Danke wartet auf dich.</Text>}</Card>
       </>}
-      {stripe && !stripe.ready && <Card><Text style={[styles.title, { color: colors.danger }]}>Auszahlung noch nicht eingerichtet</Text><Text style={styles.text}>Richte dein Auszahlungskonto ein, damit du Trinkgeld empfangen kannst. Dein QR-Code und kostenlose Danksagungen funktionieren schon.</Text><Button title="Auszahlung einrichten" onPress={() => setScreen("stripe")} /></Card>}
       {lastUpdated ? <Text style={[styles.muted, { textAlign: "center" }]}>Aktualisiert um {lastUpdated} Uhr</Text> : null}
     </>}
     {screen === "earnings" && <><Text style={styles.heading}>Einnahmen</Text><Text style={styles.muted}>Dein Trinkgeld nach der LieferDank-Gebühr. Den tatsächlich ausgezahlten Betrag siehst du in deinem Stripe-Konto.</Text>
@@ -297,9 +331,11 @@ function LieferDankApp() {
         <Card><Text style={[styles.title, { textAlign: "center" }]}>{profile?.customName || profile?.firstName}</Text><View style={{ alignItems: "center" }}><SvgXml xml={qr.qrSvg} width="100%" height={260} accessibilityLabel="Dein persönlicher LieferDank-QR-Code" /></View>
           <Text style={[styles.title, { textAlign: "center", letterSpacing: 1 }]}>{qr.code}</Text><Text style={[styles.muted, { textAlign: "center" }]}>Keine App nötig · Trinkgeld freiwillig</Text></Card>
         <Text style={styles.muted}>Kunden scannen den Code und landen auf deiner Danke-Seite.</Text>
-        <Card><Text style={styles.title}>So sieht deine Karte aus</Text><CardPreview qrSvg={qr.qrSvg} code={qr.code} headline={qr.card?.headline ?? "Danke für deine Wertschätzung"} name={qr.card?.publicName ?? profile?.customName ?? profile?.firstName ?? ""} QrView={SvgXml} /><Text style={styles.muted}>Druckvorlage und Kartenbestellung findest du auf lieferdank.de im Dashboard.</Text></Card>
+        <Card><Text style={styles.title}>So sieht deine Karte aus</Text><CardPreview qrSvg={qr.qrSvg} code={qr.code} headline={qr.card?.headline ?? "Danke für deine Wertschätzung"} name={qr.card?.publicName ?? profile?.customName ?? profile?.firstName ?? ""} QrView={SvgXml} /><Text style={styles.muted}>Kostenlose digitale Druckvorlage: Karte in Originalgröße auf einer A4-Seite.</Text></Card>
+        <Button title="Karte als PDF speichern / teilen" disabled={busy} onPress={() => run(() => exportCard(false))} />
+        <Button title="Karte drucken (AirPrint)" subtle disabled={busy} onPress={() => run(() => exportCard(true))} />
         <Button title="QR-Code teilen oder speichern" disabled={busy} onPress={() => run(shareQr)} />
-        <View style={{ flexDirection: "row", gap: 10 }}><View style={{ flex: 1 }}><Button subtle title="Link teilen" onPress={() => run(async () => { await Share.share({ message: driverThankUrl(qr.code) }); })} /></View><View style={{ flex: 1 }}><Button subtle title="Seite ansehen" onPress={() => run(() => openBrowser(driverThankUrl(qr.code)))} /></View></View>
+        <View style={{ flexDirection: "row", gap: 10 }}><View style={{ flex: 1 }}><Button subtle title="Link teilen" onPress={() => run(async () => { await Share.share({ message: driverThankUrl(qr.code) }); })} /></View><View style={{ flex: 1 }}><Button subtle title="Seite ansehen" onPress={() => run(() => openBrowser(`${driverThankUrl(qr.code)}?vorschau=1`))} /></View></View>
       </>}</>}
     {screen === "profile" && <><View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><Text style={styles.heading}>Dein Profil</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="Informationen zum öffentlichen Profil" onPress={() => Alert.alert("Dein öffentliches Profil", "Anzeigename, kurzer Satz und persönlicher Text erscheinen auf deiner Danke-Seite. Dein Foto nur, wenn du es freigibst. Nachname, E-Mail und Telefonnummer bleiben privat.")} style={{ padding: 10 }}><Ionicons name="information-circle-outline" size={26} color={colors.blue} /></Pressable></View>
@@ -331,7 +367,7 @@ function LieferDankApp() {
       {stripe.ready ? <Button title="Stripe-Konto öffnen" onPress={() => run(() => openBrowser("https://dashboard.stripe.com/login"))} /> : <>
         {!stripe.connected && <><Text style={styles.muted}>LieferDank behält je Trinkgeld {Object.entries(stripe.applicationFees).map(([amount, fee]) => `${euro(fee)} bei ${euro(Number(amount))}`).join(", ")}. Die Kosten von Stripe kommen separat hinzu. Unbefristet und jederzeit kündbar; 14 Tage Widerrufsrecht laut AGB.</Text>
           <View style={styles.switchRow}><Text style={[styles.muted, { flex: 1 }]}>Ich verlange ausdrücklich, dass LieferDank vor Ablauf der Widerrufsfrist mit der Trinkgeld-Funktion beginnt. Mir ist bekannt, dass ich bei einem Widerruf einen anteiligen Betrag für die bis dahin erbrachten Leistungen zahle.</Text><Switch accessibilityLabel="Sofortigen Leistungsbeginn ausdrücklich verlangen" value={consent} trackColor={{ true: colors.blue }} onValueChange={setConsent} /></View></>}
-        <Button title={stripe.connected ? "Einrichtung fortsetzen" : "Trinkgeld zahlungspflichtig aktivieren"} disabled={busy || !stripe.emailVerified || (!stripe.connected && !consent)} onPress={() => run(async () => { const value = await api<{ url: string }>("/api/v1/me/stripe", { method: "POST", body: JSON.stringify({ immediateStart: consent }) }); await openBrowser(value.url); })} />
+        <Button title={stripe.connected ? "Einrichtung fortsetzen" : "Jetzt einrichten"} disabled={busy || !stripe.emailVerified || (!stripe.connected && !consent)} onPress={() => run(async () => { const value = await api<{ url: string }>("/api/v1/me/stripe", { method: "POST", body: JSON.stringify({ immediateStart: consent }) }); await openBrowser(value.url); })} />
       </>}
       <TextLink title="Status aktualisieren" onPress={() => run(refresh)} />
     </Card>}</>}
@@ -362,6 +398,21 @@ function LieferDankApp() {
 
   const settingsScreen = screen === "settings" && <><Text style={styles.heading}>{role === "driver" ? "Einstellungen" : "Dein Konto"}</Text>
     <Card><Text style={styles.muted}>Angemeldet als</Text><Text style={styles.title} numberOfLines={1}>{me?.email}</Text>{role && <Text style={styles.muted}>{roleLabel[role]}</Text>}</Card>
+    {me && (me.roles?.length ?? 0) > 1 && <Card><Text style={styles.title}>Ansicht wechseln</Text>{me.roles?.filter(r => r !== role).map(r => <Button key={r} subtle title={r === "customer" ? "Gespeicherte Zusteller" : "Zusteller-Dashboard"} onPress={() => run(() => switchRole(r))} />)}</Card>}
+    {role === "customer" && !me?.roles?.includes("driver") && <Card><TextLink title="Als Zusteller starten" align="flex-start" onPress={() => { setActivationOpen(!activationOpen); setFirstName(me?.firstName ?? ""); setLastName(me?.lastName ?? ""); setAcceptedTerms(false); }} />{activationOpen && <>
+      <Text style={styles.muted}>Dein Konto und deine gespeicherten Zusteller bleiben erhalten. Dazu bekommst du deinen eigenen Danke-Code.</Text>
+      <Field label="Vorname" value={firstName} onChangeText={setFirstName} maxLength={60} /><Field label="Nachname" value={lastName} onChangeText={setLastName} maxLength={60} />
+      <View style={styles.switchRow}><Text style={[styles.muted, { flex: 1 }]}>Ich habe AGB und Datenschutzhinweise gelesen und beachte die Regeln meines Arbeitgebers selbst.</Text><Switch accessibilityLabel="Hinweise als Zusteller bestätigen" value={acceptedTerms} onValueChange={setAcceptedTerms} /></View>
+      <Button title="Danke-Code erstellen" disabled={busy || !acceptedTerms || !firstName.trim() || !lastName.trim()} onPress={() => run(async () => { await api("/api/v1/me/driver", { method: "POST", body: JSON.stringify({ firstName, lastName, acceptedTerms }) }); await refresh(); if (me) await SecureStore.setItemAsync(`lieferdank.view.${me.id}`, "driver", secureOptions); setActivationOpen(false); setViewRole("driver"); setScreen("dashboard"); })} />
+    </>}</Card>}
+    {newsletter && (newsletter.available || newsletter.status === "confirmed") && <Card><TextLink title="Newsletter (freiwillig)" align="flex-start" onPress={() => setNewsletterOpen(!newsletterOpen)} />{newsletterOpen && <>
+      <Text style={styles.muted}>Neuigkeiten von LieferDank per E-Mail. Erst nach Bestätigung des E-Mail-Links angemeldet. Jederzeit hier abmelden.</Text>
+      {newsletter.status === "confirmed" ? <Button title="Newsletter abbestellen" subtle disabled={busy} onPress={() => run(async () => { await api("/api/v1/me/newsletter", { method: "DELETE" }); await refresh(); setInfo("Du bist vom Newsletter abgemeldet."); })} /> : <>
+        {newsletter.status === "pending" && <Text style={styles.muted}>Bestätigungslink noch nicht eingelöst. Bitte prüfe dein Postfach.</Text>}
+        <View style={styles.switchRow}><Text style={[styles.text, { flex: 1 }]}>Ich möchte den Newsletter erhalten.</Text><Switch accessibilityLabel="Freiwillig zum Newsletter anmelden" value={newsletterConsent} onValueChange={setNewsletterConsent} /></View>
+        <Button title="Bestätigungs-E-Mail anfordern" disabled={busy || !newsletterConsent} onPress={() => run(async () => { const result = await api<{ mailSent: boolean; status: string }>("/api/v1/me/newsletter", { method: "POST", body: JSON.stringify({ consent: true }) }); await refresh(); setNewsletterConsent(false); if (!result.mailSent && result.status !== "confirmed") throw new Error("Die Bestätigungs-E-Mail konnte nicht versendet werden. Bitte versuche es später erneut."); setInfo("Bitte bestätige deine Anmeldung über den Link in deinem Postfach."); })} />
+      </>}
+    </>}</Card>}
     {role === "driver" && <Card>
       {pushAvailable && <View style={styles.switchRow}><View style={{ flex: 1 }}><Text style={styles.text}>Mitteilungen</Text><Text style={styles.muted}>Bei neuem Trinkgeld, Danke und Meilensteinen</Text></View><Switch accessibilityLabel="Mitteilungen aktivieren" value={pushEnabled} trackColor={{ true: colors.blue }} onValueChange={v => run(() => enablePush(v))} disabled={busy} /></View>}
       <TextLink title="Auszahlung verwalten" align="flex-start" onPress={() => setScreen("stripe")} />

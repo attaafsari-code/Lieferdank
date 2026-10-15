@@ -9,6 +9,8 @@ import { ProfileForm } from "./profile-form";
 import { PhotoUpload } from "./photo-upload";
 import { VerificationForm } from "./verification-form";
 import { ActiveToggle, DeleteAccount } from "./danger-zone";
+import { NewsletterPreference } from "@/components/newsletter-preference";
+import { newsletterStatus } from "@/server/services/newsletter";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Profil" };
@@ -22,6 +24,7 @@ const BADGE_STATUS: Record<string, { text: string; tone: string }> = {
 
 export default async function ProfilePage() {
   const { user, driver } = await requireDriver();
+  const newsletter = await newsletterStatus(user);
   const verification = await getDb().verifications.findOne({ userId: user.id });
   const name = driverPublicName(driver, user);
   const status = BADGE_STATUS[driver.verification] ?? BADGE_STATUS.unverified;
@@ -112,6 +115,7 @@ export default async function ProfilePage() {
           </div>
         </div>
       </section>
+      <NewsletterPreference {...newsletter} />
 
       <p className="text-sm leading-relaxed text-ink-soft">
         {user.email} · Bitte beachte die Regeln deines Arbeitgebers bzw. Auftraggebers, wenn du deine Karte

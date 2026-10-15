@@ -6,6 +6,6 @@ export type Profile = { firstName: string; lastName: string; email: string; emai
 export type StripeStatus = { applicationFees: Record<string, number>; connected: boolean; ready: boolean; verifiedNow: boolean; notice: string; manualPayouts: boolean; emailVerified: boolean };
 export type Qr = { code: string; url: string; qrSvg: string; qrPng: string; cardSvg: string; card?: { headline: string; publicName: string } };
 export type Role = "driver" | "customer" | "admin";
-export type Me = { user: { id: string; role: Role; email: string; firstName: string; lastName: string; emailVerified: boolean } };
+export type Me = { user: { id: string; role: Role; roles?: Role[]; email: string; firstName: string; lastName: string; emailVerified: boolean } };
 export type Favorite = { favoriteId: string; nickname: string | null; savedAt: string; active: boolean; driver: { code: string; name: string; initials: string; tagline: string | null } };
 export type History = { tipCount: number; totalTipCents: number; thankYous: { id: string; message: string | null; withTip: boolean; createdAt: string; driver: { code: string; name: string; initials: string } | null }[] };

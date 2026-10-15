@@ -141,8 +141,8 @@ async function sessionFor(user: User | null): Promise<Session | null> {
   if (!user) return null;
   const db = getDb();
   const [driver, customer] = await Promise.all([
-    user.role === "driver" ? db.driverProfiles.findOne({ userId: user.id }) : Promise.resolve(null),
-    user.role === "customer" ? db.customerProfiles.findOne({ userId: user.id }) : Promise.resolve(null),
+    user.role !== "admin" ? db.driverProfiles.findOne({ userId: user.id }) : Promise.resolve(null),
+    user.role !== "admin" ? db.customerProfiles.findOne({ userId: user.id }) : Promise.resolve(null),
   ]);
   return { user, driver, customer };
 }
@@ -173,4 +173,14 @@ export async function getBearerSession(request: Request): Promise<Session | null
     if (typeof payload.sid === "string") session.mobileSessionId = payload.sid;
   }
   return session;
+}
+
+/** Public anti-self-abuse check only. Cookie identity never grants private API access. */
+export async function publicActorId(request: Request, session: Session | null): Promise<string | null> {
+  if (session) return session.user.id;
+  const value = request.headers.get("cookie")?.match(/(?:^|;\s*)ld_session=([^;]+)/)?.[1];
+  if (!value || value.length > 4096) return null;
+  let token: string;
+  try { token = decodeURIComponent(value); } catch { return null; }
+  return (await userFromToken(token, false))?.id ?? null;
 }

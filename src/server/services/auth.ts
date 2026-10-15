@@ -60,14 +60,24 @@ async function assertEmailFree(address: string): Promise<void> {
   }
 }
 
+async function insertIdentity(user: User): Promise<User> {
+  try { return await getDb().users.insert(user); }
+  catch (error) {
+    // The database UNIQUE constraint decides concurrent registrations. Never merge accounts.
+    await assertEmailFree(user.email);
+    throw error;
+  }
+}
+
 /* ---------- Registrierung ---------- */
 
 export async function registerDriver(input: z.infer<typeof driverRegistrationSchema>): Promise<User & { welcomeMailSent: boolean }> {
+  input = parseInput(driverRegistrationSchema, input);
   await assertEmailFree(input.email);
   const now = new Date().toISOString();
   const db = getDb();
 
-  const user = await db.users.insert({
+  const user = await insertIdentity({
     id: newId(),
     email: input.email,
     firstName: input.firstName,
@@ -104,11 +114,12 @@ export async function registerDriver(input: z.infer<typeof driverRegistrationSch
 }
 
 export async function registerCustomer(input: z.infer<typeof customerRegistrationSchema>): Promise<User & { welcomeMailSent: boolean }> {
+  input = parseInput(customerRegistrationSchema, input);
   await assertEmailFree(input.email);
   const now = new Date().toISOString();
   const db = getDb();
 
-  const user = await db.users.insert({
+  const user = await insertIdentity({
     id: newId(),
     email: input.email,
     firstName: input.firstName || "",

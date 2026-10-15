@@ -29,6 +29,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <Logo className="[&>span:last-child]:hidden sm:[&>span:last-child]:flex" />
           </Link>
           <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+            {session.customer && <Link href="/konto" className="hidden text-xs font-semibold text-brand lg:inline-flex">Gespeicherte Zusteller</Link>}
             <Link href="/dashboard/karte" aria-label={`Mein QR-Code · ${session.driver.code}`} className="min-w-0 rounded-lg bg-canvas px-2 py-1.5 text-xs font-semibold text-brand hover:bg-brand-50 sm:px-2.5 sm:text-[0.8125rem]">
               <span className="sm:hidden">QR-Code</span>
               <span className="hidden sm:block">Mein QR-Code · <span className="font-mono">{session.driver.code}</span></span>
@@ -44,6 +45,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </header>
 
       <main className="mx-auto w-full max-w-4xl flex-1 px-5 pt-8 pb-12 md:pb-16">
+        {session.customer && <Link href="/konto" className="mb-5 inline-flex min-h-11 items-center text-sm font-semibold text-brand lg:hidden">Zu deinen gespeicherten Zustellern</Link>}
         {!session.user.emailVerifiedAt && (
           <div className="mb-8">
             <EmailVerificationNotice

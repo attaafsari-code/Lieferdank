@@ -15,9 +15,10 @@ type Props = {
   driver: PublicDriver;
   paymentMethods: string;
   cancelled: boolean;
+  preview?: boolean;
 };
 
-export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
+export function ThankYouScreen({ driver, paymentMethods, cancelled, preview = false }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
@@ -73,6 +74,7 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
           )}
         </header>
 
+        {preview && <p role="status" className="mt-5 rounded-xl bg-brand-50 p-3 text-center text-sm text-brand-900">Deine Vorschau · Kunden können hier Danke sagen und Trinkgeld geben. Eigene Danksagungen sind deaktiviert.</p>}
         {cancelled && (
           <p className="mt-5 rounded-2xl bg-brand-50 px-4 py-3 text-center text-sm font-medium text-brand-900">
             Zahlung abgebrochen. Danke sagen geht natürlich weiterhin kostenlos.
@@ -82,7 +84,7 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
         <button
           type="button"
           onClick={() => run(() => sendThanksAction(driver.code), 0)}
-          disabled={pending}
+          disabled={pending || preview}
           className="btn btn-coral btn-lg mt-6 w-full"
         >
           {busy === 0 ? (
@@ -112,7 +114,7 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled }: Props) {
               key={cents}
               type="button"
               onClick={() => run(() => startTipAction(driver.code, cents), cents)}
-              disabled={pending || !driver.tipReady}
+              disabled={pending || preview || !driver.tipReady}
               className="group flex min-h-[4.5rem] items-center justify-center rounded-2xl border-[1.5px] border-line bg-white py-3 shadow-xs transition hover:border-brand hover:shadow-sm disabled:opacity-50"
             >
               {busy === cents ? (

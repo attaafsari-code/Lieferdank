@@ -10,6 +10,7 @@ import { LogoMark } from "@/components/logo";
 import { LegalLinks } from "@/components/legal-links";
 import { dativeName } from "@/lib/names";
 import { ThankYouScreen } from "./thank-you-screen";
+import { getSession } from "@/server/session";
 
 export const dynamic = "force-dynamic";
 
@@ -41,13 +42,16 @@ export default async function ThankYouPage({ params, searchParams }: Params) {
   if (!driver.active || !user || user.blockedAt) return <InactiveCode />;
 
   // Scan zählen – Basis der Scan-to-Payment-Conversion. Die Eigenvorschau zählt nicht.
-  if (query.vorschau !== "1") await recordScanFrom(driver.id, ipFromHeaders(await headers()));
+  const session = await getSession();
+  const preview = query.vorschau === "1" || session?.user.id === user.id;
+  if (!preview) await recordScanFrom(driver.id, ipFromHeaders(await headers()));
 
   return (
     <ThankYouScreen
       driver={toPublicDriver(driver, user)}
       paymentMethods={getPaymentProvider().methodsLabel}
       cancelled={query.abgebrochen === "1"}
+      preview={preview}
     />
   );
 }

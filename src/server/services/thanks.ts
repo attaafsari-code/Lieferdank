@@ -45,9 +45,11 @@ export async function sendFreeThankYou(
   customerId: string | null,
   visitorId: string,
   now = new Date(),
+  actorId: string | null = customerId,
 ): Promise<{ thankYouId: string; code: string; alreadySent: boolean }> {
   const found = await findReceivingDriver(code);
   if (!found) throw inactive();
+  if (actorId === found.user.id) throw new ServiceError("self_thanks", "Das ist deine eigene Danke-Seite. Hier können dir deine Kunden danken.", 403);
   const db = getDb();
   const freeDay = dayKey(now);
   const visitorHash = dailyVisitorHash(visitorId, found.driver.id, freeDay);
@@ -87,6 +89,7 @@ export async function startTip(
   code: string,
   amountCents: number,
   customerId: string | null,
+  actorId: string | null = customerId,
 ): Promise<{ tipId: string; paymentId: string; redirectUrl: string }> {
   if (isProductionRuntime() && isDemoPayment()) {
     throw new ServiceError("payment_not_configured", "Trinkgeld ist gerade nicht verfügbar. Danke sagen geht weiterhin kostenlos.", 503);
@@ -111,6 +114,7 @@ export async function startTip(
   const found = await findReceivingDriver(code);
   if (!found) throw inactive();
   const { driver, user } = found;
+  if (actorId === user.id) throw new ServiceError("self_thanks", "Du kannst dir selbst kein Trinkgeld geben.", 403);
 
   const db = getDb();
   const provider = getPaymentProvider();

@@ -4,11 +4,12 @@ import { toPublicDriver } from "@/server/services/drivers";
 export const dynamic = "force-dynamic";
 
 export const GET = api({ auth: "any" }, async ({ session }) => {
-  const { user, driver } = session!;
+  const { user, driver, customer } = session!;
   return {
     user: {
       id: user.id,
       role: user.role,
+      roles: user.role === "admin" ? ["admin"] : [...(driver ? ["driver"] : []), ...(customer ? ["customer"] : [])],
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,

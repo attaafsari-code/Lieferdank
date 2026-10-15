@@ -20,11 +20,6 @@ import { grantMessage, messageGrantsFromCookie, paymentSubject, thankYouSubject 
 
 export type FlowResult = { ok: boolean; error?: string };
 
-async function customerIdIfAny(): Promise<string | null> {
-  const session = await getSession();
-  return session?.customer ? session.user.id : null;
-}
-
 function toResult(error: unknown): FlowResult {
   if (isServiceError(error)) return { ok: false, error: error.message };
   void logEvent("error", "customer-flow", "Unerwarteter Fehler", { error: errorMessage(error) });
@@ -35,7 +30,8 @@ export async function sendThanksAction(code: string): Promise<FlowResult> {
   let target: string;
   try {
     await enforceRateLimit("thanks", 10, 60_000);
-    const result = await sendFreeThankYou(code, await customerIdIfAny(), await visitorId());
+    const session = await getSession();
+    const result = await sendFreeThankYou(code, session?.customer ? session.user.id : null, await visitorId(), new Date(), session?.user.id ?? null);
     // Nur dieser Browser darf danach die optionale Nachricht schreiben.
     await grantMessage(thankYouSubject(result.thankYouId));
     target = `/danke/${result.code}/erfolg?danke=${result.thankYouId}${result.alreadySent ? "&bereits=1" : ""}`;
@@ -49,7 +45,8 @@ export async function startTipAction(code: string, amountCents: number): Promise
   let target: string;
   try {
     await enforceRateLimit("tip", 10, 60_000);
-    const result = await startTip(code, amountCents, await customerIdIfAny());
+    const session = await getSession();
+    const result = await startTip(code, amountCents, session?.customer ? session.user.id : null, session?.user.id ?? null);
     await grantMessage(paymentSubject(result.paymentId));
     target = result.redirectUrl;
   } catch (error) {

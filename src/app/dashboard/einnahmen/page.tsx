@@ -80,7 +80,7 @@ export default async function EarningsPage({
         </p>
       )}
 
-      <section>
+      <section id="auszahlung" className="scroll-mt-32">
         <SectionTitle>Auszahlungskonto</SectionTitle>
         <div className="space-y-5 rounded-2xl border border-line bg-white p-6 shadow-xs">
           <div className="flex items-start gap-3.5">

@@ -8,6 +8,9 @@ import { Heart } from "@/components/icons";
 import { logoutAction } from "@/server/actions/auth";
 import { FavoriteRow, DeleteCustomerAccount } from "./favorite-controls";
 import { EmailVerificationNotice } from "@/components/email-verification-notice";
+import { DriverActivation } from "@/components/driver-activation";
+import { NewsletterPreference } from "@/components/newsletter-preference";
+import { newsletterStatus } from "@/server/services/newsletter";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Meine Lieferanten", robots: { index: false, follow: false } };
@@ -17,8 +20,9 @@ export default async function CustomerAccountPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { user } = await requireCustomer();
+  const { user, driver } = await requireCustomer();
   const query = await searchParams;
+  const newsletter = await newsletterStatus(user);
   const [favorites, history] = await Promise.all([listFavorites(user.id), customerHistory(user.id)]);
 
   return (
@@ -142,6 +146,8 @@ export default async function CustomerAccountPage({
         </div>
       </section>
 
+      <div className="mt-6">{driver ? <Link href="/dashboard" className="text-sm font-semibold text-brand">Zum Zusteller-Dashboard</Link> : <DriverActivation firstName={user.firstName} lastName={user.lastName} />}</div>
+      <div className="mt-6"><NewsletterPreference {...newsletter} /></div>
       <p className="mt-8 text-center text-xs leading-relaxed text-ink-faint">
         Lieferanten sehen nie, wer sie gespeichert hat oder wer ihnen Danke gesagt hat.
       </p>
