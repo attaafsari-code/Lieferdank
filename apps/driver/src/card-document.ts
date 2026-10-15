@@ -4,7 +4,9 @@ export function cardDocument(svg: string): string {
   for (const match of svg.matchAll(/(?:href|xlink:href)\s*=\s*["']([^"']*)["']/gi)) {
     if (!/^(#|data:image\/(png|jpeg|webp);base64,)/i.test(match[1])) throw new Error("Die Karte enthält eine nicht unterstützte Bildquelle.");
   }
-  return `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>LieferDank-Karte</title><style>@page{size:A4;margin:0}html,body{margin:0;padding:0;background:white}.card{margin:20mm auto 0;width:85.6mm;height:54mm;break-inside:avoid}.card svg{width:100%;height:100%;display:block}</style></head><body><div class="card">${svg}</div></body></html>`;
+  // WKWebView's print formatter can scale absolute CSS mm independently of PDF points.
+  // Size artwork relative to the explicit A4 paper width instead: 85.6 / 210, top 20 / 210.
+  return `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>LieferDank-Karte</title><style>@page{size:A4;margin:0}html,body{margin:0;padding:0;background:white}.card{margin:9.52380952% auto 0;width:40.76190476%;aspect-ratio:85.6/54;break-inside:avoid}.card svg{width:100%;height:auto;display:block}</style></head><body><div class="card">${svg}</div></body></html>`;
 }
 export const CARD_PAPER = { width: 595.276, height: 841.89 };
 

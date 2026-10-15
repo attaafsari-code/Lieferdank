@@ -38,3 +38,11 @@ Abschlussgates vor Release: **450/450 Web-/Backendtests**, **38/38 App-Tests**, 
 - App-Store-Review benötigt weiterhin echte Review-Kontaktangaben und einen sicheren Review-Zugang. Kein öffentlicher Store-Submit durch diesen Auftrag. Die freiwillige Newsletter-Nutzung muss in den App-Privacy-Verwendungszwecken der E-Mail-Adresse berücksichtigt sein.
 
 Deployment- und TestFlight-Ergebnisse werden erst nach tatsächlich erfolgreichem Push/Build/Upload berichtet. Frühere Build-9-Ergebnisse sind kein Nachweis für den neuen Build.
+
+## Nachprüfung am 16. Oktober: physische PDF-Maße
+
+Die erste native PDF hatte korrektes A4-Papier, WebKit vergrößerte jedoch die absoluten CSS-Millimeter der Karte auf etwa 91,3 × 57,6 mm. Die Karte wird jetzt proportional zur expliziten A4-Papierbreite bemessen (85,6 / 210; oberer Abstand 20 / 210) und mit definiertem Viewport ausgegeben. Die erneut nativ erzeugte PDF wurde mit 150 dpi gerendert: sichtbare Begrenzung 85,51 × 53,85 mm, Abstand 20,15 mm; die minimale Abweichung entsteht durch Rand-/Antialias-Rasterung. QR erfolgreich aus dieser Ausgabe decodiert. Neue Regression prüft Größen- und Abstandsverhältnis; alle 38 App-Tests bestehen. Build 10 enthält noch die vorherige Skalierung und wird nicht zu TestFlight hochgeladen.
+
+Production-Commit `60f5a1b` wurde am 15. Oktober erfolgreich über Vercel bereitgestellt; beide Release-CI-Jobs erfolgreich, Health 5/5 erfolgreich, neue Aktivierungsroute verweigert anonyme Zugriffe mit 401. Nur lesend in `lbvanxjqvobzspkycivm` bestätigt: E-Mail-/Profil-/Consent-UNIQUE-Constraints vorhanden, RLS aktiv, kein direktes SELECT für anon/authenticated auf diesen Tabellen. Keine Migration oder Nutzerdatenänderung durchgeführt.
+
+Der separate Supabase-Preview-Check scheitert an der vorhandenen Migrationshistorie: Remote-Versionen `20261014155518` und `20261014155540` fehlen im lokalen Migrationsverzeichnis; die Nachricht-/Newsletter-DDL liegt lokal unter `20261014120000`. Das ist unabhängig von der erfolgreichen Production-Schema-Prüfung. Keine History-Reparatur oder erneute Migration ohne separaten, geprüften Abgleich durchführen.
