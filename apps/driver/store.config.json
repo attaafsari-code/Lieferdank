@@ -2,17 +2,41 @@
   "configVersion": 0,
   "apple": {
     "copyright": "2026 Atta Afsari Gargari",
-    "categories": ["BUSINESS", "LIFESTYLE"],
+    "categories": [
+      "BUSINESS",
+      "LIFESTYLE"
+    ],
     "info": {
       "de-DE": {
         "title": "LieferDank",
         "subtitle": "Trinkgeld & Danke an der Tür",
         "description": "LieferDank macht Wertschätzung für Zustellerinnen und Zusteller einfach: Kunden scannen deinen persönlichen QR-Code an der Haustür und sagen kostenlos Danke – auf Wunsch mit einem Trinkgeld von 2, 3 oder 5 Euro. Eine App brauchen sie dafür nicht.\n\nFÜR ZUSTELLER\n• Persönlicher QR-Code und Danke-Seite, sofort nach der Registrierung\n• Übersicht über heutige und alle bisherigen Trinkgelder und Danke\n• Nachrichten deiner Kunden lesen, entfernen, melden oder den Absender blockieren\n• Meilensteine, wenn dein Einsatz gesehen wird\n• Vorschau deiner persönlichen Karte und QR-Code zum Teilen oder Speichern\n• Auszahlung direkt auf dein eigenes Konto bei Stripe, unserem Zahlungspartner\n\nFÜR KUNDEN\n• Zusteller per Code speichern und schnell wiederfinden\n• Verlauf deiner Danke und Trinkgelder\n\nTRANSPARENT\nDanke sagen ist immer kostenlos. Bei einem Trinkgeld behält LieferDank eine feste Gebühr (0,50 € bei 2 €, 0,60 € bei 3 €, 1,00 € bei 5 €); die Kosten des Zahlungsdienstleisters werden separat abgerechnet. Der Zusteller sieht, wofür gedankt wurde – aber nie, wer gedankt hat.\n\nDein Konto kannst du jederzeit in der App löschen.",
-        "keywords": ["Trinkgeld", "Zusteller", "Paketbote", "Danke", "Lieferung", "Kurier", "QR-Code", "Wertschätzung", "Fahrer", "Paket"],
+        "keywords": [
+          "Trinkgeld",
+          "Zusteller",
+          "Paketbote",
+          "Danke",
+          "Lieferung",
+          "Kurier",
+          "QR-Code",
+          "Wertschätzung",
+          "Fahrer",
+          "Paket"
+        ],
         "releaseNotes": "Erste Version von LieferDank für iPhone.",
         "marketingUrl": "https://lieferdank.de",
         "supportUrl": "https://lieferdank.de/kontakt",
-        "privacyPolicyUrl": "https://lieferdank.de/legal/datenschutz"
+        "privacyPolicyUrl": "https://lieferdank.de/legal/datenschutz",
+        "screenshots": {
+          "APP_IPHONE_67": [
+            "./store/screenshots/iphone-6.9/01-dashboard.png",
+            "./store/screenshots/iphone-6.9/02-qr.png",
+            "./store/screenshots/iphone-6.9/03-card.png",
+            "./store/screenshots/iphone-6.9/04-thanks.png",
+            "./store/screenshots/iphone-6.9/05-earnings.png",
+            "./store/screenshots/iphone-6.9/06-profile.png"
+          ]
+        }
       }
     },
     "advisory": {
@@ -31,14 +55,10 @@
       "gambling": false,
       "unrestrictedWebAccess": false,
       "kidsAgeBand": null,
-      "seventeenPlus": false
+      "ageRatingOverride": "NONE",
+      "koreaAgeRatingOverride": "NONE",
+      "lootBox": false
     },
-    "review": {
-      "firstName": "Atta",
-      "lastName": "Afsari Gargari",
-      "email": "info@lieferdank.de",
-      "demoRequired": true,
-      "notes": "LieferDank is a thank-you and tipping service for parcel and food delivery drivers in Germany.\n\nHOW IT WORKS: Customers scan a driver's personal QR code at the door and open the driver's public thank-you page on the web (lieferdank.de). There they can say thanks for free or tip 2, 3 or 5 EUR. Customers never need the app.\n\nPAYMENTS: The iOS app itself sells nothing and takes no payments. Tips are paid on the website through Stripe as payment for a real-world delivery service performed outside the app (Guideline 3.1.3(e)). Drivers receive tips on their own Stripe account; the onboarding opens Stripe's hosted page.\n\nUSER-GENERATED CONTENT (Guideline 1.2): Customers can add a short message (max. 140 characters) to a thank-you. Messages with links, contact data or severe insults are rejected. In the 'Danke' tab a driver can remove a message, report it (hidden immediately, reviewed by the operator in the admin area) or block its sender. Contact: info@lieferdank.de.\n\nACCOUNT DELETION: Settings (gear icon) > 'Konto löschen'.\n\nDEMO ACCOUNT: a driver account with sample thank-yous; sign in on the start screen."
-    }
+    "version": "1.0.0"
   }
 }
