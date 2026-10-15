@@ -1,0 +1,64 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "copyright": "2026 Atta Afsari Gargari",
+    "categories": [
+      "BUSINESS",
+      "LIFESTYLE"
+    ],
+    "info": {
+      "de-DE": {
+        "title": "LieferDank",
+        "subtitle": "Trinkgeld & Danke an der Tür",
+        "description": "LieferDank macht Wertschätzung für Zustellerinnen und Zusteller einfach: Kunden scannen deinen persönlichen QR-Code an der Haustür und sagen kostenlos Danke – auf Wunsch mit einem Trinkgeld von 2, 3 oder 5 Euro. Eine App brauchen sie dafür nicht.\n\nFÜR ZUSTELLER\n• Persönlicher QR-Code und Danke-Seite, sofort nach der Registrierung\n• Übersicht über heutige und alle bisherigen Trinkgelder und Danke\n• Nachrichten deiner Kunden lesen, entfernen, melden oder den Absender blockieren\n• Meilensteine, wenn dein Einsatz gesehen wird\n• Vorschau deiner persönlichen Karte und QR-Code zum Teilen oder Speichern\n• Auszahlung direkt auf dein eigenes Konto bei Stripe, unserem Zahlungspartner\n\nFÜR KUNDEN\n• Zusteller per Code speichern und schnell wiederfinden\n• Verlauf deiner Danke und Trinkgelder\n\nTRANSPARENT\nDanke sagen ist immer kostenlos. Bei einem Trinkgeld behält LieferDank eine feste Gebühr (0,50 € bei 2 €, 0,60 € bei 3 €, 1,00 € bei 5 €); die Kosten des Zahlungsdienstleisters werden separat abgerechnet. Der Zusteller sieht, wofür gedankt wurde – aber nie, wer gedankt hat.\n\nDein Konto kannst du jederzeit in der App löschen.",
+        "keywords": [
+          "Trinkgeld",
+          "Zusteller",
+          "Paketbote",
+          "Danke",
+          "Lieferung",
+          "Kurier",
+          "QR-Code",
+          "Wertschätzung",
+          "Fahrer",
+          "Paket"
+        ],
+        "releaseNotes": "Erste Version von LieferDank für iPhone.",
+        "marketingUrl": "https://lieferdank.de",
+        "supportUrl": "https://lieferdank.de/kontakt",
+        "privacyPolicyUrl": "https://lieferdank.de/legal/datenschutz",
+        "screenshots": {
+          "APP_IPHONE_67": [
+            "./store/screenshots/iphone-6.9/01-dashboard.png",
+            "./store/screenshots/iphone-6.9/02-qr.png",
+            "./store/screenshots/iphone-6.9/03-card.png",
+            "./store/screenshots/iphone-6.9/04-thanks.png",
+            "./store/screenshots/iphone-6.9/05-earnings.png",
+            "./store/screenshots/iphone-6.9/06-profile.png"
+          ]
+        }
+      }
+    },
+    "advisory": {
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "gambling": false,
+      "unrestrictedWebAccess": false,
+      "kidsAgeBand": null,
+      "ageRatingOverride": "NONE",
+      "koreaAgeRatingOverride": "NONE",
+      "lootBox": false
+    },
+    "version": "1.0.0"
+  }
+}

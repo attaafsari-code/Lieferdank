@@ -1,0 +1,7 @@
+{
+  "firstName": "Atta",
+  "lastName": "Afsari Gargari",
+  "email": "info@lieferdank.de",
+  "demoRequired": true,
+  "notes": "LieferDank is a thank-you and tipping service for parcel and food delivery drivers in Germany.\n\nHOW IT WORKS: Customers scan a driver's personal QR code at the door and open the driver's public thank-you page on the web (lieferdank.de). There they can say thanks for free or tip 2, 3 or 5 EUR. Customers never need the app.\n\nPAYMENTS: The iOS app itself sells nothing and takes no payments. Tips are paid on the website through Stripe as payment for a real-world delivery service performed outside the app (Guideline 3.1.3(e)). Drivers receive tips on their own Stripe account; the onboarding opens Stripe's hosted page.\n\nUSER-GENERATED CONTENT (Guideline 1.2): Customers can add a short message (max. 140 characters) to a thank-you. Messages with links, contact data or severe insults are rejected. In the 'Danke' tab a driver can remove a message, report it (hidden immediately, reviewed by the operator in the admin area) or block its sender. Contact: info@lieferdank.de.\n\nACCOUNT DELETION: Settings (gear icon) > 'Konto löschen'.\n\nDEMO ACCOUNT: a driver account with sample thank-yous; sign in on the start screen."
+}
