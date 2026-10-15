@@ -42,7 +42,7 @@ export default function TermsPage() {
         <p>
           Entgeltlich ist für Zusteller die {TIPPING_SERVICE_NAME} (Ziffer 5). Dieser Vertrag kommt zustande, wenn du
           nach Bestätigung deiner E-Mail-Adresse im Dashboard ausdrücklich den sofortigen Beginn verlangst und auf
-          „Trinkgeld zahlungspflichtig aktivieren“ klickst. Danach richtest du bei Stripe dein Auszahlungskonto ein.
+          „Jetzt einrichten“ klickst. Danach richtest du bei Stripe dein Auszahlungskonto ein.
           Du erhältst eine Vertragsbestätigung mit Widerrufsbelehrung per E-Mail.
         </p>
         <p>

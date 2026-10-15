@@ -175,7 +175,7 @@ export const TIPPING_CONTRACT_ACTION = "tipping_contract_concluded";
 
 /**
  * Die Trinkgeld-Funktion ist der entgeltliche Teil der Nutzung (Gebühr je Trinkgeld). Sie kommt
- * mit dem Klick auf „Trinkgeld zahlungspflichtig aktivieren“ zustande (§ 312j Abs. 3 BGB). Weil
+ * mit dem Klick auf „Jetzt einrichten“ nach Gebührenhinweis und ausdrücklicher Zustimmung zustande. Weil
  * die Leistung sofort beginnen soll, muss der Zusteller das ausdrücklich verlangen (§ 357a
  * Abs. 2 BGB). Die Vertragsbestätigung mit Widerrufsbelehrung geht vor Leistungsbeginn per
  * E-Mail raus (§ 312f Abs. 2 BGB); der Abschluss wird im Admin-Protokoll festgehalten.

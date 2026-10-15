@@ -1,5 +1,7 @@
 # LieferDank – Abschlussbericht iOS-Release (15.10.2026)
 
+Historischer Stand von Build 9. Die nachfolgenden V1-Änderungen und aktuellen Testgrenzen sind in [der Abnahme vom 15./16. Oktober](mobile/V1-ACCEPTANCE-20261015.md) dokumentiert; insbesondere ist die freiwillige Newsletter-Anmeldung inzwischen verfügbar.
+
 **Entscheidung: NO-GO für „Zur Prüfung einreichen“ – es fehlen nur noch drei persönliche Angaben bzw. Tests.**
 Alles Technische ist erledigt und in App Store Connect hinterlegt. Apple lässt die Einreichung erst zu, wenn eine Telefonnummer für den Review-Kontakt und ein Review-Testkonto eingetragen sind. Beides kann nur der Betreiber liefern (siehe Abschnitt „Nur durch dich“).
 
