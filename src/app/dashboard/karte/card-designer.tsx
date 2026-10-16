@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import type { CardColor, CardLayout } from "@/lib/db/types";
-import { CARD_COLORS, CARD_LAYOUTS, HEADLINE_PRESETS, MAX_HEADLINE_LENGTH } from "@/lib/card/design";
+import { cardBackgroundColor, cardColorSelection, CARD_LAYOUTS, HEADLINE_PRESETS, MAX_HEADLINE_LENGTH } from "@/lib/card/design";
 import { renderCardSvg, type CardRenderInput } from "@/lib/card/svg";
 import { downloadBlob, embeddedFontCss, svgToPngBlob, urlToDataUrl } from "@/lib/card/export";
 import { saveCardDesignAction } from "@/server/actions/driver";
@@ -30,6 +30,7 @@ export function CardDesigner(props: Props) {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<"png" | "svg" | null>(null);
   const [pending, startTransition] = useTransition();
+  const colorSelection = cardColorSelection(layout);
 
   const dirty =
     layout !== saved.layout || color !== saved.color || headline !== saved.headline || showPhoto !== saved.showPhoto;
@@ -141,9 +142,8 @@ export function CardDesigner(props: Props) {
               >
                 <span
                   aria-hidden
-                  className={`block h-9 rounded-lg ${
-                    option.id === "brand" ? "bg-brand" : option.id === "personal" ? "bg-gradient-to-r from-brand-100 to-white" : "bg-canvas"
-                  }`}
+                  className="block h-9 rounded-lg border border-line"
+                  style={{ backgroundColor: cardBackgroundColor(option.id, color) }}
                 />
                 <span className="mt-2 block text-sm font-bold text-ink">{option.label}</span>
                 <span className="block text-[0.6875rem] leading-tight text-ink-soft">{option.description}</span>
@@ -152,10 +152,11 @@ export function CardDesigner(props: Props) {
           </div>
         </fieldset>
 
-        <fieldset>
-          <legend className="label">Kartenfarbe</legend>
+        <fieldset aria-describedby="card-color-hint">
+          <legend className="label">{colorSelection.label}</legend>
+          <p id="card-color-hint" className="mb-3 text-sm text-ink-soft">{colorSelection.hint}</p>
           <div className="flex flex-wrap gap-2">
-            {CARD_COLORS.map(option => <button type="button" key={option.id} aria-pressed={color === option.id} onClick={() => setColor(option.id)} className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold ${color === option.id ? "border-brand bg-brand-50" : "border-line bg-white"}`}><span className="h-5 w-5 rounded-full" style={{ backgroundColor: option.solid }} />{option.label}</button>)}
+            {colorSelection.options.map(option => <button type="button" key={option.id} aria-pressed={color === option.id} onClick={() => setColor(option.id)} className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold ${color === option.id ? "border-brand bg-brand-50" : "border-line bg-white"}`}><span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full border border-line" style={{ backgroundColor: option.background }} />{option.label}</button>)}
           </div>
         </fieldset>
 

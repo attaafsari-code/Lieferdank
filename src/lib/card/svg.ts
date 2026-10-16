@@ -1,5 +1,5 @@
 import type { CardColor, CardLayout } from "./design";
-import { cardPalette, CARD_HEIGHT_MM, CARD_WIDTH_MM } from "./design";
+import { cardBackgroundColor, CARD_HEIGHT_MM, CARD_WIDTH_MM } from "./design";
 
 /**
  * Rendert die Lieferdank-Karte als eigenständiges SVG.
@@ -273,7 +273,7 @@ function classic(input: CardRenderInput, id: string): string {
     headlineFirst: true,
   });
 
-  return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${cardPalette(input.color).light}" stroke="${COLORS.line}" stroke-width="0.25"/>
+  return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${cardBackgroundColor(input.layout, input.color)}" stroke="${COLORS.line}" stroke-width="0.25"/>
 ${header(false)}
 ${embedQr(input.qrSvg, qrX, qrY, qrSize)}
 ${qrCaption(qrX + qrSize / 2, 41.6, false)}
@@ -309,7 +309,7 @@ function brand(input: CardRenderInput, id: string): string {
     headlineFirst: true,
   });
 
-  return `<rect width="${W}" height="${H}" rx="3.2" fill="${cardPalette(input.color).solid}"/>
+  return `<rect width="${W}" height="${H}" rx="3.2" fill="${cardBackgroundColor(input.layout, input.color)}"/>
 ${header(true)}
 <rect x="${tileX}" y="${tileY}" width="${tile}" height="${tile}" rx="2.2" fill="${COLORS.white}"/>
 ${embedQr(input.qrSvg, tileX + qrPad, tileY + qrPad, tile - qrPad * 2)}
@@ -335,7 +335,7 @@ function personal(input: CardRenderInput, id: string): string {
 
   const headlineLines = wrapText(input.headline, 3, colWidth, 2);
 
-  return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${cardPalette(input.color).light}" stroke="${COLORS.line}" stroke-width="0.25"/>
+  return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${cardBackgroundColor(input.layout, input.color)}" stroke="${COLORS.line}" stroke-width="0.25"/>
 ${header(false)}
 ${avatar(input.avatar ? avatarInput : { href: null, initials: avatarInput.initials || "?" }, cx, cy, r, false, `${id}-av`)}
 <text x="${nameX}" y="${nameBaseline}" font-family="${SANS}" font-size="${nameSize}" font-weight="800" letter-spacing="-0.1" fill="${COLORS.ink}">${escapeXml(input.publicName)}</text>
