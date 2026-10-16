@@ -92,15 +92,17 @@ export async function requestBadgeAction(_prev: FormState, formData: FormData): 
 
 export async function saveCardDesignAction(input: {
   layout: string;
+  color?: string;
+  updatedAt?: string;
   headline: string;
   showPhoto: boolean;
   showProvider: boolean;
 }): Promise<FormState> {
   return formAction(async () => {
     const { driver } = await requireDriver();
-    await saveCardDesign(driver.id, parseInput(cardDesignSchema, input));
+    const cardUpdatedAt = await saveCardDesign(driver.id, parseInput(cardDesignSchema, input), input.updatedAt);
     refreshDashboard();
-    return { saved: true };
+    return { saved: true, cardUpdatedAt };
   });
 }
 

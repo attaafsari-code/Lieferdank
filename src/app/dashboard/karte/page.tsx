@@ -35,6 +35,8 @@ export default async function CardPage() {
       <CardDesigner
         initial={{
           layout: card.design.layout,
+          color: card.design.color ?? "blue",
+          updatedAt: card.design.updatedAt,
           headline: card.design.headline,
           showPhoto: card.design.showPhoto,
           showProvider: card.design.showProvider,

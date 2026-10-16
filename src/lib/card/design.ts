@@ -1,4 +1,6 @@
-import type { CardDesign, CardLayout } from "../db/types";
+/** Pure shared card contract: usable in web, native app and persisted designs. */
+export type CardLayout = "classic" | "brand" | "personal";
+export type CardColor = "blue" | "navy" | "teal";
 
 /** Scheckkartenformat (ISO/IEC 7810 ID-1), in Millimetern. */
 export const CARD_WIDTH_MM = 85.6;
@@ -17,14 +19,21 @@ export const HEADLINE_PRESETS = [
 
 export const CARD_LAYOUTS: { id: CardLayout; label: string; description: string }[] = [
   { id: "classic", label: "Klassisch", description: "Weiß, QR-Code links" },
-  { id: "brand", label: "Blau", description: "Markenfarbe, QR-Code rechts" },
+  { id: "brand", label: "Farbfläche", description: "Farbiger Hintergrund, QR-Code rechts" },
   { id: "personal", label: "Persönlich", description: "Foto oder Initialen im Fokus" },
 ];
 
-export type CardDesignFields = Pick<CardDesign, "layout" | "headline" | "showPhoto" | "showProvider">;
+export const CARD_COLORS: { id: CardColor; label: string; solid: string; light: string }[] = [
+  { id: "blue", label: "Blau", solid: "#1a5ce0", light: "#ffffff" },
+  { id: "navy", label: "Nachtblau", solid: "#173653", light: "#f0f4f8" },
+  { id: "teal", label: "Petrol", solid: "#0c6963", light: "#effaf6" },
+];
+export function cardPalette(color?: CardColor) { return CARD_COLORS.find(item => item.id === color) ?? CARD_COLORS[0]; }
+
+export type CardDesignFields = { layout: CardLayout; color?: CardColor; headline: string; showPhoto: boolean; showProvider: boolean };
 
 export function defaultCardDesign(): CardDesignFields {
-  return { layout: "classic", headline: DEFAULT_HEADLINE, showPhoto: false, showProvider: true };
+  return { layout: "classic", color: "blue", headline: DEFAULT_HEADLINE, showPhoto: false, showProvider: true };
 }
 
 export function isCardLayout(value: unknown): value is CardLayout {

@@ -88,6 +88,7 @@ create table if not exists public.card_designs (
   id             uuid primary key,
   driver_id      uuid not null unique references public.driver_profiles (id) on delete cascade,
   layout         text not null default 'classic' check (layout in ('classic', 'brand', 'personal')),
+  color          text not null default 'blue' check (color in ('blue', 'navy', 'teal')),
   headline       text not null check (char_length(headline) <= 60),
   show_photo     boolean not null default false,
   show_provider  boolean not null default true,

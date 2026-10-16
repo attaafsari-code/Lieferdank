@@ -106,6 +106,7 @@ export default async function DashboardPage({
         <CardPreview
           className="overflow-hidden rounded-xl shadow-md"
           layout={card.design.layout}
+          color={card.design.color}
           headline={card.design.headline}
           publicName={card.publicName}
           providerLabel={null}

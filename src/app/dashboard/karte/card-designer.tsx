@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import type { CardLayout } from "@/lib/db/types";
-import { CARD_LAYOUTS, HEADLINE_PRESETS, MAX_HEADLINE_LENGTH } from "@/lib/card/design";
+import type { CardColor, CardLayout } from "@/lib/db/types";
+import { CARD_COLORS, CARD_LAYOUTS, HEADLINE_PRESETS, MAX_HEADLINE_LENGTH } from "@/lib/card/design";
 import { renderCardSvg, type CardRenderInput } from "@/lib/card/svg";
 import { downloadBlob, embeddedFontCss, svgToPngBlob, urlToDataUrl } from "@/lib/card/export";
 import { saveCardDesignAction } from "@/server/actions/driver";
 import { Check, Download, Printer } from "@/components/icons";
 
 type Props = {
-  initial: { layout: CardLayout; headline: string; showPhoto: boolean; showProvider: boolean };
+  initial: { layout: CardLayout; color: CardColor; updatedAt: string; headline: string; showPhoto: boolean; showProvider: boolean };
   qrSvg: string;
   publicName: string;
   initials: string;
@@ -20,6 +20,8 @@ type Props = {
 
 export function CardDesigner(props: Props) {
   const [layout, setLayout] = useState<CardLayout>(props.initial.layout);
+  const [color, setColor] = useState<CardColor>(props.initial.color);
+  const [revision, setRevision] = useState(props.initial.updatedAt);
   const [headline, setHeadline] = useState(props.initial.headline);
   const [showPhoto, setShowPhoto] = useState(props.initial.showPhoto && Boolean(props.photoUrl));
   const showProvider = props.initial.showProvider;
@@ -30,10 +32,11 @@ export function CardDesigner(props: Props) {
   const [pending, startTransition] = useTransition();
 
   const dirty =
-    layout !== saved.layout || headline !== saved.headline || showPhoto !== saved.showPhoto;
+    layout !== saved.layout || color !== saved.color || headline !== saved.headline || showPhoto !== saved.showPhoto;
 
   const renderInput = (overrides: Partial<CardRenderInput> = {}): CardRenderInput => ({
     layout,
+    color,
     headline,
     publicName: props.publicName,
     providerLabel: null,
@@ -43,17 +46,19 @@ export function CardDesigner(props: Props) {
     ...overrides,
   });
 
-  const preview = useMemo(() => renderCardSvg(renderInput({ idPrefix: "editor" })), [layout, headline, showPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
+  const preview = useMemo(() => renderCardSvg(renderInput({ idPrefix: "editor" })), [layout, color, headline, showPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function save() {
     setError(null);
     startTransition(async () => {
-      const result = await saveCardDesignAction({ layout, headline, showPhoto, showProvider });
+      const result = await saveCardDesignAction({ layout, color, headline, showPhoto, showProvider, updatedAt: revision });
       if (result.error || result.fieldErrors) {
         setError(result.error ?? Object.values(result.fieldErrors ?? {})[0] ?? "Speichern fehlgeschlagen.");
         return;
       }
-      setSaved({ layout, headline, showPhoto, showProvider });
+      if (!result.cardUpdatedAt) { setError("Gespeichert. Bitte lade die Seite neu, bevor du weiterbearbeitest."); return; }
+      setRevision(result.cardUpdatedAt);
+      setSaved({ layout, color, headline, showPhoto, showProvider, updatedAt: result.cardUpdatedAt });
       setStatus("Gespeichert");
       setTimeout(() => setStatus(null), 2500);
     });
@@ -144,6 +149,13 @@ export function CardDesigner(props: Props) {
                 <span className="block text-[0.6875rem] leading-tight text-ink-soft">{option.description}</span>
               </button>
             ))}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend className="label">Kartenfarbe</legend>
+          <div className="flex flex-wrap gap-2">
+            {CARD_COLORS.map(option => <button type="button" key={option.id} aria-pressed={color === option.id} onClick={() => setColor(option.id)} className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold ${color === option.id ? "border-brand bg-brand-50" : "border-line bg-white"}`}><span className="h-5 w-5 rounded-full" style={{ backgroundColor: option.solid }} />{option.label}</button>)}
           </div>
         </fieldset>
 

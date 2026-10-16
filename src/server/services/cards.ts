@@ -25,11 +25,13 @@ export async function getCardDesign(driverId: string): Promise<CardDesign> {
   const existing = await db.cardDesigns.findOne({ driverId });
   if (existing) return existing;
   // Ältere Konten ohne Design bekommen beim ersten Aufruf das Standarddesign.
-  return db.cardDesigns.insert({ id: newId(), driverId, ...defaultCardDesign(), updatedAt: new Date().toISOString() });
+  try { return await db.cardDesigns.insert({ id: newId(), driverId, ...defaultCardDesign(), updatedAt: new Date().toISOString() }); }
+  catch (error) { const concurrent = await db.cardDesigns.findOne({ driverId }); if (concurrent) return concurrent; throw error; }
 }
 
 export const cardDesignSchema = z.object({
   layout: z.enum(["classic", "brand", "personal"]),
+  color: z.enum(["blue", "navy", "teal"]).optional(),
   headline: z
     .string()
     .trim()
@@ -39,9 +41,16 @@ export const cardDesignSchema = z.object({
   showProvider: z.boolean(),
 });
 
-export async function saveCardDesign(driverId: string, input: z.infer<typeof cardDesignSchema>): Promise<void> {
+export async function saveCardDesign(driverId: string, input: z.infer<typeof cardDesignSchema>, expectedUpdatedAt?: string): Promise<string> {
+  const fields = cardDesignSchema.parse(input);
   const design = await getCardDesign(driverId);
-  await getDb().cardDesigns.update(design.id, { ...input, updatedAt: new Date().toISOString() });
+  const patch = { ...fields, updatedAt: new Date(Math.max(Date.now(), Date.parse(design.updatedAt) + 1)).toISOString() };
+  if (expectedUpdatedAt !== undefined) {
+    if (expectedUpdatedAt !== design.updatedAt || !await getDb().cardDesigns.updateIf(design.id, { updatedAt: expectedUpdatedAt }, patch)) {
+      throw new ServiceError("card_changed", "Deine Karte wurde zwischenzeitlich geändert. Lade den aktuellen Stand und versuche es erneut.", 409);
+    }
+  } else await getDb().cardDesigns.update(design.id, patch);
+  return patch.updatedAt;
 }
 
 /**
@@ -80,6 +89,7 @@ export async function renderDriverCard(driver: DriverProfile, user: User, idPref
   const ctx = await cardContext(driver, user);
   return renderCardSvg({
     layout: ctx.design.layout,
+    color: ctx.design.color,
     headline: ctx.design.headline,
     publicName: ctx.publicName,
     providerLabel: ctx.design.showProvider ? ctx.providerLabel : null,
@@ -140,6 +150,7 @@ export async function createCardOrder(
 
   const design: CardSnapshot = {
     layout: ctx.design.layout,
+    color: ctx.design.color,
     headline: ctx.design.headline,
     showPhoto: ctx.design.showPhoto,
     showProvider: ctx.design.showProvider,

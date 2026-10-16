@@ -1,5 +1,5 @@
-import type { CardLayout } from "../db/types";
-import { CARD_HEIGHT_MM, CARD_WIDTH_MM } from "./design";
+import type { CardColor, CardLayout } from "./design";
+import { cardPalette, CARD_HEIGHT_MM, CARD_WIDTH_MM } from "./design";
 
 /**
  * Rendert die Lieferdank-Karte als eigenständiges SVG.
@@ -14,6 +14,7 @@ import { CARD_HEIGHT_MM, CARD_WIDTH_MM } from "./design";
 
 export type CardRenderInput = {
   layout: CardLayout;
+  color?: CardColor;
   headline: string;
   publicName: string;
   /** null = ausblenden. */
@@ -111,20 +112,23 @@ function textWithHeart(text: string, heartColor: string): string {
 
 function embedQr(qrSvg: string, x: number, y: number, size: number): string {
   const viewBox = qrSvg.match(/viewBox="([^"]+)"/)?.[1] ?? "0 0 33 33";
+  const [minX, minY, width] = viewBox.split(/\s+/).map(Number);
   const inner = qrSvg.replace(/^[\s\S]*?<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
-  return `<svg x="${x}" y="${y}" width="${size}" height="${size}" viewBox="${viewBox}" shape-rendering="crispEdges">${inner}</svg>`;
+  // An explicit group transform also works in native SVG renderers, which can clip
+  // subsequent siblings when nested SVG viewports use different coordinate systems.
+  return `<g transform="translate(${x} ${y}) scale(${size / width}) translate(${-minX} ${-minY})" shape-rendering="crispEdges">${inner}</g>`;
 }
 
 function logoMark(x: number, y: number, size: number, onDark: boolean): string {
   // Same mark as web and app: all-blue parcel (white on dark cards), heart without a rim.
   const lines = onDark ? "rgba(255,255,255,0.6)" : COLORS.brand400;
   const box = onDark ? COLORS.white : COLORS.brand;
-  return `<svg x="${x}" y="${y}" width="${size}" height="${size}" viewBox="-1 -2.5 45 45">
+  return `<g transform="translate(${x} ${y}) scale(${size / 45}) translate(1 2.5)">
 <g stroke="${lines}" stroke-width="2.6" stroke-linecap="round"><line x1="2" y1="13" x2="9" y2="13"/><line x1="1" y1="20" x2="7" y2="20"/><line x1="3" y1="27" x2="9" y2="27"/></g>
 <path d="M13.5 12 23.5 7l10 5v12l-10 5-10-5z" fill="none" stroke="${box}" stroke-width="2.8" stroke-linejoin="round"/>
 <path d="M13.5 12 23.5 17l10-5M23.5 17v12" fill="none" stroke="${box}" stroke-width="2.2" stroke-linejoin="round"/>
 <path d="M28 27.4c0-2.55 2-4.35 4.2-4.35 1.3 0 2.45.6 3.1 1.55.65-.95 1.8-1.55 3.1-1.55 2.2 0 4.2 1.8 4.2 4.35 0 3.9-5.25 7.2-7.3 8.5-2.05-1.3-7.3-4.6-7.3-8.5z" fill="${COLORS.coral}"/>
-</svg>`;
+</g>`;
 }
 
 function wordmark(x: number, baseline: number, size: number, onDark: boolean): string {
@@ -269,7 +273,7 @@ function classic(input: CardRenderInput, id: string): string {
     headlineFirst: true,
   });
 
-  return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${COLORS.white}" stroke="${COLORS.line}" stroke-width="0.25"/>
+  return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${cardPalette(input.color).light}" stroke="${COLORS.line}" stroke-width="0.25"/>
 ${header(false)}
 ${embedQr(input.qrSvg, qrX, qrY, qrSize)}
 ${qrCaption(qrX + qrSize / 2, 41.6, false)}
@@ -305,7 +309,7 @@ function brand(input: CardRenderInput, id: string): string {
     headlineFirst: true,
   });
 
-  return `<rect width="${W}" height="${H}" rx="3.2" fill="${COLORS.brand}"/>
+  return `<rect width="${W}" height="${H}" rx="3.2" fill="${cardPalette(input.color).solid}"/>
 ${header(true)}
 <rect x="${tileX}" y="${tileY}" width="${tile}" height="${tile}" rx="2.2" fill="${COLORS.white}"/>
 ${embedQr(input.qrSvg, tileX + qrPad, tileY + qrPad, tile - qrPad * 2)}
@@ -331,7 +335,7 @@ function personal(input: CardRenderInput, id: string): string {
 
   const headlineLines = wrapText(input.headline, 3, colWidth, 2);
 
-  return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${COLORS.white}" stroke="${COLORS.line}" stroke-width="0.25"/>
+  return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${cardPalette(input.color).light}" stroke="${COLORS.line}" stroke-width="0.25"/>
 ${header(false)}
 ${avatar(input.avatar ? avatarInput : { href: null, initials: avatarInput.initials || "?" }, cx, cy, r, false, `${id}-av`)}
 <text x="${nameX}" y="${nameBaseline}" font-family="${SANS}" font-size="${nameSize}" font-weight="800" letter-spacing="-0.1" fill="${COLORS.ink}">${escapeXml(input.publicName)}</text>

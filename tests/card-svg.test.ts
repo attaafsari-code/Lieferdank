@@ -3,12 +3,24 @@ import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { escapeXml, renderCardSvg, wrapText } from "@/lib/card/svg";
 import type { CardLayout } from "@/lib/db/types";
+import { CARD_COLORS, CARD_LAYOUTS } from "@/lib/card/design";
+import jsQR from "jsqr";
 
 async function qr() {
   return QRCode.toString("https://lieferdank.de/danke/LD-TEST1", { type: "svg", margin: 0 });
 }
 
 describe("Karten-SVG", () => {
+  it("behält einen lesbaren QR-Code und feste Markenfarben in jeder Layout-/Farbkombination", async () => {
+    for (const layout of CARD_LAYOUTS) for (const color of CARD_COLORS) {
+      const svg = renderCardSvg({ layout: layout.id, color: color.id, headline: "Danke ❤", publicName: "Max", providerLabel: null, code: "LD-TEST1", qrSvg: await qr(), avatar: null });
+      const { data, info } = await sharp(Buffer.from(svg)).resize(1027, 648).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      expect(jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data).toBe("https://lieferdank.de/danke/LD-TEST1");
+      expect(svg).toContain('fill="#ff4d4a">dank</tspan>');
+      expect(svg).toContain('fill="#ff4d4a">❤</tspan>');
+      expect(svg.match(/<svg\b/g)).toHaveLength(1);
+    }
+  });
   it("behält die feste Coral-Markenfarbe bei allen Kartenvarianten", async () => {
     for (const layout of ["classic", "brand", "personal"] as const) {
       const svg = renderCardSvg({ layout, headline: "Danke ❤", publicName: "Max", providerLabel: null, code: "LD-TEST1", qrSvg: await qr(), avatar: null });

@@ -59,24 +59,3 @@ export function FilterChip({ title, selected, onPress }: { title: string; select
     <Text style={{ color: selected ? "white" : colors.navy, fontSize: 14, fontWeight: "600" }} numberOfLines={1}>{title}</Text>
   </Pressable>;
 }
-
-/** Native preview of the personal LieferDank card (85.6 × 54 mm), drawn with views instead of the print SVG. */
-export function CardPreview({ qrSvg, code, headline, name, QrView }: { qrSvg: string; code: string; headline: string; name: string; QrView: React.ComponentType<{ xml: string; width: string | number; height: string | number }> }) {
-  return <View accessible accessibilityLabel={`Vorschau deiner LieferDank-Karte: ${headline}, ${name}, Code ${code}`} style={{ width: "100%", aspectRatio: 85.6 / 54, backgroundColor: "white", borderRadius: 14, borderWidth: 1, borderColor: colors.line, padding: "4.5%", justifyContent: "space-between", shadowColor: colors.navy, shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}>
-    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><BrandMark size={16} /><Text style={{ fontSize: 13, fontWeight: "800", color: colors.navy, letterSpacing: -0.3 }}>Liefer<Text style={{ color: colors.coral }}>dank</Text></Text></View>
-      <Text style={{ fontSize: 8, fontWeight: "700", letterSpacing: 0.8, color: "#8798b3" }}>KEINE APP NÖTIG</Text>
-    </View>
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, paddingVertical: 6 }}>
-      <View style={{ height: "100%", aspectRatio: 1 }}><QrView xml={qrSvg} width="100%" height="100%" /></View>
-      <View style={{ flex: 1, gap: 4 }}>
-        <Text style={{ fontSize: 13, lineHeight: 16, fontWeight: "800", color: colors.navy }} numberOfLines={3}>{headline}{/[♥❤]/.test(headline) ? "" : " "}{/[♥❤]/.test(headline) ? null : <Text style={{ color: colors.coral }}>♥</Text>}</Text>
-        <Text style={{ fontSize: 20, fontWeight: "800", color: colors.navy }} numberOfLines={1} adjustsFontSizeToFit>{name}</Text>
-      </View>
-    </View>
-    <View style={{ borderTopWidth: 1, borderTopColor: "#e7ecf4", paddingTop: 5, flexDirection: "row", justifyContent: "space-between", gap: 6 }}>
-      <Text style={{ fontSize: 8, color: "#5b6b80" }} numberOfLines={1}>Danke sagen kostenlos · Trinkgeld freiwillig</Text>
-      <Text style={{ fontSize: 8, color: "#5b6b80", fontWeight: "600" }}>{code}</Text>
-    </View>
-  </View>;
-}

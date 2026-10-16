@@ -7,6 +7,7 @@ export type FormState = {
   error?: string;
   fieldErrors?: Record<string, string>;
   saved?: boolean;
+  cardUpdatedAt?: string;
   /** Nur im Testmodus ohne Mailversand: Link zum direkten Weiterklicken. */
   devLink?: string;
 };

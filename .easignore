@@ -1,4 +1,4 @@
-# Cloud native builds contain only the standalone LieferDank driver app.
+# Cloud native builds contain the LieferDank app and its two pure card modules.
 # Web/backend sources, personal files, production env and test data stay local.
 /*
 !/apps
@@ -10,6 +10,14 @@
 /apps/driver/ios
 /apps/driver/android
 /apps/driver/coverage
+!/src
+/src/*
+!/src/lib
+/src/lib/*
+!/src/lib/card
+/src/lib/card/*
+!/src/lib/card/design.ts
+!/src/lib/card/svg.ts
 **/.env
 **/.env.*
 **/*.pem

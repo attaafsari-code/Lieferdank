@@ -5,6 +5,9 @@
  * Die Tabellennamen in Postgres sind die snake_case-Pluralformen, siehe DATABASE.md.
  */
 
+import type { CardColor, CardLayout } from "../card/design";
+export type { CardColor, CardLayout } from "../card/design";
+
 export type Role = "driver" | "customer" | "admin";
 
 export type User = {
@@ -71,12 +74,12 @@ export type CustomerProfile = {
   createdAt: string;
 };
 
-export type CardLayout = "classic" | "brand" | "personal";
-
 export type CardDesign = {
   id: string;
   driverId: string;
   layout: CardLayout;
+  /** Missing only on historical designs/snapshots; blue preserves their appearance. */
+  color?: CardColor;
   headline: string;
   showPhoto: boolean;
   showProvider: boolean;
@@ -86,6 +89,7 @@ export type CardDesign = {
 /** Eingefrorener Stand einer Karte zum Bestellzeitpunkt. */
 export type CardSnapshot = {
   layout: CardLayout;
+  color?: CardColor;
   headline: string;
   showPhoto: boolean;
   showProvider: boolean;

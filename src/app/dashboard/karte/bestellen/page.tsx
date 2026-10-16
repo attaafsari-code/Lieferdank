@@ -51,6 +51,7 @@ export default async function OrderPage({
             <CardPreview
               className="overflow-hidden rounded-xl shadow-lg"
               layout={card.design.layout}
+              color={card.design.color}
               headline={card.design.headline}
               publicName={card.publicName}
               providerLabel={card.design.showProvider ? card.providerLabel : null}

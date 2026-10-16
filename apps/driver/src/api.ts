@@ -1,5 +1,5 @@
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public code?: string) { super(message); }
 }
 export function validateApiBase(value: string, development = false): string {
   const u = new URL(value);
@@ -17,7 +17,7 @@ export async function callApi<T>(base: string, path: string, token: string | nul
     const body = await response.json().catch(() => null);
     if (!body || typeof body !== "object") throw new ApiError(response.ok ? 502 : response.status,
       "Die App-Anbindung ist gerade nicht verfügbar. Bitte versuche es später erneut.");
-    if (!response.ok) throw new ApiError(response.status, body.error?.message ?? "Die Anfrage konnte nicht abgeschlossen werden.");
+    if (!response.ok) throw new ApiError(response.status, body.error?.message ?? "Die Anfrage konnte nicht abgeschlossen werden.", body.error?.code);
     return body as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;

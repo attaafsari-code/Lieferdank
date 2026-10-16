@@ -117,6 +117,7 @@ function addDriver(user, options) {
     id: randomUUID(),
     driverId: driver.id,
     layout: options.layout ?? "classic",
+    color: "blue",
     headline: options.headline ?? "Danke für deine Wertschätzung ❤",
     showPhoto: false,
     showProvider: true,
@@ -336,6 +337,7 @@ db.cardOrders.push({
   paymentId: null,
   design: {
     layout: "classic",
+    color: "blue",
     headline: "Danke für deine Wertschätzung ❤",
     showPhoto: false,
     showProvider: true,

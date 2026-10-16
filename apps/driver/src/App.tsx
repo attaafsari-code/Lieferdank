@@ -13,12 +13,14 @@ import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
 import { cardDocument, CARD_PAPER, printWasCancelled } from "./card-document";
+import { CardEditor } from "./CardEditor";
+import { CardArtwork } from "./CardArtwork";
 import { useFonts } from "expo-font";
 import { SvgXml } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ApiError, callApi, deepLink, describeMilestone, driverThankUrl, euro, legalPages, trustedBrowserUrl, validateApiBase, type Screen } from "./api";
 import type { Earning, Favorite, History, Me, Profile, Qr, Role, Stats, StripeStatus, Thank } from "./types";
-import { Avatar, BrandMark, Button, Card, CardPreview, FilterChip, colors, Field, Loading, Segmented, styles, TextLink } from "./ui";
+import { Avatar, BrandMark, Button, Card, FilterChip, colors, Field, Loading, Segmented, styles, TextLink } from "./ui";
 
 const BASE = validateApiBase(process.env.EXPO_PUBLIC_API_URL ?? "https://lieferdank.de", __DEV__);
 const SESSION_KEY = "lieferdank.driver.session";
@@ -53,6 +55,7 @@ function LieferDankApp() {
   const [error, setError] = useState(""); const [info, setInfo] = useState(""); const [busy, setBusy] = useState(false); const busyRef = useRef(false);
   const [stats, setStats] = useState<Stats | null>(null); const [profile, setProfile] = useState<Profile | null>(null);
   const [stripe, setStripe] = useState<StripeStatus | null>(null); const [qr, setQr] = useState<Qr | null>(null);
+  const [editingCard, setEditingCard] = useState(false);
   const [earnings, setEarnings] = useState<Earning[]>([]); const [thanks, setThanks] = useState<Thank[]>([]);
   const [favorites, setFavorites] = useState<Favorite[] | null>(null); const [history, setHistory] = useState<History | null>(null);
   const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [authMode, setAuthMode] = useState<AuthMode>("login");
@@ -69,6 +72,7 @@ function LieferDankApp() {
     profileDirty.current = false; tokenRef.current = null; setToken(null); setMe(null); setViewRole(null); setNewsletter(null); setStats(null); setProfile(null); setStripe(null); setQr(null);
     setEarnings([]); setThanks([]); setFavorites(null); setHistory(null); setPassword(""); setCurrentPassword(""); setNewPassword(""); setDeletePassword(""); setPushEnabled(false);
     setNewsletterConsent(false); setNewsletterOpen(false); setAcceptedTerms(false); setActivationOpen(false);
+    setEditingCard(false);
     await SecureStore.deleteItemAsync(SESSION_KEY);
   }, []);
   const api = useCallback(async <T,>(path: string, init?: RequestInit) => {
@@ -123,8 +127,14 @@ function LieferDankApp() {
     return () => clearInterval(timer);
   }, [token, refresh]);
   // Every screen starts at the top, like a native tab switch.
-  useEffect(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, [screen]);
-  useEffect(() => { if (screen === "qr" && role === "driver" && !qr && tokenRef.current) api<Qr>("/api/v1/me/code").then(setQr).catch(e => setError(e.message)); }, [screen, role, qr, api]);
+  useEffect(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, [screen, editingCard]);
+  useEffect(() => {
+    if (screen !== "qr" || role !== "driver") return;
+    let active = true;
+    const reload = () => { const owner = tokenRef.current; if (owner) api<Qr>("/api/v1/me/code").then(value => { if (active && owner === tokenRef.current) setQr(value); }).catch(e => { if (active) setError(e.message); }); };
+    reload(); const subscription = AppState.addEventListener("change", state => { if (state === "active") reload(); });
+    return () => { active = false; subscription.remove(); };
+  }, [screen, role, api, editingCard]);
   useEffect(() => { if (role && !tabsFor[role].some(t => t.screen === screen) && !(role === "driver" && ["stripe", "settings"].includes(screen)) && screen !== "settings") setScreen(homeFor[role]); }, [role, screen]);
   useEffect(() => {
     const sub = AppState.addEventListener("change", state => { if (state === "active" && tokenRef.current) refresh().catch(e => setError(e.message)); });
@@ -209,9 +219,10 @@ function LieferDankApp() {
     await api("/api/v1/me/push", { method: "POST", body: JSON.stringify({ token: pushToken, enabled: true }) }); setPushEnabled(true);
   }
   async function savePhoto() {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.8 }); if (result.canceled) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.8 }); if (result.canceled) return false;
     const file = new File(result.assets[0].uri); const bytes = await file.bytes();
     await api("/api/v1/me/photo", { method: "PUT", headers: { "content-type": "application/octet-stream" }, body: bytes }); await refresh();
+    setQr(await api<Qr>("/api/v1/me/code")); return true;
   }
   async function shareQr() {
     if (!qr) return; const file = new File(Paths.cache, "lieferdank-qr.png"); file.write(qr.qrPng.split(",")[1], { encoding: "base64" });
@@ -326,12 +337,13 @@ function LieferDankApp() {
         </View>}</Card>)}
       {thanksCursor && <Button title="Weitere laden" subtle disabled={busy} onPress={() => run(async () => { const page = await api<{ items: Thank[]; nextCursor: string | null }>(`/api/v1/me/thanks?before=${encodeURIComponent(thanksCursor)}`); setThanks(previous => [...previous, ...page.items.filter(i => !previous.some(p => p.id === i.id))]); setThanksCursor(page.nextCursor); })} />}
       {!thanks.length && <Card><Text style={styles.text}>Teile deinen QR-Code, damit Kunden Danke sagen können.</Text><Button title="Meinen QR-Code öffnen" onPress={() => setScreen("qr")} /></Card>}</>}
-    {screen === "qr" && <><Text style={styles.heading}>Dein Danke-Code</Text>
+    {screen === "qr" && editingCard && <CardEditor api={api} onClose={() => { setQr(null); setEditingCard(false); }} onSaved={async () => setQr(await api<Qr>("/api/v1/me/code"))} onPhoto={savePhoto} onRemovePhoto={async () => { await api("/api/v1/me/photo", { method: "DELETE" }); await refresh(); setQr(await api<Qr>("/api/v1/me/code")); }} />}
+    {screen === "qr" && !editingCard && <><Text style={styles.heading}>Dein Danke-Code</Text>
       {!qr ? <Loading label="Dein QR-Code wird geladen …" /> : <>
         <Card><Text style={[styles.title, { textAlign: "center" }]}>{profile?.customName || profile?.firstName}</Text><View style={{ alignItems: "center" }}><SvgXml xml={qr.qrSvg} width="100%" height={260} accessibilityLabel="Dein persönlicher LieferDank-QR-Code" /></View>
           <Text style={[styles.title, { textAlign: "center", letterSpacing: 1 }]}>{qr.code}</Text><Text style={[styles.muted, { textAlign: "center" }]}>Keine App nötig · Trinkgeld freiwillig</Text></Card>
         <Text style={styles.muted}>Kunden scannen den Code und landen auf deiner Danke-Seite.</Text>
-        <Card><Text style={styles.title}>So sieht deine Karte aus</Text><CardPreview qrSvg={qr.qrSvg} code={qr.code} headline={qr.card?.headline ?? "Danke für deine Wertschätzung"} name={qr.card?.publicName ?? profile?.customName ?? profile?.firstName ?? ""} QrView={SvgXml} /><Text style={styles.muted}>Kostenlose digitale Druckvorlage: Karte in Originalgröße auf einer A4-Seite.</Text></Card>
+        <Card><Text style={styles.title}>So sieht deine Karte aus</Text><View accessible accessibilityLabel="Deine gespeicherte QR-Karte" style={{ width: "100%", aspectRatio: 85.6 / 54 }}><CardArtwork xml={qr.cardSvg} /></View><Text style={styles.muted}>Kostenlose digitale Druckvorlage: Karte in Originalgröße auf einer A4-Seite.</Text><Button title="Karte bearbeiten" onPress={() => setEditingCard(true)} /></Card>
         <Button title="Karte als PDF speichern / teilen" disabled={busy} onPress={() => run(() => exportCard(false))} />
         <Button title="Karte drucken (AirPrint)" subtle disabled={busy} onPress={() => run(() => exportCard(true))} />
         <Button title="QR-Code teilen oder speichern" disabled={busy} onPress={() => run(shareQr)} />
@@ -343,7 +355,7 @@ function LieferDankApp() {
         <Card>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
             {profile.hasPhoto && token ? <Image source={{ uri: `${BASE}/api/v1/me/photo`, headers: { authorization: `Bearer ${token}` } }} style={{ width: 72, height: 72, borderRadius: 36 }} accessibilityLabel="Dein Profilfoto" /> : <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.soft, alignItems: "center", justifyContent: "center" }}><Ionicons name="person" size={32} color={colors.blue} /></View>}
-            <View style={{ flex: 1 }}><TextLink title={profile.hasPhoto ? "Foto ändern" : "Foto hinzufügen"} align="flex-start" onPress={() => run(savePhoto)} />{profile.hasPhoto && <TextLink small title="Foto entfernen" align="flex-start" onPress={() => run(async () => { await api("/api/v1/me/photo", { method: "DELETE" }); await refresh(); })} />}</View>
+            <View style={{ flex: 1 }}><TextLink title={profile.hasPhoto ? "Foto ändern" : "Foto hinzufügen"} align="flex-start" onPress={() => run(async () => { await savePhoto(); })} />{profile.hasPhoto && <TextLink small title="Foto entfernen" align="flex-start" onPress={() => run(async () => { await api("/api/v1/me/photo", { method: "DELETE" }); await refresh(); setQr(await api<Qr>("/api/v1/me/code")); })} />}</View>
           </View>
           {profile.hasPhoto && <View style={styles.switchRow}><Text style={[styles.text, { flex: 1 }]}>Foto öffentlich zeigen</Text><Switch accessibilityLabel="Foto öffentlich anzeigen" value={profile.photoPublic} trackColor={{ true: colors.blue }} onValueChange={v => { profileDirty.current = true; setProfile({ ...profile, photoPublic: v }); }} /></View>}
         </Card>
