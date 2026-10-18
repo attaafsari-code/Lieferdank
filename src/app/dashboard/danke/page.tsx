@@ -23,8 +23,8 @@ export default async function ThankYousPage() {
       </section>
 
       <section>
-        <SectionTitle>Meilensteine</SectionTitle>
-        <MilestoneList items={stats.milestones} />
+        <SectionTitle action={{ href: "/dashboard/meilensteine", label: "Rang & alle Stufen" }}>Weitere Meilensteine</SectionTitle>
+        <MilestoneList items={stats.milestones.filter(m => m.type !== "thank_you_count")} />
       </section>
 
       <p className="text-sm leading-relaxed text-ink-soft">

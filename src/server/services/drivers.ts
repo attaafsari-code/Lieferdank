@@ -5,6 +5,7 @@ import { initials, publicName } from "@/lib/names";
 import { generateLieferdankCode, newId, normalizeCode } from "@/lib/id";
 import { defaultCardDesign } from "@/lib/card/design";
 import { isDemoPayment } from "../payments";
+import type { RankProgress } from "@/lib/ranks";
 
 /**
  * Öffentliche Sicht auf einen Zusteller. Enthält ausschließlich, was der
@@ -12,6 +13,7 @@ import { isDemoPayment } from "../payments";
  * sofern der Nachname nicht Teil des gewählten Anzeigenamens ist.
  */
 export type PublicDriver = {
+  rank?: RankProgress;
   code: string;
   name: string;
   initials: string;

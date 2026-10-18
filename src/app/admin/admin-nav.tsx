@@ -9,6 +9,7 @@ const ITEMS = [
   { href: "/admin/zahlungen", label: "Transaktionen" },
   { href: "/admin/auszahlungen", label: "Auszahlungen" },
   { href: "/admin/karten", label: "Kartenbestellungen" },
+  { href: "/admin/raenge", label: "Ränge & Rewards" },
   { href: "/admin/system", label: "System" },
 ];
 

@@ -92,9 +92,17 @@ function memoryTable<N extends TableName>(name: N): Table<Tables[N]> {
     async insert(row) {
       checkPushToken(row);
       // Mirror existing PostgreSQL uniqueness rules in deterministic integration tests.
-      const uniqueField = ({ users: "email", driverProfiles: "userId", customerProfiles: "userId", cardDesigns: "driverId", marketingConsents: "userId" } as Record<string, string>)[name];
+      const uniqueField = ({ rewardDefinitions: "threshold", users: "email", driverProfiles: "userId", customerProfiles: "userId", cardDesigns: "driverId", marketingConsents: "userId" } as Record<string, string>)[name];
       if (uniqueField && rows().some(e => (e as unknown as Record<string, unknown>)[uniqueField] === (row as unknown as Record<string, unknown>)[uniqueField]))
         throw new Error(`${name}_${uniqueField}_key: duplicate key`);
+      if (name === "milestones" && rows().some(existing => {
+        const a = existing as unknown as { driverId: string; type: string; value: number }, b = row as unknown as { driverId: string; type: string; value: number };
+        return a.driverId === b.driverId && a.type === b.type && a.value === b.value;
+      })) throw new Error("milestones_unique");
+      if (name === "rewardEntitlements" && rows().some(existing => {
+        const a = existing as unknown as { driverId: string; threshold: number }, b = row as unknown as { driverId: string; threshold: number };
+        return a.driverId === b.driverId && a.threshold === b.threshold;
+      })) throw new Error("reward_entitlements_driver_threshold_key");
       if (rows().some((existing) => existing.id === row.id)) {
         throw new Error(`${name}: Zeile ${row.id} existiert bereits`);
       }

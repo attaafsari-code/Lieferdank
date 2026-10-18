@@ -25,6 +25,9 @@ const SCHEMA_CHECKS = [
   ["message_reports", "thank_you_id, status"],
   ["marketing_consents", "user_id, status"],
   ["card_designs", "driver_id, color"],
+  ["driver_rank_counts", "id, thank_you_count"],
+  ["reward_definitions", "threshold, content_draft, conditions_draft"],
+  ["reward_entitlements", "driver_id, threshold, claimed_at"],
 ] as const;
 
 /** Nur diese Fehler bedeuten „Spalte bzw. Tabelle fehlt“ – alles andere ist eine Störung. */

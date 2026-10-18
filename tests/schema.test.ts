@@ -18,6 +18,8 @@ import { TABLE_NAMES } from "@/lib/db/types";
 type Keys<T> = Record<keyof T, true>;
 
 const KEYS: { [K in TableName]: Keys<Tables[K]> } = {
+  rewardDefinitions: { id: true, threshold: true, contentDraft: true, conditionsDraft: true, updatedAt: true },
+  rewardEntitlements: { id: true, driverId: true, threshold: true, unlockedAt: true, claimedAt: true },
   mobileSessions: { id: true, userId: true, tokenVersion: true, expiresAt: true, revokedAt: true, pushToken: true, pushEnabled: true, createdAt: true },
   pushDeliveries: { id: true, sessionId: true, eventKey: true, title: true, body: true, screen: true, status: true, ticketId: true, tokenAtSend: true, leaseUntil: true, attempts: true, createdAt: true },
   users: { id: true, email: true, firstName: true, lastName: true, phone: true, role: true, passwordHash: true, tokenVersion: true, createdAt: true, emailVerifiedAt: true, blockedAt: true, blockedReason: true },
@@ -93,7 +95,7 @@ describe("Schema-Konsistenz", () => {
   });
 
   it("schützt jede Admin-Seite serverseitig", () => {
-    for (const route of ["", "nutzer", "zahlungen", "auszahlungen", "karten", "system"]) {
+    for (const route of ["", "nutzer", "zahlungen", "auszahlungen", "karten", "system", "raenge"]) {
       const source = readFileSync(join(process.cwd(), "src", "app", "admin", route, "page.tsx"), "utf8");
       expect(source, `Admin-Guard fehlt auf /admin/${route}`).toMatch(/await\s+requireAdmin\s*\(\s*\)/);
     }

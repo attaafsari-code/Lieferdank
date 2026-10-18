@@ -88,6 +88,7 @@ export type CardDesign = {
 
 /** Eingefrorener Stand einer Karte zum Bestellzeitpunkt. */
 export type CardSnapshot = {
+  rank?: import("@/lib/ranks").RankId | null;
   layout: CardLayout;
   color?: CardColor;
   headline: string;
@@ -173,6 +174,11 @@ export type ThankYou = {
   senderKey?: string | null;
   createdAt: string;
 };
+
+/** Preparation only: no active claim/fulfilment API exists. One row per driver and threshold. */
+export type RewardEntitlement = { id: string; driverId: string; threshold: number; unlockedAt: string; claimedAt: string | null };
+/** Private admin drafts; never exposed to public/driver APIs and cannot activate issuance. */
+export type RewardDefinition = { id: string; threshold: number; contentDraft: string; conditionsDraft: string; updatedAt: string };
 
 /** Ein Zusteller blockiert künftige Nachrichten eines (pseudonymen) Absenders. */
 export type BlockedSender = { id: string; driverId: string; senderKey: string; createdAt: string };
@@ -314,6 +320,8 @@ export type PushDelivery = {
 
 /** Alle Tabellen mit ihrem Zeilentyp. Der Schlüssel ist der Name im Code. */
 export type Tables = {
+  rewardEntitlements: RewardEntitlement;
+  rewardDefinitions: RewardDefinition;
   mobileSessions: MobileSession;
   pushDeliveries: PushDelivery;
   users: User;
@@ -342,6 +350,8 @@ export type TableName = keyof Tables;
 export type Database = { [K in TableName]: Tables[K][] };
 
 export const TABLE_NAMES: TableName[] = [
+  "rewardEntitlements",
+  "rewardDefinitions",
   "mobileSessions",
   "pushDeliveries",
   "users",

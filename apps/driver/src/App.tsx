@@ -15,10 +15,11 @@ import * as Print from "expo-print";
 import { cardDocument, CARD_PAPER, printWasCancelled } from "./card-document";
 import { CardEditor } from "./CardEditor";
 import { CardArtwork } from "./CardArtwork";
+import { RankSummary, RanksScreen } from "./Ranks";
 import { useFonts } from "expo-font";
 import { SvgXml } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { ApiError, callApi, deepLink, describeMilestone, driverThankUrl, euro, legalPages, trustedBrowserUrl, validateApiBase, type Screen } from "./api";
+import { ApiError, callApi, deepLink, driverThankUrl, euro, legalPages, trustedBrowserUrl, validateApiBase, type Screen } from "./api";
 import type { Earning, Favorite, History, Me, Profile, Qr, Role, Stats, StripeStatus, Thank } from "./types";
 import { Avatar, BrandMark, Button, Card, FilterChip, colors, Field, Loading, Segmented, styles, TextLink } from "./ui";
 
@@ -135,7 +136,7 @@ function LieferDankApp() {
     reload(); const subscription = AppState.addEventListener("change", state => { if (state === "active") reload(); });
     return () => { active = false; subscription.remove(); };
   }, [screen, role, api, editingCard]);
-  useEffect(() => { if (role && !tabsFor[role].some(t => t.screen === screen) && !(role === "driver" && ["stripe", "settings"].includes(screen)) && screen !== "settings") setScreen(homeFor[role]); }, [role, screen]);
+  useEffect(() => { if (role && !tabsFor[role].some(t => t.screen === screen) && !(role === "driver" && ["stripe", "settings", "milestones"].includes(screen)) && screen !== "settings") setScreen(homeFor[role]); }, [role, screen]);
   useEffect(() => {
     const sub = AppState.addEventListener("change", state => { if (state === "active" && tokenRef.current) refresh().catch(e => setError(e.message)); });
     const onLink = async (value: string) => {
@@ -310,7 +311,7 @@ function LieferDankApp() {
           <View style={[styles.card, { flex: 1 }]}><Text style={styles.muted}>Heute</Text><Text style={styles.value}>{euro(stats.today.driverCents)}</Text><Text style={styles.muted}>{stats.today.tipCount} Trinkgeld{stats.today.tipCount === 1 ? "" : "er"}{"\n"}{stats.today.thanks} Danke</Text></View>
           <View style={[styles.card, { flex: 1 }]}><Text style={styles.muted}>Seit Beginn</Text><Text style={styles.value}>{euro(stats.total.driverCents)}</Text><Text style={styles.muted}>{stats.total.thanks} Danke</Text></View>
         </View>
-        {stats.milestones.length > 0 && <Card><Text style={styles.title}>Deine Meilensteine</Text>{stats.milestones.slice(0, 4).map(m => { const d = describeMilestone(m.type, m.value); return <Text key={m.id} style={styles.text}>{d.emoji}  {d.title}</Text>; })}</Card>}
+        <Card><Text style={styles.title}>Dein Rang</Text>{stats.rank && <RankSummary progress={stats.rank} />}<Button title="Rang & Meilensteine ansehen" subtle onPress={() => setScreen("milestones")} /></Card>
         <Card><Text style={styles.title}>Letzte Trinkgelder</Text>
           {earnings.filter(e => e.paymentStatus === "succeeded").slice(0, 3).map(e => <View key={e.id} style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}><Text style={styles.text}>{euro(e.shareBeforeStripeCents)}</Text><Text style={styles.muted}>{date(e.createdAt)}</Text></View>)}
           {!earnings.some(e => e.paymentStatus === "succeeded") && <Text style={styles.muted}>Hier erscheinen deine bestätigten Trinkgelder.</Text>}
@@ -319,6 +320,7 @@ function LieferDankApp() {
       </>}
       {lastUpdated ? <Text style={[styles.muted, { textAlign: "center" }]}>Aktualisiert um {lastUpdated} Uhr</Text> : null}
     </>}
+    {screen === "milestones" && <RanksScreen api={api} achievements={stats?.milestones} onBack={() => setScreen("dashboard")} onColors={() => { setScreen("qr"); setEditingCard(true); }} onShare={() => run(async () => { const data = await api<Qr>("/api/v1/me/code"); await Share.share({ message: `${driverThankUrl(data.code)}/profil` }); })} />}
     {screen === "earnings" && <><Text style={styles.heading}>Einnahmen</Text><Text style={styles.muted}>Dein Trinkgeld nach der LieferDank-Gebühr. Den tatsächlich ausgezahlten Betrag siehst du in deinem Stripe-Konto.</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>{[["all", "Alle"], ["succeeded", "Erhalten"], ...(earnings.some(e => e.refundedCents > 0) ? [["refunded", "Erstattet"]] : []), ...(earnings.some(e => e.paymentStatus === "review_required") ? [["review_required", "In Prüfung"]] : [])].map(([v, l]) => <FilterChip key={v} title={l} selected={filter === v} onPress={() => setFilter(v)} />)}</ScrollView>
       {earnings.filter(e => filter === "all" || (filter === "refunded" ? e.refundedCents > 0 : e.paymentStatus === filter)).map(e => <Card key={e.id}>
@@ -328,7 +330,7 @@ function LieferDankApp() {
       {!earnings.length && <Card><Text style={styles.text}>Hier erscheinen deine ersten Trinkgelder.</Text></Card>}
       {nextCursor && <Button disabled={busy} title="Weitere laden" subtle onPress={() => run(async () => { const page = await api<{ items: Earning[]; nextCursor: string | null }>(`/api/v1/me/earnings?before=${encodeURIComponent(nextCursor)}`); setEarnings(previous => [...previous, ...page.items.filter(i => !previous.some(p => p.id === i.id))]); setNextCursor(page.nextCursor); })} />}
     </>}
-    {screen === "thanks" && <><Text style={styles.heading}>Deine Danke</Text>
+    {screen === "thanks" && <><Text style={styles.heading}>Deine Danke</Text><TextLink title="Rang & Meilensteine ansehen" onPress={() => setScreen("milestones")} />
       {thanks.map(t => <Card key={t.id}><Text style={styles.text}>{t.message || "❤️ Danke für deinen Einsatz"}</Text><Text style={styles.muted}>{date(t.createdAt)}{t.tipId ? " · mit Trinkgeld" : ""}</Text>
         {t.message && <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 8 }}>
           <TextLink title="Entfernen" align="flex-start" onPress={() => run(async () => { await api(`/api/v1/me/thanks/${t.id}`, { method: "DELETE" }); await refresh(); })} />

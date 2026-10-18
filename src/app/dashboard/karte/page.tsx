@@ -46,6 +46,7 @@ export default async function CardPage() {
         initials={card.initials}
         photoUrl={card.photoUrl}
         code={card.code}
+        rank={card.rank}
       />
 
       <section className="grid gap-6 rounded-3xl border border-line bg-white p-6 shadow-xs sm:grid-cols-[auto_1fr] sm:items-center sm:p-7">

@@ -88,7 +88,7 @@ create table if not exists public.card_designs (
   id             uuid primary key,
   driver_id      uuid not null unique references public.driver_profiles (id) on delete cascade,
   layout         text not null default 'classic' check (layout in ('classic', 'brand', 'personal')),
-  color          text not null default 'blue' check (color in ('blue', 'navy', 'teal')),
+  color          text not null default 'blue' check (color in ('blue', 'navy', 'teal', 'bronze', 'copper', 'silver', 'gold', 'platinum', 'diamond', 'legend')),
   headline       text not null check (char_length(headline) <= 60),
   show_photo     boolean not null default false,
   show_provider  boolean not null default true,
@@ -221,6 +221,41 @@ create table if not exists public.driver_favorites (
   created_at   timestamptz not null default now(),
   constraint driver_favorites_unique unique (customer_id, driver_id)
 );
+
+-- Ranks are derived, never writable by drivers. Rewards are PREVIEW ONLY.
+create table if not exists public.reward_definitions (
+  id                uuid primary key,
+  threshold         integer not null unique check (threshold in (500, 1000, 2000, 5000, 10000)),
+  content_draft     text not null default '' check (char_length(content_draft) <= 1000),
+  conditions_draft  text not null default '' check (char_length(conditions_draft) <= 4000),
+  updated_at        timestamptz not null default now()
+);
+create table if not exists public.reward_entitlements (
+  id           uuid primary key,
+  driver_id    uuid not null references public.driver_profiles (id) on delete cascade,
+  threshold    integer not null check (threshold in (500, 1000, 2000, 5000, 10000)),
+  unlocked_at  timestamptz not null default now(),
+  claimed_at   timestamptz check (claimed_at is null or claimed_at >= unlocked_at),
+  constraint reward_entitlements_driver_threshold_key unique (driver_id, threshold)
+);
+alter table public.reward_definitions enable row level security;
+alter table public.reward_entitlements enable row level security;
+revoke all on public.reward_definitions, public.reward_entitlements from public, anon, authenticated;
+grant select, insert, update, delete on public.reward_definitions, public.reward_entitlements to service_role;
+
+-- Security-invoker view inherits default-deny RLS from driver_profiles / thank_yous / tips.
+-- A paid thank-you counts only while its own driver's tip still has a succeeded remainder.
+create or replace view public.driver_rank_counts with (security_invoker = true) as
+select d.id, count(t.id) filter (
+  where (t.customer_id is null or t.customer_id <> d.user_id)
+    and (t.tip_id is null or (p.driver_id = d.id and p.payment_status = 'succeeded' and coalesce(p.refunded_cents, 0) < p.gross_cents))
+) as thank_you_count
+from public.driver_profiles d
+left join public.thank_yous t on t.driver_id = d.id
+left join public.tips p on p.id = t.tip_id
+group by d.id;
+revoke all on public.driver_rank_counts from public, anon, authenticated;
+grant select on public.driver_rank_counts to service_role;
 
 -- ---------- Auswertung & Betrieb -------------------------------------------
 

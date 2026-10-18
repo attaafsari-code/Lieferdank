@@ -327,3 +327,35 @@ Admins können sich nicht selbst registrieren.
   (`buildCommand` in `vercel.json`): Schlägt eine fehl, scheitert das Deployment und
   Production bleibt auf dem letzten grünen Stand. Die Tests laufen dort mit leerer Umgebung
   (`env -i`), damit sie nie Production-Schlüssel sehen.
+
+## Ränge und Reward-Vorschau
+
+Vor Deployment dieses Features ausschließlich
+`supabase/migrations/20261017120701_driver_ranks_rewards.sql` auf das verifizierte
+LieferDank-Projekt anwenden. Kein pauschales `db push` bei abweichender alter
+Migrationshistorie. Die transaktionale Migration ergänzt zwei private Tabellen,
+eine Security-Invoker-Zählansicht und erlaubte Kartenfarben; bestehende Profile,
+Codes und Farbauswahlen bleiben erhalten. Historische gültige Danke werden für
+vorbereitete Reward-Datensätze berücksichtigt, niemals als beansprucht markiert.
+Die Migration wurde isoliert zweimal ausgeführt und auf RLS, Rollenrechte,
+Eindeutigkeit, Fremdschlüssel, Backfill und Refund-Zählung geprüft.
+
+Nach Ausführung prüfen: RLS beider Tabellen aktiv, `anon`/`authenticated` ohne
+Tabellen-/View-Zugriff, `service_role` mit den notwendigen Rechten, eindeutige
+Fahrer/Schwelle, keine gesetzten `claimed_at`, Zählansicht gleich den gültigen
+Quelldaten, bestehende Farben unverändert. Erst dann genau diese Version in der
+Migrationshistorie als angewendet markieren und deployen. `/api/health` prüft die
+neuen Tabellen und View ebenfalls. Ein Rollback auf den vorherigen Code ist mit
+dem additiven Schema möglich; neue Rangfarben sind dem alten Code jedoch unbekannt.
+
+Abnahme: Dashboard → Rang & Meilensteine → Kartenfarben; öffentliche Danke-Seite
+→ Rangprofil; App → Rang & Meilensteine → Karteneditor → Speichern → PDF/Teilen/
+Drucken. Unterhalb der Schwelle muss auch ein direkter Farb-Speicherrequest
+abgelehnt werden. Ein aktueller Rang darf nie aus einem Karten-Request stammen.
+QR-Ziel und alte gedruckte QR-Codes bleiben unverändert.
+
+Rewards bleiben eine **vorbereitete, nicht beanspruchbare Vorschau**. Unter
+`/admin/raenge` gespeicherte Inhalte/Bedingungen sind private Entwürfe mit
+Admin-Auditprotokoll. Es existiert keine Aktivierung, Auszahlung oder Versandlogik.
+Eine spätere öffentliche Aktivierung braucht explizite Betreiberfreigabe und
+ausreichend definierte Bedingungen. Keine manuellen Änderungen an `claimed_at`.

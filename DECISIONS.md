@@ -395,3 +395,37 @@ bleiben bis zur Stripe-Abstimmung als `review_required` aus den positiven Zahlen
 
 **Status:** Lokal implementiert und getestet. Vor Go-live Migrationen, Connect-
 Webhook-Ereignisse, Resend, Konfiguration und Stripe-Sandbox-Abnahme nötig.
+
+## 22. Serverbasierte Ränge und Reward-Vorschau
+
+**Entscheidung:** Ein gemeinsamer Vertrag definiert Start (1), Bronze (50), Kupfer
+(100), Silber (500), Gold (1.000), Platin (2.000), Diamant (5.000) und Legende
+(10.000). Website, App und Karten nutzen dieselben Vektoren und Farben. Der
+aktuelle Rang wird bei jedem Abruf aus gültigen Danke berechnet, nicht aus
+historischen Abzeichen oder vom Client übermittelten Werten.
+
+**Grund:** Bereits angenommene kostenlose Danke und Danke zu erfolgreich bezahlten,
+nicht vollständig erstatteten Trinkgeldern zählen. Bekannte Selbst-Danke,
+verwaiste/fremde Zahlungszuordnungen sowie strittige oder vollständig erstattete
+Zahlungen zählen nicht. Eine Teilrückerstattung mit gültigem Rest bleibt ein Danke.
+Die bestehenden Zeitraumstatistiken behalten ihre bisherige Bedeutung.
+
+**Vorteil:** Rückerstattungen und Rangwechsel werden ohne nachträgliche Rangkorrektur
+sichtbar. Rangfarben werden serverseitig freigeschaltet. Gespeicherte Hintergründe
+werden nie automatisch ersetzt; bei verlorener Berechtigung bleibt die Auswahl
+gespeichert, wird aber bis zur erneuten Berechtigung neutral dargestellt.
+
+**Risiko:** Ein anonymes Danke ist keine unabhängig nachgewiesene Person oder
+Arbeitsleistung. Cookie-Löschung, andere Geräte und historisch nicht zuordenbare
+Selbst-Danke sind technisch nicht vollständig erkennbar. Der bestehende tägliche
+DB-Duplikatschutz, Sender-Cookie und angemeldete Selbst-Danke-Sperre bleiben bestehen.
+Gedruckte Abzeichen zeigen den Druckzeitpunkt; das öffentliche Rangprofil den
+aktuellen Stand. Alte Meilensteinzeilen bleiben als Historie erhalten.
+
+**MVP:** Rewards ab 500/1.000/2.000/5.000/10.000 sind ausdrücklich nur eine
+nicht beanspruchbare Vorschau. Private Adminentwürfe aktivieren keine Leistung.
+Es gibt keine Ausgabe-, Bestell-, Versand- oder Claim-Route. Ein eindeutiger
+Datensatz pro Fahrer/Schwelle bereitet spätere Ansprüche vor; ein späterer Claim
+muss erneut die aktuelle Berechtigung prüfen und atomar von unbeansprucht auf
+beansprucht wechseln. Konkrete Inhalte, Bedingungen und öffentliche Aktivierung
+benötigen eine gesonderte Betreiberfreigabe und Prüfung. Keine garantierten Vorteile.

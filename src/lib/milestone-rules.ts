@@ -12,7 +12,8 @@ export type MilestoneProgress = {
 
 export type MilestoneKey = { type: string; value: number };
 
-const THANK_YOU_STEPS = [1, 10, 50, 100, 500, 1000, 2000, 3000, 5000, 10000];
+import { RANKS } from "./ranks";
+const THANK_YOU_STEPS = RANKS.map(rank => rank.threshold);
 const STREAK_STEPS = [5];
 const RECEIVED_STEPS_CENTS = [10_000];
 

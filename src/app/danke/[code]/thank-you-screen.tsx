@@ -9,6 +9,7 @@ import { formatEuroShort } from "@/lib/format";
 import { TIP_OPTIONS_CENTS } from "@/lib/money";
 import { dativeName } from "@/lib/names";
 import type { PublicDriver } from "@/server/services/drivers";
+import { RankBadge } from "@/components/ranks";
 import { sendThanksAction, startTipAction, type FlowResult } from "@/server/actions/customer-flow";
 
 type Props = {
@@ -60,6 +61,10 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled, preview = fa
           <h1 className="mt-4 text-[1.75rem] leading-[1.15] font-extrabold tracking-tight text-brand-900">
             Sag {dativeName(driver.name)} Danke <span className="text-coral">❤</span>
           </h1>
+          <Link href={`/danke/${driver.code}/profil`} className="mt-2 flex min-h-11 items-center gap-2 text-sm font-semibold text-brand">
+            {driver.rank?.current && <RankBadge id={driver.rank.current.id} size={22} />}
+            {driver.rank?.current ? `${driver.rank.current.label} · Rangprofil ansehen` : "Zustellerprofil ansehen"}
+          </Link>
 
           <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5">
             {driver.verified && (

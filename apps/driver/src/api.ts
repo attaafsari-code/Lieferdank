@@ -24,7 +24,7 @@ export async function callApi<T>(base: string, path: string, token: string | nul
     throw new Error("Keine Verbindung zu LieferDank. Prüfe deine Internetverbindung und versuche es erneut.");
   } finally { clearTimeout(timer); }
 }
-export type Screen = "dashboard" | "earnings" | "qr" | "thanks" | "profile" | "stripe" | "settings" | "saved" | "history" | "admin";
+export type Screen = "dashboard" | "earnings" | "qr" | "thanks" | "profile" | "stripe" | "settings" | "saved" | "history" | "admin" | "milestones";
 export function deepLink(value: string): { screen?: Screen; resetToken?: string; verificationToken?: string } | null {
   try {
     const u = new URL(value);
@@ -34,7 +34,7 @@ export function deepLink(value: string): { screen?: Screen; resetToken?: string;
     if (["stripe-return", "app/stripe-return", "app/stripe-refresh"].includes(path)) return { screen: "stripe" };
     if (path === "passwort-neu") { const t = u.searchParams.get("token"); return t && /^[A-Za-z0-9_-]{43}$/.test(t) ? { resetToken: t } : null; }
     if (path === "email-bestaetigen") { const t = u.searchParams.get("token"); return t && t.length < 2048 ? { verificationToken: t } : null; }
-    const screens: Screen[] = ["dashboard", "earnings", "qr", "thanks", "profile"];
+    const screens: Screen[] = ["dashboard", "earnings", "qr", "thanks", "profile", "milestones"];
     return screens.includes(path as Screen) ? { screen: path as Screen } : null;
   } catch { return null; }
 }

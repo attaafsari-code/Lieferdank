@@ -3,10 +3,13 @@ import { getDb } from "@/lib/db";
 import type { Milestone, ThankYou, Tip } from "@/lib/db/types";
 import { effectiveTip } from "@/lib/money";
 import { currentWeekKeys, dayKey, monthKey, previousDayKey, startOfTodayIso } from "@/lib/time";
+import { validRankThanks } from "./ranks";
+import { rankProgress, type RankProgress } from "@/lib/ranks";
 
 export type Period = { thanks: number; tipCount: number; driverCents: number };
 
 export type DriverStats = {
+  rank: RankProgress;
   today: Period;
   week: Period;
   month: Period;
@@ -53,11 +56,13 @@ export function computeStreak(thankYouDates: string[], now = new Date()): number
 
 export async function getDriverStats(driverId: string): Promise<DriverStats> {
   const db = getDb();
-  const [allTips, thankYous, milestones] = await Promise.all([
+  const [allTips, thankYous, milestones, driver] = await Promise.all([
     db.tips.findMany({ where: { driverId } }),
     db.thankYous.findMany({ where: { driverId } }),
     db.milestones.findMany({ where: { driverId }, orderBy: "achievedAt", desc: true }),
+    db.driverProfiles.get(driverId),
   ]);
+  const validThanks = driver ? validRankThanks(driver, thankYous, allTips) : [];
 
   const tips = allTips.filter(succeeded);
   const today = dayKey();
@@ -69,6 +74,7 @@ export async function getDriverStats(driverId: string): Promise<DriverStats> {
   const inMonth = <T extends { createdAt: string }>(list: T[]) => list.filter((x) => monthKey(x.createdAt) === month);
 
   return {
+    rank: rankProgress(validThanks.length),
     today: summarize(inDay(tips), inDay(thankYous)),
     week: summarize(inWeek(tips), inWeek(thankYous)),
     month: summarize(inMonth(tips), inMonth(thankYous)),

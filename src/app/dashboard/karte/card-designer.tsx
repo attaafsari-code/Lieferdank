@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import type { CardColor, CardLayout } from "@/lib/db/types";
-import { cardBackgroundColor, cardColorSelection, CARD_LAYOUTS, HEADLINE_PRESETS, MAX_HEADLINE_LENGTH } from "@/lib/card/design";
+import { cardBackgroundColor, cardColorSelection, rankColorOptions, CARD_LAYOUTS, HEADLINE_PRESETS, MAX_HEADLINE_LENGTH } from "@/lib/card/design";
+import { isRankColor, type RankProgress } from "@/lib/ranks";
 import { renderCardSvg, type CardRenderInput } from "@/lib/card/svg";
 import { downloadBlob, embeddedFontCss, svgToPngBlob, urlToDataUrl } from "@/lib/card/export";
 import { saveCardDesignAction } from "@/server/actions/driver";
 import { Check, Download, Printer } from "@/components/icons";
 
 type Props = {
+  rank?: RankProgress;
   initial: { layout: CardLayout; color: CardColor; updatedAt: string; headline: string; showPhoto: boolean; showProvider: boolean };
   qrSvg: string;
   publicName: string;
@@ -31,13 +33,16 @@ export function CardDesigner(props: Props) {
   const [exporting, setExporting] = useState<"png" | "svg" | null>(null);
   const [pending, startTransition] = useTransition();
   const colorSelection = cardColorSelection(layout);
+  const availableRankColors = rankColorOptions(layout);
+  const lockedSelection = isRankColor(color) && !props.rank?.unlockedColors.includes(color);
 
   const dirty =
     layout !== saved.layout || color !== saved.color || headline !== saved.headline || showPhoto !== saved.showPhoto;
 
   const renderInput = (overrides: Partial<CardRenderInput> = {}): CardRenderInput => ({
     layout,
-    color,
+    color: lockedSelection ? "blue" : color,
+    rank: props.rank?.current?.id,
     headline,
     publicName: props.publicName,
     providerLabel: null,
@@ -47,7 +52,7 @@ export function CardDesigner(props: Props) {
     ...overrides,
   });
 
-  const preview = useMemo(() => renderCardSvg(renderInput({ idPrefix: "editor" })), [layout, color, headline, showPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
+  const preview = useMemo(() => renderCardSvg(renderInput({ idPrefix: "editor" })), [layout, color, headline, showPhoto, props.rank, lockedSelection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function save() {
     setError(null);
@@ -158,6 +163,19 @@ export function CardDesigner(props: Props) {
           <div className="flex flex-wrap gap-2">
             {colorSelection.options.map(option => <button type="button" key={option.id} aria-pressed={color === option.id} onClick={() => setColor(option.id)} className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold ${color === option.id ? "border-brand bg-brand-50" : "border-line bg-white"}`}><span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full border border-line" style={{ backgroundColor: option.background }} />{option.label}</button>)}
           </div>
+        </fieldset>
+
+        <fieldset>
+          <legend className="label">Rangfarben</legend>
+          <p className="mb-3 text-sm text-ink-soft">Zusätzliche Farben durch gültige Danke. Dein Hintergrund ändert sich nur, wenn du selbst eine Farbe auswählst.</p>
+          <div className="grid gap-2 sm:grid-cols-2">{availableRankColors.map(option => {
+            const unlocked = Boolean(props.rank && props.rank.count >= option.requiredThanks);
+            return <button type="button" key={option.id} disabled={!unlocked} aria-pressed={color === option.id} onClick={() => setColor(option.id)} className={`flex min-h-12 items-center gap-3 rounded-xl border p-3 text-left text-sm disabled:opacity-55 ${color === option.id ? "border-brand bg-brand-50" : "border-line bg-white"}`}>
+              <span aria-hidden="true" className="h-6 w-6 shrink-0 rounded-full border border-line" style={{ backgroundColor: option.background }} /><span><span className="block font-semibold">{option.label}</span><span className="text-xs text-ink-soft">{unlocked ? "Freigeschaltet" : `Ab ${option.requiredThanks.toLocaleString("de-DE")} Danke`}</span></span>
+            </button>;
+          })}</div>
+          {lockedSelection && <p role="status" className="mt-2 text-sm text-ink-soft">Die gespeicherte Rangfarbe ist aktuell nicht freigeschaltet. Die Vorschau nutzt Weiß/Blau. Wähle eine verfügbare Farbe, bevor du speicherst.</p>}
+          <Link href="/dashboard/meilensteine" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-brand">Dein Rang & deine Meilensteine →</Link>
         </fieldset>
 
         <div>

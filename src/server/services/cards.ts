@@ -6,7 +6,9 @@ import { isUuid, newId } from "@/lib/id";
 import { initials } from "@/lib/names";
 import { CURRENCY } from "@/lib/money";
 import { CARD_QUANTITIES, cardOrdersArePaid, cardProductFor, quoteCardOrder } from "@/lib/pricing";
-import { DEFAULT_HEADLINE, MAX_HEADLINE_LENGTH, defaultCardDesign } from "@/lib/card/design";
+import { DEFAULT_HEADLINE, MAX_HEADLINE_LENGTH, defaultCardDesign, isCardColor, type CardColor } from "@/lib/card/design";
+import { isRankColor } from "@/lib/ranks";
+import { getDriverRank } from "./ranks";
 import { renderCardSvg } from "@/lib/card/svg";
 import { ServiceError, notFound } from "../errors";
 import { qrSvg, thankYouUrl } from "../qr";
@@ -31,7 +33,7 @@ export async function getCardDesign(driverId: string): Promise<CardDesign> {
 
 export const cardDesignSchema = z.object({
   layout: z.enum(["classic", "brand", "personal"]),
-  color: z.enum(["blue", "navy", "teal"]).optional(),
+  color: z.custom<CardColor>(isCardColor, "Ungültige Kartenfarbe.").optional(),
   headline: z
     .string()
     .trim()
@@ -43,6 +45,9 @@ export const cardDesignSchema = z.object({
 
 export async function saveCardDesign(driverId: string, input: z.infer<typeof cardDesignSchema>, expectedUpdatedAt?: string): Promise<string> {
   const fields = cardDesignSchema.parse(input);
+  if (isRankColor(fields.color) && !(await getDriverRank(driverId)).unlockedColors.includes(fields.color)) {
+    throw new ServiceError("color_locked", "Diese Rangfarbe ist noch nicht freigeschaltet.", 403);
+  }
   const design = await getCardDesign(driverId);
   const patch = { ...fields, updatedAt: new Date(Math.max(Date.now(), Date.parse(design.updatedAt) + 1)).toISOString() };
   if (expectedUpdatedAt !== undefined) {
@@ -63,11 +68,14 @@ export function cardOrdersAvailable(): boolean {
 
 /** Alles, was eine Kartenvorschau braucht – serverseitig vorberechnet. */
 export async function cardContext(driver: DriverProfile, user: User) {
-  const design = await getCardDesign(driver.id);
+  const [design, rank] = await Promise.all([getCardDesign(driver.id), getDriverRank(driver.id)]);
   const url = thankYouUrl(driver.code);
   const name = driverPublicName(driver, user);
   return {
     design,
+    rank,
+    // Keep the saved choice; a revoked/unavailable rank color is never falsely rendered as earned.
+    effectiveColor: isRankColor(design.color) && !rank.unlockedColors.includes(design.color) ? "blue" as const : design.color,
     qr: await qrSvg(url),
     url,
     publicName: name,
@@ -89,7 +97,8 @@ export async function renderDriverCard(driver: DriverProfile, user: User, idPref
   const ctx = await cardContext(driver, user);
   return renderCardSvg({
     layout: ctx.design.layout,
-    color: ctx.design.color,
+    color: ctx.effectiveColor,
+    rank: ctx.rank.current?.id,
     headline: ctx.design.headline,
     publicName: ctx.publicName,
     providerLabel: ctx.design.showProvider ? ctx.providerLabel : null,
@@ -149,8 +158,9 @@ export async function createCardOrder(
   const now = new Date().toISOString();
 
   const design: CardSnapshot = {
+    rank: ctx.rank.current?.id,
     layout: ctx.design.layout,
-    color: ctx.design.color,
+    color: ctx.effectiveColor,
     headline: ctx.design.headline,
     showPhoto: ctx.design.showPhoto,
     showProvider: ctx.design.showProvider,

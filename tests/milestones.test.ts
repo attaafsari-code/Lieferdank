@@ -5,8 +5,8 @@ import { computeStreak } from "@/server/services/stats";
 describe("Meilensteine", () => {
   it("zeigt immer die nächste vorhandene Danke-Stufe", () => {
     expect(nextThankYouMilestone(0)).toBe(1);
-    expect(nextThankYouMilestone(1)).toBe(10);
-    expect(nextThankYouMilestone(9)).toBe(10);
+    expect(nextThankYouMilestone(1)).toBe(50);
+    expect(nextThankYouMilestone(9)).toBe(50);
     expect(nextThankYouMilestone(10)).toBe(50);
     expect(nextThankYouMilestone(1000)).toBe(2000);
     expect(nextThankYouMilestone(4999)).toBe(5000);
@@ -22,7 +22,6 @@ describe("Meilensteine", () => {
     expect(keys).toEqual(
       expect.arrayContaining([
         "thank_you_count:1",
-        "thank_you_count:10",
         "thank_you_count:50",
         "thank_you_count:100",
         "streak_days:5",

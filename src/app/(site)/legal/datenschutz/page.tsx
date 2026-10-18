@@ -108,7 +108,9 @@ export default function PrivacyPage() {
         </ul>
         <p>
           Öffentlich auf der Danke-Seite sichtbar sind der gewählte Anzeigename, das Profilfoto und der Profiltext, sofern
-          freigegeben, sowie das Verifiziert-Abzeichen; die Stadt wird nicht öffentlich angezeigt. Zur Einrichtung des
+          freigegeben, sowie das Verifiziert-Abzeichen; die Stadt wird nicht öffentlich angezeigt. Das öffentliche
+          Rangprofil zeigt außerdem die Anzahl gültiger Danke, den aktuellen Rang und erreichte Rangstufen.
+          Private Reward-Entwürfe und Trinkgeldbeträge werden dort nicht veröffentlicht. Zur Einrichtung des
           Stripe-Kontos übermitteln wir Name, E-Mail-Adresse, gegebenenfalls die Telefonnummer und die Adresse der eigenen
           Danke-Seite an Stripe, damit diese Angaben dort vorausgefüllt sind; Bank- und Identitätsdaten erhebt
           ausschließlich Stripe. Rechtsgrundlage ist der Nutzungsvertrag (Art. 6 Abs. 1 lit. b DSGVO).

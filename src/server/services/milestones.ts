@@ -4,6 +4,8 @@ import { newId } from "@/lib/id";
 import { effectiveTip } from "@/lib/money";
 import { reachedMilestones } from "@/lib/milestone-rules";
 import { computeStreak } from "./stats";
+import { validRankThanks, syncRewardEntitlements } from "./ranks";
+import { rankProgress } from "@/lib/ranks";
 
 /** Vergibt neu erreichte Meilensteine. Idempotent. */
 export async function refreshMilestones(driverId: string): Promise<void> {
@@ -14,8 +16,11 @@ export async function refreshMilestones(driverId: string): Promise<void> {
     db.milestones.findMany({ where: { driverId } }),
   ]);
 
+  const driver = await db.driverProfiles.get(driverId);
+  if (!driver) return;
+  const validThanks = validRankThanks(driver, thankYous, tips);
   const reached = reachedMilestones({
-    thankYouCount: thankYous.length,
+    thankYouCount: validThanks.length,
     streakDays: computeStreak(thankYous.map((t) => t.createdAt)),
     tipCount: tips.length,
     receivedCents: tips.reduce((sum, tip) => sum + effectiveTip(tip).driverCents, 0),
@@ -25,6 +30,8 @@ export async function refreshMilestones(driverId: string): Promise<void> {
   const now = new Date().toISOString();
   for (const milestone of reached) {
     if (has.has(`${milestone.type}:${milestone.value}`)) continue;
-    await db.milestones.insert({ id: newId(), driverId, ...milestone, achievedAt: now });
+    try { await db.milestones.insert({ id: newId(), driverId, ...milestone, achievedAt: now }); }
+    catch (error) { if (!await db.milestones.findOne({ driverId, ...milestone })) throw error; }
   }
+  await syncRewardEntitlements(driverId, rankProgress(validThanks.length));
 }

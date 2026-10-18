@@ -64,6 +64,8 @@ const db = {
   blockedSenders: [],
   messageReports: [],
   marketingConsents: [],
+  rewardDefinitions: [],
+  rewardEntitlements: [],
 };
 
 function addUser({ firstName, lastName, email, password, role, phone = null }) {

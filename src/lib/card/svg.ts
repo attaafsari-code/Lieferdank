@@ -1,5 +1,6 @@
 import type { CardColor, CardLayout } from "./design";
-import { cardBackgroundColor, CARD_HEIGHT_MM, CARD_WIDTH_MM } from "./design";
+import { cardBackgroundColor, cardPalette, CARD_HEIGHT_MM, CARD_WIDTH_MM } from "./design";
+import { rankBadgeMarkup, rankTier, type RankId } from "../ranks";
 
 /**
  * Rendert die Lieferdank-Karte als eigenständiges SVG.
@@ -15,6 +16,8 @@ import { cardBackgroundColor, CARD_HEIGHT_MM, CARD_WIDTH_MM } from "./design";
 export type CardRenderInput = {
   layout: CardLayout;
   color?: CardColor;
+  /** Current server-derived rank; never loaded from editable card fields. */
+  rank?: RankId | null;
   headline: string;
   publicName: string;
   /** null = ausblenden. */
@@ -166,10 +169,11 @@ function footer(code: string, onDark: boolean): string {
 <text x="${W - PAD}" y="49.6" text-anchor="end" font-family="${MONO}" font-size="2" font-weight="600" letter-spacing="0.1" fill="${faint}">${escapeXml(code)}</text>`;
 }
 
-function header(onDark: boolean): string {
+function header(onDark: boolean, rank?: RankId | null): string {
   const hint = onDark ? "rgba(255,255,255,0.7)" : COLORS.inkFaint;
   return `${logoMark(PAD, 3.4, 5, onDark)}
 ${wordmark(PAD + 6, 7.3, 3.3, onDark)}
+${rank && rankTier(rank) ? `${rankBadgeMarkup(rank, 39, 1, 6)}<text x="46" y="6.9" font-family="${SANS}" font-size="1.85" font-weight="700" fill="${onDark ? COLORS.white : COLORS.ink}">${rankTier(rank)!.label}</text>` : ""}
 <text x="${W - PAD}" y="6.9" text-anchor="end" font-family="${SANS}" font-size="1.85" font-weight="700" letter-spacing="0.16" fill="${hint}">KEINE APP NÖTIG</text>`;
 }
 
@@ -274,7 +278,7 @@ function classic(input: CardRenderInput, id: string): string {
   });
 
   return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${cardBackgroundColor(input.layout, input.color)}" stroke="${COLORS.line}" stroke-width="0.25"/>
-${header(false)}
+${header(false, input.rank)}
 ${embedQr(input.qrSvg, qrX, qrY, qrSize)}
 ${qrCaption(qrX + qrSize / 2, 41.6, false)}
 ${content}
@@ -282,6 +286,7 @@ ${footer(input.code, false)}`;
 }
 
 function brand(input: CardRenderInput, id: string): string {
+  const onDark = !cardPalette(input.color).darkInk;
   const tile = 29;
   const tileX = W - PAD - tile;
   const tileY = 9.5;
@@ -292,7 +297,7 @@ function brand(input: CardRenderInput, id: string): string {
   let top = 10;
 
   if (input.avatar) {
-    content += avatar(input.avatar, colX + 4.4, 14.6, 4.4, true, `${id}-av`);
+    content += avatar(input.avatar, colX + 4.4, 14.6, 4.4, onDark, `${id}-av`);
     top = 20.5;
   }
 
@@ -305,17 +310,17 @@ function brand(input: CardRenderInput, id: string): string {
     name: input.publicName,
     provider: input.providerLabel,
     headlineLines: input.avatar ? 2 : 3,
-    onDark: true,
+    onDark,
     headlineFirst: true,
   });
 
   return `<rect width="${W}" height="${H}" rx="3.2" fill="${cardBackgroundColor(input.layout, input.color)}"/>
-${header(true)}
+${header(onDark, input.rank)}
 <rect x="${tileX}" y="${tileY}" width="${tile}" height="${tile}" rx="2.2" fill="${COLORS.white}"/>
 ${embedQr(input.qrSvg, tileX + qrPad, tileY + qrPad, tile - qrPad * 2)}
-${qrCaption(tileX + tile / 2, 41.6, true)}
+${qrCaption(tileX + tile / 2, 41.6, onDark)}
 ${content}
-${footer(input.code, true)}`;
+${footer(input.code, onDark)}`;
 }
 
 function personal(input: CardRenderInput, id: string): string {
@@ -336,7 +341,7 @@ function personal(input: CardRenderInput, id: string): string {
   const headlineLines = wrapText(input.headline, 3, colWidth, 2);
 
   return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${cardBackgroundColor(input.layout, input.color)}" stroke="${COLORS.line}" stroke-width="0.25"/>
-${header(false)}
+${header(false, input.rank)}
 ${avatar(input.avatar ? avatarInput : { href: null, initials: avatarInput.initials || "?" }, cx, cy, r, false, `${id}-av`)}
 <text x="${nameX}" y="${nameBaseline}" font-family="${SANS}" font-size="${nameSize}" font-weight="800" letter-spacing="-0.1" fill="${COLORS.ink}">${escapeXml(input.publicName)}</text>
 ${
@@ -360,8 +365,10 @@ export function renderCardSvg(input: CardRenderInput): string {
   const body =
     input.layout === "brand" ? brand(input, id) : input.layout === "personal" ? personal(input, id) : classic(input, id);
   const style = input.embeddedFontCss ? `<style>${input.embeddedFontCss}</style>` : "";
+  const accent = cardPalette(input.color).accent;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}" role="img" aria-label="Lieferdank-Karte von ${escapeXml(input.publicName)}">${style}
 ${body}
+${accent ? `<rect x="0.6" y="0.6" width="${W - 1.2}" height="${H - 1.2}" rx="2.7" fill="none" stroke="${accent}" stroke-width="0.4"/>` : ""}
 </svg>`;
 }

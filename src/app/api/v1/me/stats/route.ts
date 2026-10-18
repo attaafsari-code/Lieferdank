@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 export const GET = api({ auth: "driver" }, async ({ session }) => {
   const stats = await getDriverStats(session!.driver!.id);
   return {
+    rank: stats.rank,
     today: stats.today,
     week: stats.week,
     month: stats.month,

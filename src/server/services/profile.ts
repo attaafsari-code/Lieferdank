@@ -184,6 +184,7 @@ export async function deleteAccount(user: User): Promise<void> {
     for (const row of milestones) await db.milestones.remove(row.id);
     for (const row of designs) await db.cardDesigns.remove(row.id);
     for (const row of favorites) await db.driverFavorites.remove(row.id);
+    for (const row of await db.rewardEntitlements.findMany({ where: { driverId: driver.id } })) await db.rewardEntitlements.remove(row.id);
   }
   for (const verification of await db.verifications.findMany({ where: { userId: user.id } })) {
     await db.verifications.remove(verification.id);
@@ -264,6 +265,7 @@ export async function exportUserData(user: User) {
       danke: strip(thankYous),
       auszahlungen: payouts,
       meilensteine: milestones,
+      rewardVorschau: await db.rewardEntitlements.findMany({ where: { driverId: driver.id } }),
     };
   }
 

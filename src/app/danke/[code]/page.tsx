@@ -11,6 +11,7 @@ import { LegalLinks } from "@/components/legal-links";
 import { dativeName } from "@/lib/names";
 import { ThankYouScreen } from "./thank-you-screen";
 import { getSession } from "@/server/session";
+import { getDriverRank } from "@/server/services/ranks";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,7 @@ export default async function ThankYouPage({ params, searchParams }: Params) {
 
   return (
     <ThankYouScreen
-      driver={toPublicDriver(driver, user)}
+      driver={{ ...toPublicDriver(driver, user), rank: await getDriverRank(driver.id) }}
       paymentMethods={getPaymentProvider().methodsLabel}
       cancelled={query.abgebrochen === "1"}
       preview={preview}

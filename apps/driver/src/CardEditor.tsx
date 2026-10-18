@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, Pressable, Switch, Text, View } from "react-native";
 import { CardArtwork } from "./CardArtwork";
-import { cardColorSelection, CARD_LAYOUTS, HEADLINE_PRESETS, MAX_HEADLINE_LENGTH, type CardDesignFields } from "../../../src/lib/card/design";
+import { cardColorSelection, rankColorOptions, CARD_LAYOUTS, HEADLINE_PRESETS, MAX_HEADLINE_LENGTH, type CardDesignFields } from "../../../src/lib/card/design";
+import { isRankColor } from "../../../src/lib/ranks";
 import { ApiError } from "./api";
 import { editorSvg, sameCard, type CardEditorData } from "./card-editor";
 import { Button, Card, colors, Field, Loading, styles, TextLink } from "./ui";
@@ -66,6 +67,15 @@ export function CardEditor({ api, onSaved, onPhoto, onRemovePhoto, onClose }: Pr
         <Text style={styles.title}>{colorSelection.label}</Text>
         <Text style={styles.muted}>{colorSelection.hint}</Text>
         <View accessibilityRole="radiogroup" accessibilityLabel={colorSelection.label} style={styles.row}>{colorSelection.options.map(option => <Pressable key={option.id} disabled={busy} accessibilityRole="radio" accessibilityLabel={option.label} accessibilityState={{ selected: (draft.color ?? "blue") === option.id, disabled: busy }} onPress={() => change({ color: option.id })} style={{ flexGrow: 1, minHeight: 48, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", padding: 10, borderRadius: 12, borderWidth: 2, borderColor: (draft.color ?? "blue") === option.id ? colors.blue : colors.line }}><View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: option.background }} /><Text style={[styles.text, { flexShrink: 1 }]}>{option.label}</Text></Pressable>)}</View>
+      </Card>
+      <Card><Text style={styles.title}>Rangfarben</Text><Text style={styles.muted}>Zusätzliche Farben durch gültige Danke. Dein Hintergrund ändert sich nur durch deine Auswahl.</Text>
+        <View style={styles.row}>{rankColorOptions(draft.layout).map(option => {
+          const unlocked = Boolean(data.context.rank && data.context.rank.count >= option.requiredThanks);
+          return <Pressable key={option.id} disabled={busy || !unlocked} accessibilityRole="radio" accessibilityLabel={`${option.label} · ${unlocked ? "Freigeschaltet" : `Ab ${option.requiredThanks} Danke`}`} accessibilityState={{ selected: draft.color === option.id, disabled: busy || !unlocked }} onPress={() => change({ color: option.id })} style={{ flexGrow: 1, minHeight: 60, padding: 12, gap: 6, borderWidth: 2, borderRadius: 12, borderColor: draft.color === option.id ? colors.blue : colors.line, opacity: unlocked ? 1 : 0.5 }}>
+            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: option.background, borderWidth: 1, borderColor: colors.line }} /><Text style={styles.text}>{option.label}</Text><Text style={styles.muted}>{unlocked ? "Freigeschaltet" : `Ab ${option.requiredThanks.toLocaleString("de-DE")} Danke`}</Text>
+          </Pressable>;
+        })}</View>
+        {isRankColor(draft.color) && !data.context.rank?.unlockedColors.includes(draft.color) ? <Text style={styles.muted}>Die gespeicherte Rangfarbe ist aktuell nicht freigeschaltet. Die Vorschau nutzt Weiß/Blau. Wähle eine verfügbare Farbe, bevor du speicherst.</Text> : null}
       </Card>
       <Card><Field label="Dein Text auf der Karte" value={draft.headline} editable={!busy} maxLength={MAX_HEADLINE_LENGTH} multiline onChangeText={headline => change({ headline })} />
         <Text style={styles.muted}>{draft.headline.length}/{MAX_HEADLINE_LENGTH} Zeichen</Text>

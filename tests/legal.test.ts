@@ -164,7 +164,8 @@ describe("Datensparsamkeit bei der Kontolöschung", () => {
     const db = getDb();
     await sendFreeThankYou(driver.code, null, "d".repeat(32));
     await recordScan(driver.id);
-    await db.milestones.insert({ id: newId(), driverId: driver.id, type: "thank_you_count", value: 1, achievedAt: new Date().toISOString() });
+    // The first accepted thank-you already creates the unique Start milestone.
+    expect(await db.milestones.findOne({ driverId: driver.id, type: "thank_you_count", value: 1 })).not.toBeNull();
     await db.driverFavorites.insert({ id: newId(), customerId: customer.id, driverId: driver.id, nickname: null, createdAt: new Date().toISOString() });
     await db.verifications.insert({ id: newId(), userId: user.id, identityStatus: "unverified", driverStatus: "pending", documentNote: "Ausweis", reviewNote: null, updatedAt: new Date().toISOString() }).catch(() => undefined);
     const { paymentId } = await startTip(driver.code, 300, null);

@@ -7,8 +7,8 @@ import { effectiveTip } from "@/lib/money";
 import { dativeName } from "@/lib/names";
 import { ArrowRight, Check, Euro, Heart } from "@/components/icons";
 import { CardPreview } from "@/components/card-preview";
-import { EmptyState, MilestoneList, SectionTitle, StatTile, ThankYouList } from "@/components/dashboard-ui";
-import { nextThankYouMilestone } from "@/lib/milestone-rules";
+import { EmptyState, SectionTitle, StatTile, ThankYouList } from "@/components/dashboard-ui";
+import { RankSummary } from "@/components/ranks";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,6 @@ export default async function DashboardPage({
     { done: driver.payoutReady, label: "Auszahlungskonto einrichten", href: "/dashboard/einnahmen" },
   ];
   const openSteps = steps.filter((step) => !step.done).length;
-  const nextMilestone = nextThankYouMilestone(stats.total.thanks);
 
   return (
     <div className="space-y-12">
@@ -45,6 +44,7 @@ export default async function DashboardPage({
           Kunden sehen dich als <span className="font-semibold text-ink">„{card.publicName}“</span> ·{" "}
           <span className="font-mono">{driver.code}</span>
         </p>
+        <Link href="/dashboard/meilensteine" className="mt-2 inline-flex min-h-11 items-center font-semibold text-brand">Rang & Meilensteine ansehen →</Link>
       </header>
 
       {!driver.payoutReady && (
@@ -106,7 +106,8 @@ export default async function DashboardPage({
         <CardPreview
           className="overflow-hidden rounded-xl shadow-md"
           layout={card.design.layout}
-          color={card.design.color}
+          color={card.effectiveColor}
+          rank={card.rank.current?.id}
           headline={card.design.headline}
           publicName={card.publicName}
           providerLabel={null}
@@ -191,17 +192,10 @@ export default async function DashboardPage({
       </section>
 
       <section>
-        <SectionTitle action={{ href: "/dashboard/danke", label: "Alle" }}>Meilensteine</SectionTitle>
-        <MilestoneList items={stats.milestones.slice(0, 4)} />
-        {nextMilestone !== null && (
-          <div className="mt-4 rounded-2xl border border-line bg-white px-5 py-4 shadow-xs">
-            <p className="font-bold text-brand-900">Nächster Meilenstein: {nextMilestone} Danke</p>
-            <p className="mt-1 text-sm text-ink-soft">{stats.total.thanks} von {nextMilestone} erreicht</p>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-50" role="progressbar" aria-label={`Fortschritt bis ${nextMilestone} Danke`} aria-valuenow={stats.total.thanks} aria-valuemin={0} aria-valuemax={nextMilestone}>
-              <div className="h-full rounded-full bg-brand" style={{ width: `${Math.min(100, (stats.total.thanks / nextMilestone) * 100)}%` }} />
-            </div>
-          </div>
-        )}
+        <SectionTitle action={{ href: "/dashboard/meilensteine", label: "Alle Stufen" }}>Rang & Meilensteine</SectionTitle>
+        <Link href="/dashboard/meilensteine" className="block rounded-3xl border border-line bg-white p-5 shadow-xs transition hover:border-brand">
+          <RankSummary progress={stats.rank} /><p className="mt-4 font-semibold text-brand">Abzeichen, Farben & nächste Stufen ansehen →</p>
+        </Link>
       </section>
 
       <p className="text-center text-xs text-ink-faint">

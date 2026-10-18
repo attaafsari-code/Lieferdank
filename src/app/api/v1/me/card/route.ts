@@ -12,7 +12,7 @@ async function editor(session: Session) {
   return {
     design: { layout: ctx.design.layout, color: ctx.design.color ?? "blue", headline: ctx.design.headline,
       showPhoto: ctx.design.showPhoto, showProvider: ctx.design.showProvider, updatedAt: ctx.design.updatedAt },
-    context: { publicName: ctx.publicName, initials: ctx.initials, code: ctx.code, qrSvg: ctx.qr,
+    context: { rank: ctx.rank, publicName: ctx.publicName, initials: ctx.initials, code: ctx.code, qrSvg: ctx.qr,
       photoHref: photo ? `data:${photo.contentType};base64,${Buffer.from(photo.bytes).toString("base64")}` : null },
   };
 }
