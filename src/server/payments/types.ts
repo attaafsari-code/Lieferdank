@@ -52,6 +52,9 @@ export interface PaymentProvider {
 
   createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult>;
 
+  /** Confirmed EUR credit on the driver's account after Stripe and application fees; null until the balance transaction exists. */
+  confirmedDriverCreditCents(input: { providerIntentId: string; accountId: string; grossCents: number; applicationFeeCents: number }): Promise<number | null>;
+
   /**
    * Erstattet amountCents der Zahlung an den Kunden. Bei Trinkgeldern gibt der Anbieter dabei
    * den anteiligen Plattformanteil zurück. expectedRefundedCents ist der Erstattungsstand, den

@@ -21,6 +21,29 @@ const input = {
 };
 
 describe("Stripe Direct Charges", () => {
+  it.each([[200, 50, 114], [300, 60, 204], [500, 100, 345]])("reads the actual %i-cent direct-charge credit after fees", async (gross, fee, net) => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
+    const retrieve = vi.spyOn(stripeClient().paymentIntents, "retrieve").mockResolvedValue({
+      status: "succeeded", currency: "eur", amount: gross,
+      latest_charge: { amount: gross, application_fee_amount: fee, refunded: false, disputed: false,
+        balance_transaction: { currency: "eur", net } },
+    } as Stripe.Response<Stripe.PaymentIntent>);
+    expect(await stripePaymentProvider.confirmedDriverCreditCents({ providerIntentId: "pi_example", accountId: "acct_driver", grossCents: gross, applicationFeeCents: fee })).toBe(net);
+    expect(retrieve).toHaveBeenCalledWith("pi_example", { expand: ["latest_charge.balance_transaction"] },
+      expect.objectContaining({ stripeAccount: "acct_driver" }));
+  });
+
+  it("does not announce a guessed credit when Stripe has no balance transaction or disagrees", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
+    const charge = { amount: 300, application_fee_amount: 60, refunded: false, disputed: false, balance_transaction: null };
+    const retrieve = vi.spyOn(stripeClient().paymentIntents, "retrieve").mockResolvedValue({ status: "succeeded", currency: "eur", amount: 300, latest_charge: charge } as Stripe.Response<Stripe.PaymentIntent>);
+    const input = { providerIntentId: "pi_example", accountId: "acct_driver", grossCents: 300, applicationFeeCents: 60 };
+    expect(await stripePaymentProvider.confirmedDriverCreditCents(input)).toBeNull();
+    retrieve.mockResolvedValue({ status: "succeeded", currency: "eur", amount: 300, latest_charge: { ...charge, balance_transaction: { currency: "eur", net: 204 }, application_fee_amount: 50 } } as Stripe.Response<Stripe.PaymentIntent>);
+    await expect(stripePaymentProvider.confirmedDriverCreditCents(input)).rejects.toThrow(/stimmt nicht/);
+    retrieve.mockResolvedValue({ status: "succeeded", currency: "eur", amount: 300, latest_charge: { ...charge, balance_transaction: { currency: "eur", net: -1 } } } as Stripe.Response<Stripe.PaymentIntent>);
+    await expect(stripePaymentProvider.confirmedDriverCreditCents(input)).rejects.toThrow(/nicht plausibel/);
+  });
   it.each([[200, 50], [300, 60], [500, 100]])("berechnet %i Cent als Direct Charge mit %i Cent Application Fee", async (gross, fee) => {
     vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
     vi.spyOn(stripePaymentProvider, "isAccountReady").mockResolvedValue(true);

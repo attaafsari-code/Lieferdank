@@ -1,7 +1,7 @@
 import "server-only";
 import type { PaymentProvider } from "./types";
 import { getDb, isDemoDatabase } from "@/lib/db";
-import { proportionalFeeRefundCents } from "@/lib/money";
+import { proportionalFeeRefundCents, splitTip } from "@/lib/money";
 import { isProductionRuntime } from "@/lib/runtime";
 
 function assertIsolatedDemo(): void {
@@ -46,6 +46,12 @@ export const demoPaymentProvider: PaymentProvider = {
   async createPayment(input) {
     assertIsolatedDemo();
     return { providerPaymentId: `demo_${input.paymentId}`, redirectUrl: `/zahlung/${input.paymentId}` };
+  },
+  async confirmedDriverCreditCents({ grossCents, applicationFeeCents }) {
+    assertIsolatedDemo();
+    if (!Number.isSafeInteger(grossCents) || !Number.isSafeInteger(applicationFeeCents) ||
+        applicationFeeCents !== splitTip(grossCents).platformGrossFeeCents) throw new Error("Ungültiger Demo-Trinkgeldbetrag.");
+    return grossCents - applicationFeeCents;
   },
   async refundPayment({ providerIntentId, amountCents, expectedRefundedCents }) {
     assertIsolatedDemo();

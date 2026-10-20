@@ -190,6 +190,25 @@ export const stripePaymentProvider: PaymentProvider = {
     return { providerPaymentId: session.id, redirectUrl: session.url };
   },
 
+  async confirmedDriverCreditCents({ providerIntentId, accountId, grossCents, applicationFeeCents }) {
+    assertKeyMatchesEnvironment();
+    if (!isAllowedTipAmount(grossCents) || splitTip(grossCents).platformGrossFeeCents !== applicationFeeCents || !/^acct_[A-Za-z0-9]+$/.test(accountId))
+      throw new Error("Ungültiger Direct-Charge-Kontext.");
+    // Stripe documents that this balance transaction's net includes processing AND application fees.
+    // Query in the connected account's scope; never estimate Stripe fees from a price table.
+    const intent = await stripeClient().paymentIntents.retrieve(providerIntentId,
+      { expand: ["latest_charge.balance_transaction"] }, { stripeAccount: accountId, timeout: 5000, maxNetworkRetries: 0 });
+    const charge = intent.latest_charge;
+    if (intent.status !== "succeeded" || intent.currency !== "eur" || intent.amount !== grossCents || !charge || typeof charge === "string" ||
+        charge.amount !== grossCents || charge.application_fee_amount !== applicationFeeCents || charge.refunded || charge.disputed)
+      throw new Error("Stripe-Buchung stimmt nicht mit dem Trinkgeld überein.");
+    const transaction = charge.balance_transaction;
+    if (!transaction || typeof transaction === "string") return null;
+    if (transaction.currency !== "eur" || !Number.isSafeInteger(transaction.net) || transaction.net < 0 || transaction.net > grossCents)
+      throw new Error("Stripe-Gutschrift ist nicht plausibel.");
+    return transaction.net;
+  },
+
   async refundPayment({ providerIntentId, amountCents, expectedRefundedCents }) {
     assertKeyMatchesEnvironment();
     if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || !Number.isSafeInteger(expectedRefundedCents) || expectedRefundedCents < 0) {

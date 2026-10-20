@@ -75,7 +75,7 @@ describe("Native registration", () => {
 });
 
 describe("Milestone pushes", () => {
-  it("a reached 100× milestone is pushed exactly once per device", async () => {
+  it("a reached Kupfer rank is pushed exactly once per device", async () => {
     const { registerPush, collectPushEvents } = await import("@/server/services/push");
     const { user, driver } = await makeDriver(); await withPassword(user.id);
     const { token } = await mobileLogin({ email: user.email, password: PASSWORD });
@@ -83,9 +83,10 @@ describe("Milestone pushes", () => {
     await registerPush(session, { token: "ExpoPushToken[milestoneDevice]", enabled: true });
     await getDb().milestones.insert({ id: newId(), driverId: driver.id, type: "thank_you_count", value: 100, achievedAt: new Date(Date.now() + 1000).toISOString() });
     await getDb().milestones.insert({ id: newId(), driverId: driver.id, type: "thank_you_count", value: 10, achievedAt: new Date(Date.now() + 1000).toISOString() });
+    for (let index = 0; index < 100; index++) await getDb().thankYous.insert({ id: newId(), driverId: driver.id, tipId: null, customerId: null, presetId: null, message: null, freeDay: null, visitorHash: null, createdAt: new Date(Date.now() - 1000).toISOString() });
     await collectPushEvents(); await collectPushEvents();
     const rows = await getDb().pushDeliveries.findMany();
-    expect(rows).toHaveLength(1); expect(rows[0].body).toContain("100× Danke");
+    expect(rows).toHaveLength(1); expect(rows[0].body).toBe("Glückwunsch! Du hast Kupfer erreicht!");
   });
 });
 

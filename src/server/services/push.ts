@@ -8,7 +8,9 @@ import { deviceId } from "./mobile";
 import { parseInput } from "./auth";
 import { ServiceError } from "../errors";
 import { logEvent } from "../events";
-import { describeMilestone } from "@/lib/milestone-rules";
+import { paymentProviderById } from "../payments";
+import { RANKS } from "@/lib/ranks";
+import { getDriverRank } from "./ranks";
 
 /** Push only runs when the app API and the push sender are both switched on (PUSH_ENABLED requires APNs credentials in EAS). */
 export function pushAvailable(): boolean {
@@ -46,19 +48,38 @@ export async function collectPushEvents() {
     const driver = await db.driverProfiles.findOne({ userId: device.userId }); if (!driver?.notifyOnTip) continue;
     const tips = await db.tips.findMany({ where: { driverId: driver.id }, since: { field: "createdAt", value: device.createdAt } });
     for (const tip of tips) {
-      if (tip.paymentStatus === "succeeded" && tip.refundedCents === 0)
-        await queuePush(device, { eventKey: `tip:${tip.id}`, title: "LieferDank", body: `🎉 Du hast gerade ${(tip.grossCents / 100).toLocaleString("de-DE")} € Trinkgeld erhalten`, screen: "earnings" });
+      if (tip.paymentStatus === "succeeded" && tip.refundedCents === 0 && !await db.pushDeliveries.get(deliveryId(device.id, `tip:${tip.id}`))) {
+        const payment = await db.payments.get(tip.paymentId);
+        if (payment?.referenceId === tip.id && payment.status === "succeeded" && payment.providerIntentId && tip.destinationAccountId) {
+          try {
+            const credit = await paymentProviderById(payment.provider).confirmedDriverCreditCents({
+              providerIntentId: payment.providerIntentId, accountId: tip.destinationAccountId,
+              grossCents: tip.grossCents, applicationFeeCents: tip.platformGrossFeeCents,
+            });
+            if (credit !== null) await queuePush(device, { eventKey: `tip:${tip.id}`, title: "LieferDank",
+              body: `Du hast ${(credit / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € Trinkgeld erhalten!`, screen: "earnings" });
+          } catch {
+            // Fail closed: a guessed net amount would be misleading. The next cron retries.
+            await logEvent("warning", "push", "Bestätigte Stripe-Gutschrift für Push noch nicht verfügbar", { paymentId: payment.id });
+          }
+        }
+      }
       if (tip.refundedCents > 0 || tip.paymentStatus === "review_required")
         await queuePush(device, { eventKey: `status:${tip.id}:${tip.refundedCents}:${tip.paymentStatus}`, title: "Trinkgeld aktualisiert", body: "Es gibt eine Änderung zu einem Trinkgeld. Details findest du in deinen Einnahmen.", screen: "earnings" });
     }
     const thanks = await db.thankYous.findMany({ where: { driverId: driver.id, tipId: null }, since: { field: "createdAt", value: device.createdAt } });
-    for (const thank of thanks)
-      await queuePush(device, { eventKey: `thanks:${thank.id}`, title: "LieferDank", body: thank.message ? "❤️ Du hast eine neue Nachricht erhalten" : "❤️ Du hast ein neues Danke erhalten", screen: "thanks" });
+    for (const thank of thanks.filter(item => item.customerId !== driver.userId))
+      await queuePush(device, { eventKey: `thanks:${thank.id}`, title: "LieferDank", body: "Du hast ein neues Danke erhalten!", screen: "thanks" });
     // Milestones are persisted once per driver/type/value; the event key keeps the push at most once per device.
     const milestones = await db.milestones.findMany({ where: { driverId: driver.id }, since: { field: "achievedAt", value: device.createdAt } });
-    // Small first steps already arrive as the tip/thanks push itself; only the big ones get their own push.
-    for (const milestone of milestones.filter(m => (m.type === "thank_you_count" && m.value >= 100) || m.type === "received_cents"))
-      await queuePush(device, { eventKey: `milestone:${milestone.id}`, title: "Meilenstein erreicht", body: `${describeMilestone(milestone.type, milestone.value).emoji} ${describeMilestone(milestone.type, milestone.value).title}`, screen: "thanks" });
+    if (milestones.length) {
+      const progress = await getDriverRank(driver.id);
+      for (const milestone of milestones) {
+        const rank = milestone.type === "thank_you_count" ? RANKS.find(item => item.threshold === milestone.value) : null;
+        if (rank && progress.count >= rank.threshold)
+          await queuePush(device, { eventKey: `rank:${milestone.id}`, title: "Meilenstein erreicht", body: `Glückwunsch! Du hast ${rank.label} erreicht!`, screen: "thanks" });
+      }
+    }
   }
 }
 export async function deliverPush(fetcher: typeof fetch = fetch) {
@@ -81,12 +102,20 @@ export async function deliverPush(fetcher: typeof fetch = fetch) {
         await db.pushDeliveries.update(row.id, { status: "failed" }); continue;
       }
     }
+    if (row.eventKey.startsWith("rank:")) {
+      const milestone = await db.milestones.get(row.eventKey.slice(5));
+      const rank = milestone?.type === "thank_you_count" ? RANKS.find(item => item.threshold === milestone.value) : null;
+      if (!rank || milestone?.driverId !== owner?.id || (await getDriverRank(owner.id)).count < rank.threshold) {
+        await db.pushDeliveries.update(row.id, { status: "failed" }); continue;
+      }
+    }
     if (row.attempts >= 5) { await db.pushDeliveries.update(row.id, { status: "failed" }); continue; }
     if (!await db.pushDeliveries.updateIf(row.id, { status: row.status, attempts: row.attempts }, { status: "sending", tokenAtSend: device.pushToken, attempts: row.attempts + 1, leaseUntil: new Date(Date.now() + 120000).toISOString() })) continue;
     try {
       const response = await fetcher("https://exp.host/--/api/v2/push/send", { method: "POST", signal: AbortSignal.timeout(10000),
         headers: { "content-type": "application/json", ...(process.env.EXPO_ACCESS_TOKEN ? { authorization: `Bearer ${process.env.EXPO_ACCESS_TOKEN}` } : {}) },
-        body: JSON.stringify({ to: device.pushToken, title: row.title, body: row.body, sound: "default", data: { screen: row.screen, notificationId: row.id } }) });
+        body: JSON.stringify({ to: device.pushToken, title: row.title, body: row.body, sound: "default", collapseId: row.id,
+          data: { screen: row.screen, notificationId: row.id } }) });
       if (!response.ok) throw new Error("push_provider_unavailable");
       const payload = await response.json(); const ticket = payload.data;
       if (ticket?.status === "error" && ticket.details?.error === "DeviceNotRegistered") {

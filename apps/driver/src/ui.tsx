@@ -1,6 +1,6 @@
 import React from "react";
-import Svg, { G, Line, Path } from "react-native-svg";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
+import approvedBrandMark from "../assets/brand-mark-approved.png";
 export const colors = { navy: "#0b2545", blue: "#1a5ce0", blueLight: "#5b97ee", coral: "#ff4d4a", canvas: "#f5f8fb", muted: "#53677d", line: "#dae3ed", danger: "#a42d34", soft: "#edf3f9", success: "#1f7a4d" };
 export const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.canvas }, body: { padding: 20, gap: 16, paddingBottom: 32 },
@@ -42,16 +42,9 @@ export function Avatar({ initials }: { initials: string }) {
   return <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.soft, alignItems: "center", justifyContent: "center" }}><Text style={{ color: colors.blue, fontWeight: "800", fontSize: 16 }}>{initials}</Text></View>;
 }
 
-/** Same transparent vector mark as the web: all-blue parcel, heart without a white rim, no wordmark. */
+/** Pixel-preserving crop of the approved original logo, including the box's top tape. */
 export function BrandMark({ size = 38 }: { size?: number }) {
-  return <Svg width={size * 45 / 40} height={size} viewBox="-1 0 45 40" accessibilityLabel="LieferDank-Logo" accessible>
-    <G stroke={colors.blueLight} strokeWidth={2.6} strokeLinecap="round">
-      <Line x1={2} y1={13} x2={9} y2={13} /><Line x1={1} y1={20} x2={7} y2={20} /><Line x1={3} y1={27} x2={9} y2={27} />
-    </G>
-    <Path d="M13.5 12 23.5 7l10 5v12l-10 5-10-5z" fill="none" stroke={colors.blue} strokeWidth={2.8} strokeLinejoin="round" />
-    <Path d="M13.5 12 23.5 17l10-5M23.5 17v12" fill="none" stroke={colors.blue} strokeWidth={2.2} strokeLinejoin="round" />
-    <Path d="M28 27.4c0-2.55 2-4.35 4.2-4.35 1.3 0 2.45.6 3.1 1.55.65-.95 1.8-1.55 3.1-1.55 2.2 0 4.2 1.8 4.2 4.35 0 3.9-5.25 7.2-7.3 8.5-2.05-1.3-7.3-4.6-7.3-8.5z" fill={colors.coral} />
-  </Svg>;
+  return <Image source={approvedBrandMark} style={{ width: size * 950 / 503, height: size }} resizeMode="contain" accessibilityLabel="LieferDank-Logo" accessible />;
 }
 export function FilterChip({ title, selected, onPress }: { title: string; selected: boolean; onPress: () => void }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ selected }} onPress={onPress}

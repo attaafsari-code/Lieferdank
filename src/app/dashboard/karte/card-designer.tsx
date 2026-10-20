@@ -159,17 +159,13 @@ export function CardDesigner(props: Props) {
           </div>
         </fieldset>
 
-        <fieldset aria-describedby="card-color-hint">
-          <legend className="label">{colorSelection.label}</legend>
-          <p id="card-color-hint" className="mb-3 text-sm text-ink-soft">{colorSelection.hint}</p>
-          <div className="flex flex-wrap gap-2">
-            {colorSelection.options.map(option => <button type="button" key={option.id} aria-pressed={color === option.id} onClick={() => setColor(option.id)} className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold ${color === option.id ? "border-brand bg-brand-50" : "border-line bg-white"}`}><span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full border border-line" style={{ backgroundColor: option.background }} />{option.label}</button>)}
-          </div>
-        </fieldset>
+        <div className="rounded-2xl border border-line bg-white p-5">
+          <Toggle label="Rangabzeichen auf Karte anzeigen" checked={showRankBadge} onChange={setShowRankBadge} />
+        </div>
 
-        <fieldset>
-          <legend className="label">Rangfarben</legend>
-          <p className="mb-3 text-sm text-ink-soft">Zusätzliche Farben durch gültige Danke. Dein Hintergrund ändert sich nur, wenn du selbst eine Farbe auswählst.</p>
+        <details className="group rounded-2xl border border-line bg-white p-5">
+          <summary className="cursor-pointer text-sm font-bold text-ink marker:text-brand">Rangfarben</summary>
+          <p className="mb-3 mt-3 text-sm text-ink-soft">Zusätzliche Farben durch gültige Danke. Dein Hintergrund ändert sich nur, wenn du selbst eine Farbe auswählst.</p>
           <div className="grid gap-2 sm:grid-cols-2">{availableRankColors.map(option => {
             const unlocked = Boolean(props.rank && props.rank.count >= option.requiredThanks);
             return <button type="button" key={option.id} disabled={!unlocked} aria-pressed={color === option.id} onClick={() => setColor(option.id)} className={`flex min-h-12 items-center gap-3 rounded-xl border p-3 text-left text-sm disabled:opacity-55 ${color === option.id ? "border-brand bg-brand-50" : "border-line bg-white"}`}>
@@ -178,6 +174,14 @@ export function CardDesigner(props: Props) {
           })}</div>
           {lockedSelection && <p role="status" className="mt-2 text-sm text-ink-soft">Die gespeicherte Rangfarbe ist aktuell nicht freigeschaltet. Die Vorschau nutzt Weiß/Blau. Wähle eine verfügbare Farbe, bevor du speicherst.</p>}
           <Link href="/dashboard/meilensteine" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-brand">Dein Rang & deine Meilensteine →</Link>
+        </details>
+
+        <fieldset aria-describedby="card-color-hint">
+          <legend className="label">{colorSelection.label}</legend>
+          <p id="card-color-hint" className="mb-3 text-sm text-ink-soft">{colorSelection.hint}</p>
+          <div className="flex flex-wrap gap-2">
+            {colorSelection.options.map(option => <button type="button" key={option.id} aria-pressed={color === option.id} onClick={() => setColor(option.id)} className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold ${color === option.id ? "border-brand bg-brand-50" : "border-line bg-white"}`}><span aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full border border-line" style={{ backgroundColor: option.background }} />{option.label}</button>)}
+          </div>
         </fieldset>
 
         <div>
@@ -214,7 +218,6 @@ export function CardDesigner(props: Props) {
         </div>
 
         <div className="space-y-3 rounded-2xl border border-line bg-white p-5">
-          <Toggle label="Rangabzeichen auf Karte anzeigen" checked={showRankBadge} onChange={setShowRankBadge} />
           <Toggle
             label="Profilfoto auf der Karte"
             hint={props.photoUrl ? undefined : "Lade zuerst ein Foto im Profil hoch."}

@@ -53,7 +53,7 @@ describe("Confirmed push, deduplication and logout",()=>{
   async function ready(){const d=await device();await registerPush(d.session,{token:`ExpoPushToken[${d.driver.code.replaceAll("-","")}]`,enabled:true});const row=(await getDb().mobileSessions.get(d.session.mobileSessionId!))!;return {...d,row};}
   it("rejects arbitrary push tokens",async()=>{const d=await device();await expect(registerPush(d.session,{token:"https://evil.invalid",enabled:true})).rejects.toMatchObject({code:"invalid_input"});});
   it("does not let another driver claim an active token",async()=>{const a=await ready(),b=await device();await expect(registerPush(b.session,{token:a.row.pushToken,enabled:true})).rejects.toMatchObject({code:"token_in_use"});});
-  it("parallel queue and send attempts send exactly one normal event",async()=>{const d=await ready();await Promise.all([queuePush(d.row,event),queuePush(d.row,event),queuePush(d.row,event)]);const fetcher=vi.fn(async()=>Response.json({data:{status:"ok",id:"ticket"}}));await Promise.all([deliverPush(fetcher),deliverPush(fetcher)]);expect(fetcher).toHaveBeenCalledTimes(1);expect(await getDb().pushDeliveries.count()).toBe(1);});
+  it("parallel queue and send attempts send exactly one normal event",async()=>{const d=await ready();await Promise.all([queuePush(d.row,event),queuePush(d.row,event),queuePush(d.row,event)]);const fetcher=vi.fn<typeof fetch>(async()=>Response.json({data:{status:"ok",id:"ticket"}}));await Promise.all([deliverPush(fetcher),deliverPush(fetcher)]);expect(fetcher).toHaveBeenCalledTimes(1);expect(await getDb().pushDeliveries.count()).toBe(1);const sent=JSON.parse(String(fetcher.mock.calls[0][1]?.body));expect(sent.collapseId).toBe(sent.data.notificationId);});
   it("logout suppresses already queued notifications",async()=>{const d=await ready();await queuePush(d.row,event);await mobileLogout(d.session);const fetcher=vi.fn();await deliverPush(fetcher);expect(fetcher).not.toHaveBeenCalled();});
   it("web password-reset version change suppresses push",async()=>{const d=await ready();await queuePush(d.row,event);await getDb().users.update(d.user.id,{tokenVersion:d.user.tokenVersion+1});const fetcher=vi.fn();await deliverPush(fetcher);expect(fetcher).not.toHaveBeenCalled();});
   it("removes invalid tokens reported by provider",async()=>{const d=await ready();await queuePush(d.row,event);await deliverPush(vi.fn(async()=>Response.json({data:{status:"error",details:{error:"DeviceNotRegistered"}}})));expect((await getDb().mobileSessions.get(d.row.id))?.pushToken).toBeNull();});
@@ -73,7 +73,18 @@ describe("Confirmed push, deduplication and logout",()=>{
     await checkPushReceipts(fetcher);expect(await getDb().pushDeliveries.count({where:{status:"delivered"}})).toBe(100);
     await checkPushReceipts(fetcher);expect(await getDb().pushDeliveries.count({where:{status:"delivered"}})).toBe(101);
   });
-  it("confirmed payment uses exact gross amount and queues once across retries",async()=>{const d=await ready();const payment=await startTip(d.driver.code,300,null);await confirmPayment(payment.paymentId,{providerIntentId:"pi_mobile",method:"card"});await collectPushEvents();await collectPushEvents();const rows=(await getDb().pushDeliveries.findMany()).filter(r=>r.screen==="earnings");expect(rows).toHaveLength(1);expect(rows[0].body).toContain("3 €");expect(await getDb().pushDeliveries.count()).toBe(1);const earnings=await earningsRoute(req("/api/v1/me/earnings",d.token),ctx);expect((await earnings.json()).items[0].shareBeforeStripeCents).toBe(240);});
+  it("confirmed payment uses the driver's credited amount, never customer gross, and queues once",async()=>{const d=await ready();const payment=await startTip(d.driver.code,300,null);await confirmPayment(payment.paymentId,{providerIntentId:"pi_mobile",method:"card"});await collectPushEvents();await collectPushEvents();const rows=(await getDb().pushDeliveries.findMany()).filter(r=>r.eventKey.startsWith("tip:"));expect(rows).toHaveLength(1);expect(rows[0].body).toContain("2,40 €");expect(rows[0].body).not.toContain("3,00 €");expect(await getDb().pushDeliveries.count()).toBe(2);const earnings=await earningsRoute(req("/api/v1/me/earnings",d.token),ctx);expect((await earnings.json()).items[0].shareBeforeStripeCents).toBe(240);});
+  it("does not send a queued success notification after the tip is refunded",async()=>{
+    const d=await ready();const payment=await startTip(d.driver.code,300,null);
+    await confirmPayment(payment.paymentId,{providerIntentId:"pi_mobile_refund",method:"card"});
+    await collectPushEvents();
+    const tip=(await getDb().tips.findMany())[0];
+    await getDb().tips.update(tip.id,{refundedCents:100});
+    const fetcher=vi.fn<typeof fetch>(async()=>Response.json({data:{status:"ok",id:"ticket"}}));
+    await deliverPush(fetcher);
+    expect(fetcher.mock.calls.map(([,init])=>JSON.parse(String(init?.body)).body)).not.toContain("Du hast 2,40 € Trinkgeld erhalten!");
+    expect((await getDb().pushDeliveries.findMany({where:{eventKey:`tip:${tip.id}`}}))[0].status).toBe("failed");
+  });
 });
 
 describe("Native paging and deletion",()=>{

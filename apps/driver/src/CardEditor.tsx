@@ -20,6 +20,7 @@ export function CardEditor({ api, onSaved, onPhoto, onRemovePhoto, onClose }: Pr
   const [draft, setDraft] = useState<CardDesignFields | null>(null);
   const [busy, setBusy] = useState(false); const lock = useRef(false);
   const [error, setError] = useState(""); const [saved, setSaved] = useState(false); const [conflict, setConflict] = useState(false);
+  const [rankColorsOpen, setRankColorsOpen] = useState(false);
   const mounted = useRef(true);
   const load = useCallback(async () => {
     const next = await api<CardEditorData>("/api/v1/me/card");
@@ -64,20 +65,26 @@ export function CardEditor({ api, onSaved, onPhoto, onRemovePhoto, onClose }: Pr
       </Card>
       <Card><Text style={styles.title}>Layout</Text>
         <View style={styles.row}>{CARD_LAYOUTS.map(option => <View key={option.id} style={{ flexGrow: 1, minWidth: 100 }}><Button title={option.label} subtle={draft.layout !== option.id} disabled={busy} onPress={() => change({ layout: option.id })} /></View>)}</View>
-        <Text style={styles.title}>{colorSelection.label}</Text>
-        <Text style={styles.muted}>{colorSelection.hint}</Text>
-        <View accessibilityRole="radiogroup" accessibilityLabel={colorSelection.label} style={styles.row}>{colorSelection.options.map(option => <Pressable key={option.id} disabled={busy} accessibilityRole="radio" accessibilityLabel={option.label} accessibilityState={{ selected: (draft.color ?? "blue") === option.id, disabled: busy }} onPress={() => change({ color: option.id })} style={{ flexGrow: 1, minHeight: 48, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", padding: 10, borderRadius: 12, borderWidth: 2, borderColor: (draft.color ?? "blue") === option.id ? colors.blue : colors.line }}><View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: option.background }} /><Text style={[styles.text, { flexShrink: 1 }]}>{option.label}</Text></Pressable>)}</View>
       </Card>
-      <Card><Text style={styles.title}>Rangfarben</Text><Text style={styles.muted}>Zusätzliche Farben durch gültige Danke. Dein Hintergrund ändert sich nur durch deine Auswahl.</Text>
+      <Card><View style={styles.switchRow}><Text style={[styles.text, { flex: 1 }]}>Rangabzeichen auf Karte anzeigen</Text><Switch accessibilityLabel="Rangabzeichen auf Karte anzeigen" disabled={busy} value={draft.showRankBadge} trackColor={{ true: colors.blue }} onValueChange={showRankBadge => change({ showRankBadge })} /></View></Card>
+      <Card>
+        <Pressable accessibilityRole="button" accessibilityLabel="Rangfarben" accessibilityState={{ expanded: rankColorsOpen }} onPress={() => setRankColorsOpen(open => !open)} style={[styles.switchRow, { minHeight: 48 }]}>
+          <Text style={[styles.title, { flex: 1 }]}>Rangfarben</Text><Text style={styles.text}>{rankColorsOpen ? "−" : "+"}</Text>
+        </Pressable>
+        {rankColorsOpen ? <><Text style={styles.muted}>Zusätzliche Farben durch gültige Danke. Dein Hintergrund ändert sich nur durch deine Auswahl.</Text>
         <View style={styles.row}>{rankColorOptions(draft.layout).map(option => {
           const unlocked = Boolean(data.context.rank && data.context.rank.count >= option.requiredThanks);
           return <Pressable key={option.id} disabled={busy || !unlocked} accessibilityRole="radio" accessibilityLabel={`${option.label} · ${unlocked ? "Freigeschaltet" : `Ab ${option.requiredThanks} Danke`}`} accessibilityState={{ selected: draft.color === option.id, disabled: busy || !unlocked }} onPress={() => change({ color: option.id })} style={{ flexGrow: 1, minHeight: 60, padding: 12, gap: 6, borderWidth: 2, borderRadius: 12, borderColor: draft.color === option.id ? colors.blue : colors.line, opacity: unlocked ? 1 : 0.5 }}>
             <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: option.background, borderWidth: 1, borderColor: colors.line }} /><Text style={styles.text}>{option.label}</Text><Text style={styles.muted}>{unlocked ? "Freigeschaltet" : `Ab ${option.requiredThanks.toLocaleString("de-DE")} Danke`}</Text>
           </Pressable>;
         })}</View>
-        {isRankColor(draft.color) && !data.context.rank?.unlockedColors.includes(draft.color) ? <Text style={styles.muted}>Die gespeicherte Rangfarbe ist aktuell nicht freigeschaltet. Die Vorschau nutzt Weiß/Blau. Wähle eine verfügbare Farbe, bevor du speicherst.</Text> : null}
+        {isRankColor(draft.color) && !data.context.rank?.unlockedColors.includes(draft.color) ? <Text style={styles.muted}>Die gespeicherte Rangfarbe ist aktuell nicht freigeschaltet. Die Vorschau nutzt Weiß/Blau. Wähle eine verfügbare Farbe, bevor du speicherst.</Text> : null}</> : null}
       </Card>
-      <Card><View style={styles.switchRow}><Text style={[styles.text, { flex: 1 }]}>Rangabzeichen auf Karte anzeigen</Text><Switch accessibilityLabel="Rangabzeichen auf Karte anzeigen" disabled={busy} value={draft.showRankBadge} trackColor={{ true: colors.blue }} onValueChange={showRankBadge => change({ showRankBadge })} /></View></Card>
+      <Card>
+        <Text style={styles.title}>{colorSelection.label}</Text>
+        <Text style={styles.muted}>{colorSelection.hint}</Text>
+        <View accessibilityRole="radiogroup" accessibilityLabel={colorSelection.label} style={styles.row}>{colorSelection.options.map(option => <Pressable key={option.id} disabled={busy} accessibilityRole="radio" accessibilityLabel={option.label} accessibilityState={{ selected: (draft.color ?? "blue") === option.id, disabled: busy }} onPress={() => change({ color: option.id })} style={{ flexGrow: 1, minHeight: 48, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", padding: 10, borderRadius: 12, borderWidth: 2, borderColor: (draft.color ?? "blue") === option.id ? colors.blue : colors.line }}><View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: option.background }} /><Text style={[styles.text, { flexShrink: 1 }]}>{option.label}</Text></Pressable>)}</View>
+      </Card>
       <Card><Field label="Dein Text auf der Karte" value={draft.headline} editable={!busy} maxLength={MAX_HEADLINE_LENGTH} multiline onChangeText={headline => change({ headline })} />
         <Text style={styles.muted}>{draft.headline.length}/{MAX_HEADLINE_LENGTH} Zeichen</Text>
         {HEADLINE_PRESETS.slice(0, 3).map(preset => <TextLink key={preset} small title={preset} align="flex-start" onPress={() => { if (!busy) change({ headline: preset }); }} />)}
