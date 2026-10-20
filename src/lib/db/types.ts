@@ -83,6 +83,7 @@ export type CardDesign = {
   headline: string;
   showPhoto: boolean;
   showProvider: boolean;
+  showRankBadge: boolean;
   updatedAt: string;
 };
 
@@ -94,6 +95,7 @@ export type CardSnapshot = {
   headline: string;
   showPhoto: boolean;
   showProvider: boolean;
+  showRankBadge?: boolean;
   publicName: string;
   providerLabel: string | null;
   code: string;

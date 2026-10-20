@@ -6,6 +6,7 @@ import { expect, it, vi } from "vitest";
 import { cardColorSelection, type CardColor, type CardLayout } from "@/lib/card/design";
 import { renderCardSvg } from "@/lib/card/svg";
 import { CardDesigner } from "@/app/dashboard/karte/card-designer";
+import { rankProgress } from "@/lib/ranks";
 
 vi.mock("@/server/actions/driver", () => ({ saveCardDesignAction: vi.fn() }));
 
@@ -36,7 +37,7 @@ it.each(cases)("%s / %s: the named swatch matches the actual exported background
   expect(svg).toContain(`fill="${layout === "brand" ? "#ffffff" : "#0d1b2f"}">Max</text>`);
 
   const html = renderToStaticMarkup(createElement(CardDesigner, {
-    initial: { layout, color, headline: "Danke ❤", showPhoto: false, showProvider: false, updatedAt: "2026-10-16T00:00:00.000Z" },
+    initial: { layout, color, headline: "Danke ❤", showPhoto: false, showProvider: false, showRankBadge: true, updatedAt: "2026-10-16T00:00:00.000Z" },
     qrSvg, publicName: "Max", initials: "M", photoUrl: null, code: "LD-TESTCOLOR",
   }));
   const controls = html.match(/<fieldset aria-describedby="card-color-hint">([\s\S]*?)<\/fieldset>/)?.[1];
@@ -54,4 +55,17 @@ it("explains light versus full-color backgrounds without changing stored color i
   expect(cardColorSelection("brand").hint).toContain("Kräftige");
   expect(cardColorSelection("classic").options.map(option => option.id)).toEqual(["blue", "navy", "teal"]);
   expect(cardColorSelection("personal")).toEqual(cardColorSelection("classic"));
+});
+
+it("shows the persisted badge switch and renders the chosen preview without changing public rank", async () => {
+  const qrSvg = await QRCode.toString("https://lieferdank.de/danke/LD-TESTCOLOR", { type: "svg", margin: 0 });
+  const render = (showRankBadge: boolean) => renderToStaticMarkup(createElement(CardDesigner, {
+    initial: { layout: "classic", color: "blue", headline: "Danke ❤", showPhoto: false, showProvider: false, showRankBadge, updatedAt: "2026-10-16T00:00:00.000Z" },
+    qrSvg, publicName: "Max", initials: "M", photoUrl: null, code: "LD-TESTCOLOR", rank: rankProgress(50),
+  }));
+  const visible = render(true), hidden = render(false);
+  expect(visible).toContain("Rangabzeichen auf Karte anzeigen");
+  expect(visible).toContain(">Bronze</text>");
+  expect(hidden).not.toContain(">Bronze</text>");
+  expect(hidden).toContain("QR SCANNEN");
 });

@@ -24,7 +24,7 @@ const SCHEMA_CHECKS = [
   ["blocked_senders", "driver_id, sender_key"],
   ["message_reports", "thank_you_id, status"],
   ["marketing_consents", "user_id, status"],
-  ["card_designs", "driver_id, color"],
+  ["card_designs", "driver_id, color, show_rank_badge"],
   ["driver_rank_counts", "id, thank_you_count"],
   ["reward_definitions", "threshold, content_draft, conditions_draft"],
   ["reward_entitlements", "driver_id, threshold, claimed_at"],

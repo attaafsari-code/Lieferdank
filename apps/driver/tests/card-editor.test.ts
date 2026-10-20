@@ -4,7 +4,7 @@ import { cardDocument } from "../src/card-document";
 import { renderCardSvg } from "../../../src/lib/card/svg";
 import { cardColorSelection, CARD_COLORS, CARD_LAYOUTS } from "../../../src/lib/card/design";
 
-const data: CardEditorData = { design: { layout: "classic", color: "blue", headline: "Danke ❤", showPhoto: false, showProvider: false, updatedAt: "2026-10-16T00:00:00.000Z" }, context: { publicName: "A < B", initials: "AB", code: "LD-TESTCARD", qrSvg: '<svg viewBox="0 0 1 1"><path d="M0 0h1v1H0z"/></svg>', photoHref: "data:image/jpeg;base64,AQID" } };
+const data: CardEditorData = { design: { layout: "classic", color: "blue", headline: "Danke ❤", showPhoto: false, showProvider: false, showRankBadge: true, updatedAt: "2026-10-16T00:00:00.000Z" }, context: { publicName: "A < B", initials: "AB", code: "LD-TESTCARD", qrSvg: '<svg viewBox="0 0 1 1"><path d="M0 0h1v1H0z"/></svg>', photoHref: "data:image/jpeg;base64,AQID" } };
 it("uses the canonical web renderer for every layout and color, including photo and escaped text", () => {
   for (const layout of CARD_LAYOUTS) for (const color of CARD_COLORS) {
     const fields = { ...data.design, layout: layout.id, color: color.id, showPhoto: true };
@@ -17,7 +17,7 @@ it("uses the canonical web renderer for every layout and color, including photo 
 });
 it("detects unsaved design changes but ignores server revision metadata", () => {
   expect(sameCard(data.design, { ...data.design, color: undefined })).toBe(true);
-  for (const patch of [{ layout: "personal" as const }, { color: "teal" as const }, { headline: "Anders" }, { showPhoto: true }]) expect(sameCard(data.design, { ...data.design, ...patch })).toBe(false);
+  for (const patch of [{ layout: "personal" as const }, { color: "teal" as const }, { headline: "Anders" }, { showPhoto: true }, { showRankBadge: false }]) expect(sameCard(data.design, { ...data.design, ...patch })).toBe(false);
 });
 it("does not show or export a private photo when the card photo toggle is off", () => {
   expect(editorSvg(data)).not.toContain("data:image");

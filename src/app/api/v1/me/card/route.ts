@@ -11,7 +11,7 @@ async function editor(session: Session) {
   const photo = session.driver!.photoKey ? await readDriverPhoto(session.driver!) : null;
   return {
     design: { layout: ctx.design.layout, color: ctx.design.color ?? "blue", headline: ctx.design.headline,
-      showPhoto: ctx.design.showPhoto, showProvider: ctx.design.showProvider, updatedAt: ctx.design.updatedAt },
+      showPhoto: ctx.design.showPhoto, showProvider: ctx.design.showProvider, showRankBadge: ctx.design.showRankBadge, updatedAt: ctx.design.updatedAt },
     context: { rank: ctx.rank, publicName: ctx.publicName, initials: ctx.initials, code: ctx.code, qrSvg: ctx.qr,
       photoHref: photo ? `data:${photo.contentType};base64,${Buffer.from(photo.bytes).toString("base64")}` : null },
   };

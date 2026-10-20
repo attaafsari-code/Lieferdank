@@ -29,7 +29,7 @@ const KEYS: { [K in TableName]: Keys<Tables[K]> } = {
     payoutAccountId: true, payoutReady: true, payoutSyncVersion: true, notifyOnTip: true, createdAt: true, updatedAt: true,
   },
   customerProfiles: { id: true, userId: true, createdAt: true },
-  cardDesigns: { id: true, driverId: true, layout: true, color: true, headline: true, showPhoto: true, showProvider: true, updatedAt: true },
+  cardDesigns: { id: true, driverId: true, layout: true, color: true, headline: true, showPhoto: true, showProvider: true, showRankBadge: true, updatedAt: true },
   cardOrders: {
     id: true, driverId: true, product: true, quantity: true, unitPriceCents: true, totalCents: true, currency: true, paymentStatus: true,
     paymentId: true, design: true, shippingName: true, shippingStreet: true, shippingPostalCode: true, shippingCity: true,

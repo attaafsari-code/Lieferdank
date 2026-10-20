@@ -25,7 +25,7 @@ import { isProductionRuntime } from "@/lib/runtime";
 export async function getCardDesign(driverId: string): Promise<CardDesign> {
   const db = getDb();
   const existing = await db.cardDesigns.findOne({ driverId });
-  if (existing) return existing;
+  if (existing) return { ...existing, showRankBadge: existing.showRankBadge !== false };
   // Ältere Konten ohne Design bekommen beim ersten Aufruf das Standarddesign.
   try { return await db.cardDesigns.insert({ id: newId(), driverId, ...defaultCardDesign(), updatedAt: new Date().toISOString() }); }
   catch (error) { const concurrent = await db.cardDesigns.findOne({ driverId }); if (concurrent) return concurrent; throw error; }
@@ -41,6 +41,8 @@ export const cardDesignSchema = z.object({
     .transform((value) => value.replace(/\s+/g, " ") || DEFAULT_HEADLINE),
   showPhoto: z.boolean(),
   showProvider: z.boolean(),
+  // Older app builds omit this field; their saves must not turn a hidden badge back on.
+  showRankBadge: z.boolean().optional(),
 });
 
 export async function saveCardDesign(driverId: string, input: z.infer<typeof cardDesignSchema>, expectedUpdatedAt?: string): Promise<string> {
@@ -99,6 +101,7 @@ export async function renderDriverCard(driver: DriverProfile, user: User, idPref
     layout: ctx.design.layout,
     color: ctx.effectiveColor,
     rank: ctx.rank.current?.id,
+    showRankBadge: ctx.design.showRankBadge,
     headline: ctx.design.headline,
     publicName: ctx.publicName,
     providerLabel: ctx.design.showProvider ? ctx.providerLabel : null,
@@ -159,6 +162,7 @@ export async function createCardOrder(
 
   const design: CardSnapshot = {
     rank: ctx.rank.current?.id,
+    showRankBadge: ctx.design.showRankBadge,
     layout: ctx.design.layout,
     color: ctx.effectiveColor,
     headline: ctx.design.headline,

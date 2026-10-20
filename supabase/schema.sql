@@ -92,6 +92,7 @@ create table if not exists public.card_designs (
   headline       text not null check (char_length(headline) <= 60),
   show_photo     boolean not null default false,
   show_provider  boolean not null default true,
+  show_rank_badge boolean not null default true,
   updated_at     timestamptz not null default now()
 );
 

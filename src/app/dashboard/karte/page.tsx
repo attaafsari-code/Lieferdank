@@ -40,6 +40,7 @@ export default async function CardPage() {
           headline: card.design.headline,
           showPhoto: card.design.showPhoto,
           showProvider: card.design.showProvider,
+          showRankBadge: card.design.showRankBadge,
         }}
         qrSvg={card.qr}
         publicName={card.publicName}

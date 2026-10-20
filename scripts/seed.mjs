@@ -123,6 +123,7 @@ function addDriver(user, options) {
     headline: options.headline ?? "Danke für deine Wertschätzung ❤",
     showPhoto: false,
     showProvider: true,
+    showRankBadge: true,
     updatedAt: isoAt(30, 12, 0),
   });
 
@@ -343,6 +344,7 @@ db.cardOrders.push({
     headline: "Danke für deine Wertschätzung ❤",
     showPhoto: false,
     showProvider: true,
+    showRankBadge: true,
     publicName: "Max",
     providerLabel: "DHL",
     code: "LD-DEMO01",

@@ -18,6 +18,8 @@ export type CardRenderInput = {
   color?: CardColor;
   /** Current server-derived rank; never loaded from editable card fields. */
   rank?: RankId | null;
+  /** Historical cards render their badge unless explicitly disabled. */
+  showRankBadge?: boolean;
   headline: string;
   publicName: string;
   /** null = ausblenden. */
@@ -278,7 +280,7 @@ function classic(input: CardRenderInput, id: string): string {
   });
 
   return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${cardBackgroundColor(input.layout, input.color)}" stroke="${COLORS.line}" stroke-width="0.25"/>
-${header(false, input.rank)}
+${header(false, input.showRankBadge === false ? null : input.rank)}
 ${embedQr(input.qrSvg, qrX, qrY, qrSize)}
 ${qrCaption(qrX + qrSize / 2, 41.6, false)}
 ${content}
@@ -315,7 +317,7 @@ function brand(input: CardRenderInput, id: string): string {
   });
 
   return `<rect width="${W}" height="${H}" rx="3.2" fill="${cardBackgroundColor(input.layout, input.color)}"/>
-${header(onDark, input.rank)}
+${header(onDark, input.showRankBadge === false ? null : input.rank)}
 <rect x="${tileX}" y="${tileY}" width="${tile}" height="${tile}" rx="2.2" fill="${COLORS.white}"/>
 ${embedQr(input.qrSvg, tileX + qrPad, tileY + qrPad, tile - qrPad * 2)}
 ${qrCaption(tileX + tile / 2, 41.6, onDark)}
@@ -341,7 +343,7 @@ function personal(input: CardRenderInput, id: string): string {
   const headlineLines = wrapText(input.headline, 3, colWidth, 2);
 
   return `<rect x="0.125" y="0.125" width="${W - 0.25}" height="${H - 0.25}" rx="3.2" fill="${cardBackgroundColor(input.layout, input.color)}" stroke="${COLORS.line}" stroke-width="0.25"/>
-${header(false, input.rank)}
+${header(false, input.showRankBadge === false ? null : input.rank)}
 ${avatar(input.avatar ? avatarInput : { href: null, initials: avatarInput.initials || "?" }, cx, cy, r, false, `${id}-av`)}
 <text x="${nameX}" y="${nameBaseline}" font-family="${SANS}" font-size="${nameSize}" font-weight="800" letter-spacing="-0.1" fill="${COLORS.ink}">${escapeXml(input.publicName)}</text>
 ${

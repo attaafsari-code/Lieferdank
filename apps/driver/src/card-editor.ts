@@ -17,7 +17,7 @@ export function editorSvg(data: CardEditorData, fields: CardDesignFields = data.
 }
 
 export function sameCard(a: CardDesignFields, b: CardDesignFields) {
-  return a.layout === b.layout && (a.color ?? "blue") === (b.color ?? "blue") && a.headline === b.headline && a.showPhoto === b.showPhoto && a.showProvider === b.showProvider;
+  return a.layout === b.layout && (a.color ?? "blue") === (b.color ?? "blue") && a.headline === b.headline && a.showPhoto === b.showPhoto && a.showProvider === b.showProvider && a.showRankBadge === b.showRankBadge;
 }
 
 /** Decode once AFTER XML parsing. Never unescape markup before it is parsed. */

@@ -12,7 +12,7 @@ import { Check, Download, Printer } from "@/components/icons";
 
 type Props = {
   rank?: RankProgress;
-  initial: { layout: CardLayout; color: CardColor; updatedAt: string; headline: string; showPhoto: boolean; showProvider: boolean };
+  initial: { layout: CardLayout; color: CardColor; updatedAt: string; headline: string; showPhoto: boolean; showProvider: boolean; showRankBadge: boolean };
   qrSvg: string;
   publicName: string;
   initials: string;
@@ -26,6 +26,7 @@ export function CardDesigner(props: Props) {
   const [revision, setRevision] = useState(props.initial.updatedAt);
   const [headline, setHeadline] = useState(props.initial.headline);
   const [showPhoto, setShowPhoto] = useState(props.initial.showPhoto && Boolean(props.photoUrl));
+  const [showRankBadge, setShowRankBadge] = useState(props.initial.showRankBadge);
   const showProvider = props.initial.showProvider;
   const [saved, setSaved] = useState(props.initial);
   const [status, setStatus] = useState<string | null>(null);
@@ -37,12 +38,13 @@ export function CardDesigner(props: Props) {
   const lockedSelection = isRankColor(color) && !props.rank?.unlockedColors.includes(color);
 
   const dirty =
-    layout !== saved.layout || color !== saved.color || headline !== saved.headline || showPhoto !== saved.showPhoto;
+    layout !== saved.layout || color !== saved.color || headline !== saved.headline || showPhoto !== saved.showPhoto || showRankBadge !== saved.showRankBadge;
 
   const renderInput = (overrides: Partial<CardRenderInput> = {}): CardRenderInput => ({
     layout,
     color: lockedSelection ? "blue" : color,
     rank: props.rank?.current?.id,
+    showRankBadge,
     headline,
     publicName: props.publicName,
     providerLabel: null,
@@ -52,19 +54,19 @@ export function CardDesigner(props: Props) {
     ...overrides,
   });
 
-  const preview = useMemo(() => renderCardSvg(renderInput({ idPrefix: "editor" })), [layout, color, headline, showPhoto, props.rank, lockedSelection]); // eslint-disable-line react-hooks/exhaustive-deps
+  const preview = useMemo(() => renderCardSvg(renderInput({ idPrefix: "editor" })), [layout, color, headline, showPhoto, showRankBadge, props.rank, lockedSelection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function save() {
     setError(null);
     startTransition(async () => {
-      const result = await saveCardDesignAction({ layout, color, headline, showPhoto, showProvider, updatedAt: revision });
+      const result = await saveCardDesignAction({ layout, color, headline, showPhoto, showProvider, showRankBadge, updatedAt: revision });
       if (result.error || result.fieldErrors) {
         setError(result.error ?? Object.values(result.fieldErrors ?? {})[0] ?? "Speichern fehlgeschlagen.");
         return;
       }
       if (!result.cardUpdatedAt) { setError("Gespeichert. Bitte lade die Seite neu, bevor du weiterbearbeitest."); return; }
       setRevision(result.cardUpdatedAt);
-      setSaved({ layout, color, headline, showPhoto, showProvider, updatedAt: result.cardUpdatedAt });
+      setSaved({ layout, color, headline, showPhoto, showProvider, showRankBadge, updatedAt: result.cardUpdatedAt });
       setStatus("Gespeichert");
       setTimeout(() => setStatus(null), 2500);
     });
@@ -212,6 +214,7 @@ export function CardDesigner(props: Props) {
         </div>
 
         <div className="space-y-3 rounded-2xl border border-line bg-white p-5">
+          <Toggle label="Rangabzeichen auf Karte anzeigen" checked={showRankBadge} onChange={setShowRankBadge} />
           <Toggle
             label="Profilfoto auf der Karte"
             hint={props.photoUrl ? undefined : "Lade zuerst ein Foto im Profil hoch."}

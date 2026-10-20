@@ -6,6 +6,7 @@ import { GET, PATCH } from "@/app/api/v1/me/card/route";
 import { GET as code } from "@/app/api/v1/me/code/route";
 import { getCardDesign, renderDriverCard, saveCardDesign } from "@/server/services/cards";
 import { CARD_COLORS, CARD_LAYOUTS } from "@/lib/card/design";
+import { newId } from "@/lib/id";
 
 const ctx = { params: Promise.resolve({}) }; let ip = 0;
 function req(token?: string, body?: unknown) { return new Request("http://localhost/api/v1/me/card", { method: body === undefined ? "GET" : "PATCH", headers: { "content-type": "application/json", "x-forwarded-for": `192.0.2.${++ip}`, ...(token ? { authorization: `Bearer ${token}` } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }); }
@@ -19,7 +20,7 @@ it("requires a driver bearer session and returns only owner editor fields", asyn
   const a = await device(); const res = await GET(req(a.token), ctx); const data = await res.json();
   expect(res.headers.get("cache-control")).toBe("no-store"); expect(data.context.code).toBe(a.driver.code);
   expect(data.design.color).toBe("blue"); expect(JSON.stringify(data)).not.toContain(a.user.email);
-  expect(Object.keys(data.design).sort()).toEqual(["color", "headline", "layout", "showPhoto", "showProvider", "updatedAt"].sort());
+  expect(Object.keys(data.design).sort()).toEqual(["color", "headline", "layout", "showPhoto", "showProvider", "showRankBadge", "updatedAt"].sort());
 });
 
 it("persists every layout/color to the same design used by web print and existing native PDF", async () => {
@@ -57,7 +58,7 @@ it("cannot change another driver's design, owner, code or private fields via mas
 
 it("rejects invalid fields and does not save anything on validation failure", async () => {
   const a = await device(); const { design } = await (await GET(req(a.token), ctx)).json();
-  for (const patch of [{ color: "#fff;script" }, { layout: "evil" }, { headline: "x".repeat(61) }, { showPhoto: "true" }, { updatedAt: "invalid" }]) {
+  for (const patch of [{ color: "#fff;script" }, { layout: "evil" }, { headline: "x".repeat(61) }, { showPhoto: "true" }, { showRankBadge: "false" }, { updatedAt: "invalid" }]) {
     expect((await PATCH(req(a.token, { ...design, ...patch }), ctx)).status).toBe(400);
     expect((await getCardDesign(a.driver.id)).updatedAt).toBe(design.updatedAt);
   }
@@ -75,4 +76,35 @@ it("creates a missing historical design only once under concurrent reads", async
   const a = await device(); const old = await getCardDesign(a.driver.id); await getDb().cardDesigns.remove(old.id);
   const designs = await Promise.all([getCardDesign(a.driver.id), getCardDesign(a.driver.id), getCardDesign(a.driver.id)]);
   expect(new Set(designs.map(d => d.id)).size).toBe(1);
+});
+
+it("shares the saved badge choice across API, web card and native PDF source without changing the QR", async () => {
+  const a = await device();
+  await getDb().thankYous.insert({ id: newId(), driverId: a.driver.id, tipId: null, customerId: null, presetId: null, message: null, createdAt: new Date().toISOString() });
+  let { design } = await (await GET(req(a.token), ctx)).json();
+  expect(design.showRankBadge).toBe(true);
+  for (const layout of CARD_LAYOUTS) {
+    const hidden = await PATCH(req(a.token, { ...design, layout: layout.id, showRankBadge: false }), ctx);
+    expect(hidden.status).toBe(200);
+    ({ design } = await hidden.json());
+    expect(design.showRankBadge).toBe(false);
+    expect((await getCardDesign(a.driver.id)).showRankBadge).toBe(false);
+    const web = await renderDriverCard(a.driver, a.user, "native-card", null);
+    const native = await (await code(req(a.token), ctx)).json();
+    expect(native.cardSvg).toBe(web);
+    expect(web).not.toContain(">Start</text>");
+    expect(web).toContain(a.driver.code);
+    expect(native.url).toContain(`/danke/${a.driver.code}`);
+    expect((await (await GET(req(a.token), ctx)).json()).design.showRankBadge).toBe(false);
+  }
+  // An older installed app omits the new field; its ordinary edit preserves the choice.
+  const legacy = { ...design };
+  delete legacy.showRankBadge;
+  const oldAppSave = await PATCH(req(a.token, { ...legacy, headline: "Neuer Text" }), ctx);
+  expect(oldAppSave.status).toBe(200);
+  ({ design } = await oldAppSave.json());
+  expect(design.showRankBadge).toBe(false);
+  const visible = await PATCH(req(a.token, { ...design, showRankBadge: true }), ctx);
+  expect(visible.status).toBe(200);
+  expect((await renderDriverCard(a.driver, a.user)).includes(">Start</text>")).toBe(true);
 });

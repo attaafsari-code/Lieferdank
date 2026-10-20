@@ -97,6 +97,7 @@ export async function saveCardDesignAction(input: {
   headline: string;
   showPhoto: boolean;
   showProvider: boolean;
+  showRankBadge?: boolean;
 }): Promise<FormState> {
   return formAction(async () => {
     const { driver } = await requireDriver();

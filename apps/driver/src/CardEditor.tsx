@@ -77,6 +77,7 @@ export function CardEditor({ api, onSaved, onPhoto, onRemovePhoto, onClose }: Pr
         })}</View>
         {isRankColor(draft.color) && !data.context.rank?.unlockedColors.includes(draft.color) ? <Text style={styles.muted}>Die gespeicherte Rangfarbe ist aktuell nicht freigeschaltet. Die Vorschau nutzt Weiß/Blau. Wähle eine verfügbare Farbe, bevor du speicherst.</Text> : null}
       </Card>
+      <Card><View style={styles.switchRow}><Text style={[styles.text, { flex: 1 }]}>Rangabzeichen auf Karte anzeigen</Text><Switch accessibilityLabel="Rangabzeichen auf Karte anzeigen" disabled={busy} value={draft.showRankBadge} trackColor={{ true: colors.blue }} onValueChange={showRankBadge => change({ showRankBadge })} /></View></Card>
       <Card><Field label="Dein Text auf der Karte" value={draft.headline} editable={!busy} maxLength={MAX_HEADLINE_LENGTH} multiline onChangeText={headline => change({ headline })} />
         <Text style={styles.muted}>{draft.headline.length}/{MAX_HEADLINE_LENGTH} Zeichen</Text>
         {HEADLINE_PRESETS.slice(0, 3).map(preset => <TextLink key={preset} small title={preset} align="flex-start" onPress={() => { if (!busy) change({ headline: preset }); }} />)}

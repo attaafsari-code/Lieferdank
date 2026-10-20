@@ -108,6 +108,7 @@ export default async function DashboardPage({
           layout={card.design.layout}
           color={card.effectiveColor}
           rank={card.rank.current?.id}
+          showRankBadge={card.design.showRankBadge}
           headline={card.design.headline}
           publicName={card.publicName}
           providerLabel={null}

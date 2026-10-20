@@ -11,6 +11,19 @@ async function qr() {
 }
 
 describe("Karten-SVG", () => {
+  it("blendet nur das Rangabzeichen aus und lässt den QR-Code in jedem Layout lesbar", async () => {
+    const qrSvg = await qr();
+    for (const layout of CARD_LAYOUTS) {
+      const common = { layout: layout.id, rank: "bronze" as const, headline: "Danke ❤", publicName: "Max", providerLabel: null, code: "LD-TEST1", qrSvg, avatar: null };
+      const visible = renderCardSvg(common);
+      const hidden = renderCardSvg({ ...common, showRankBadge: false });
+      expect(visible).toContain(">Bronze</text>");
+      expect(hidden).not.toContain(">Bronze</text>");
+      expect(hidden).toContain('fill="#ff4d4a">dank</tspan>');
+      const { data, info } = await sharp(Buffer.from(hidden)).resize(1027, 648).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      expect(jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data).toBe("https://lieferdank.de/danke/LD-TEST1");
+    }
+  });
   it("behält einen lesbaren QR-Code und feste Markenfarben in jeder Layout-/Farbkombination", async () => {
     for (const layout of CARD_LAYOUTS) for (const color of CARD_COLORS) {
       const svg = renderCardSvg({ layout: layout.id, color: color.id, headline: "Danke ❤", publicName: "Max", providerLabel: null, code: "LD-TEST1", qrSvg: await qr(), avatar: null });

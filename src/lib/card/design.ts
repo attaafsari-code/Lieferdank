@@ -58,10 +58,10 @@ export function cardColorSelection(layout: CardLayout) {
   };
 }
 
-export type CardDesignFields = { layout: CardLayout; color?: CardColor; headline: string; showPhoto: boolean; showProvider: boolean };
+export type CardDesignFields = { layout: CardLayout; color?: CardColor; headline: string; showPhoto: boolean; showProvider: boolean; showRankBadge: boolean };
 
 export function defaultCardDesign(): CardDesignFields {
-  return { layout: "classic", color: "blue", headline: DEFAULT_HEADLINE, showPhoto: false, showProvider: true };
+  return { layout: "classic", color: "blue", headline: DEFAULT_HEADLINE, showPhoto: false, showProvider: true, showRankBadge: true };
 }
 
 export function isCardLayout(value: unknown): value is CardLayout {
