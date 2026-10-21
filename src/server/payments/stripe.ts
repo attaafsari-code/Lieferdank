@@ -372,4 +372,16 @@ export const stripePaymentProvider: PaymentProvider = {
     const account = await stripeClient().accounts.retrieve(accountId, {}, { timeout: 4000, maxNetworkRetries: 0 });
     return account.settings?.payouts?.schedule?.interval === "manual" ? "manual" : "automatic";
   },
+
+  async paidPayouts(accountId, sinceIso) {
+    assertKeyMatchesEnvironment();
+    const since = Math.floor(new Date(sinceIso).getTime() / 1000);
+    if (!/^acct_[A-Za-z0-9]+$/.test(accountId) || !Number.isSafeInteger(since)) throw new Error("Ungültiger Auszahlungskontext.");
+    // Only Stripe's own "paid" status counts; pending and in_transit payouts are not completed yet.
+    const page = await stripeClient().payouts.list({ status: "paid", created: { gte: since }, limit: 20 },
+      { stripeAccount: accountId, timeout: 5000, maxNetworkRetries: 0 });
+    return page.data
+      .filter(payout => payout.status === "paid" && payout.currency === "eur" && Number.isSafeInteger(payout.amount) && payout.amount > 0)
+      .map(payout => ({ id: payout.id, amountCents: payout.amount }));
+  },
 };

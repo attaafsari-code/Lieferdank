@@ -428,7 +428,7 @@ function LieferDankApp() {
       </>}
     </>}</Card>}
     {role === "driver" && <Card>
-      {pushAvailable && <View style={styles.switchRow}><View style={{ flex: 1 }}><Text style={styles.text}>Mitteilungen</Text><Text style={styles.muted}>Bei neuem Trinkgeld, Danke und Meilensteinen</Text></View><Switch accessibilityLabel="Mitteilungen aktivieren" value={pushEnabled} trackColor={{ true: colors.blue }} onValueChange={v => run(() => enablePush(v))} disabled={busy} /></View>}
+      {pushAvailable && <View style={styles.switchRow}><View style={{ flex: 1 }}><Text style={styles.text}>Mitteilungen</Text><Text style={styles.muted}>Bei neuem Trinkgeld, Danke, Meilensteinen und Auszahlungen</Text></View><Switch accessibilityLabel="Mitteilungen aktivieren" value={pushEnabled} trackColor={{ true: colors.blue }} onValueChange={v => run(() => enablePush(v))} disabled={busy} /></View>}
       <TextLink title="Auszahlung verwalten" align="flex-start" onPress={() => setScreen("stripe")} />
     </Card>}
     <Card><Text style={styles.title}>Passwort ändern</Text>

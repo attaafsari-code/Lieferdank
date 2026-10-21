@@ -14,6 +14,7 @@ import { POST as resetRoute } from "@/app/api/v1/auth/reset/route";
 import { GET as pushCron } from "@/app/api/cron/push/route";
 import { registerPush, queuePush, deliverPush, collectPushEvents, checkPushReceipts } from "@/server/services/push";
 import { startTip, confirmPayment } from "@/server/services/thanks";
+import { getPaymentProvider } from "@/server/payments";
 
 let ip = 0;
 const ctx = { params: Promise.resolve({}) };
@@ -84,6 +85,36 @@ describe("Confirmed push, deduplication and logout",()=>{
     await deliverPush(fetcher);
     expect(fetcher.mock.calls.map(([,init])=>JSON.parse(String(init?.body)).body)).not.toContain("Du hast 2,40 € Trinkgeld erhalten!");
     expect((await getDb().pushDeliveries.findMany({where:{eventKey:`tip:${tip.id}`}}))[0].status).toBe("failed");
+  });
+  it("notifies a payout only once, only after the provider reports it paid, with the paid amount",async()=>{
+    const d=await ready();await getDb().driverProfiles.update(d.driver.id,{payoutAccountId:"acct_driver"});
+    const paid=vi.spyOn(getPaymentProvider(),"paidPayouts").mockResolvedValue([]);
+    await collectPushEvents();
+    expect(await getDb().pushDeliveries.count()).toBe(0);
+    expect(paid).toHaveBeenCalledWith("acct_driver",d.row.createdAt);
+    paid.mockResolvedValue([{id:"po_1",amountCents:1234}]);
+    await collectPushEvents();await collectPushEvents();
+    const rows=await getDb().pushDeliveries.findMany({where:{eventKey:"payout:po_1"}});
+    expect(rows).toHaveLength(1);expect(rows[0].body).toBe("12,34 € wurden an dein Bankkonto überwiesen.");
+  });
+  it("sends no payout push without a payout account or when the provider cannot confirm",async()=>{
+    const d=await ready();const paid=vi.spyOn(getPaymentProvider(),"paidPayouts").mockRejectedValue(new Error("stripe down"));
+    await collectPushEvents();expect(paid).not.toHaveBeenCalled();
+    await getDb().driverProfiles.update(d.driver.id,{payoutAccountId:"acct_driver"});
+    await collectPushEvents();expect(paid).toHaveBeenCalled();expect(await getDb().pushDeliveries.count()).toBe(0);
+  });
+  it("the tip e-mail setting does not silence push; the device switch does",async()=>{
+    const d=await ready();await getDb().driverProfiles.update(d.driver.id,{notifyOnTip:false});await queuePush(d.row,event);
+    const fetcher=vi.fn<typeof fetch>(async()=>Response.json({data:{status:"ok",id:"ticket"}}));
+    expect(await deliverPush(fetcher)).toBe(1);
+    await queuePush(d.row,{...event,eventKey:"test:two"});await registerPush(d.session,{token:d.row.pushToken!,enabled:false});
+    expect(await deliverPush(fetcher)).toBe(0);expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it("reward entitlements alone never create a push while rewards are preview-only",async()=>{
+    const d=await ready();
+    await getDb().rewardEntitlements.insert({id:crypto.randomUUID(),driverId:d.driver.id,threshold:500,unlockedAt:new Date().toISOString(),claimedAt:null});
+    await collectPushEvents();
+    expect(await getDb().pushDeliveries.count()).toBe(0);
   });
 });
 
