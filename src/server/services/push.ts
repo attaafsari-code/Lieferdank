@@ -8,7 +8,7 @@ import { deviceId } from "./mobile";
 import { parseInput } from "./auth";
 import { ServiceError } from "../errors";
 import { logEvent } from "../events";
-import { paymentProviderById } from "../payments";
+import { getPaymentProvider, paymentProviderById } from "../payments";
 import { RANKS } from "@/lib/ranks";
 import { getDriverRank } from "./ranks";
 
@@ -28,6 +28,7 @@ export async function registerPush(session: Session, input: unknown) {
   if (existing && existing.id !== id) await getDb().mobileSessions.update(existing.id, { pushToken: null, pushEnabled: false });
   await getDb().mobileSessions.update(id, { pushToken: value.enabled ? value.token : null, pushEnabled: value.enabled });
 }
+const euro = (cents: number) => `${(cents / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 function deliveryId(sessionId: string, eventKey: string) {
   const hash = createHash("sha256").update(`${sessionId}:${eventKey}`).digest("hex");
   return `${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}`;
@@ -45,7 +46,8 @@ export async function collectPushEvents() {
   for (const device of devices) {
     if (!device.pushToken || new Date(device.expiresAt).getTime() <= Date.now()) continue;
     const user = await db.users.get(device.userId); if (!user || user.blockedAt || user.tokenVersion !== device.tokenVersion) continue;
-    const driver = await db.driverProfiles.findOne({ userId: device.userId }); if (!driver?.notifyOnTip) continue;
+    // The per-device app switch (pushEnabled) is the push opt-out; notifyOnTip only controls tip e-mails.
+    const driver = await db.driverProfiles.findOne({ userId: device.userId }); if (!driver) continue;
     const tips = await db.tips.findMany({ where: { driverId: driver.id }, since: { field: "createdAt", value: device.createdAt } });
     for (const tip of tips) {
       if (tip.paymentStatus === "succeeded" && tip.refundedCents === 0 && !await db.pushDeliveries.get(deliveryId(device.id, `tip:${tip.id}`))) {
@@ -57,7 +59,7 @@ export async function collectPushEvents() {
               grossCents: tip.grossCents, applicationFeeCents: tip.platformGrossFeeCents,
             });
             if (credit !== null) await queuePush(device, { eventKey: `tip:${tip.id}`, title: "LieferDank",
-              body: `Du hast ${(credit / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € Trinkgeld erhalten!`, screen: "earnings" });
+              body: `Du hast ${euro(credit)} Trinkgeld erhalten!`, screen: "earnings" });
           } catch {
             // Fail closed: a guessed net amount would be misleading. The next cron retries.
             await logEvent("warning", "push", "Bestätigte Stripe-Gutschrift für Push noch nicht verfügbar", { paymentId: payment.id });
@@ -80,6 +82,16 @@ export async function collectPushEvents() {
           await queuePush(device, { eventKey: `rank:${milestone.id}`, title: "Meilenstein erreicht", body: `Glückwunsch! Du hast ${rank.label} erreicht!`, screen: "thanks" });
       }
     }
+    // Rewards are preview-only (REWARD_PREVIEW): nothing can be activated or claimed, so there is deliberately no reward push.
+    // Payouts: Stripe's own "paid" status, read live in the driver's account scope; scheduled or in-transit payouts never notify.
+    if (driver.payoutAccountId) {
+      try {
+        for (const payout of await getPaymentProvider().paidPayouts(driver.payoutAccountId, device.createdAt))
+          await queuePush(device, { eventKey: `payout:${payout.id}`, title: "Auszahlung erfolgt", body: `${euro(payout.amountCents)} wurden an dein Bankkonto überwiesen.`, screen: "earnings" });
+      } catch {
+        await logEvent("warning", "push", "Auszahlungsstatus für Push nicht abrufbar", { driverId: driver.id });
+      }
+    }
   }
 }
 export async function deliverPush(fetcher: typeof fetch = fetch) {
@@ -92,7 +104,7 @@ export async function deliverPush(fetcher: typeof fetch = fetch) {
     const device = await db.mobileSessions.get(row.sessionId);
     const user = device ? await db.users.get(device.userId) : null;
     const owner = device ? await db.driverProfiles.findOne({ userId: device.userId }) : null;
-    if (!owner?.notifyOnTip || !device?.pushToken || !device.pushEnabled || device.revokedAt || !user || user.blockedAt || user.tokenVersion !== device.tokenVersion || device.expiresAt <= now.toISOString()) {
+    if (!owner || !device?.pushToken || !device.pushEnabled || device.revokedAt || !user || user.blockedAt || user.tokenVersion !== device.tokenVersion || device.expiresAt <= now.toISOString()) {
       await db.pushDeliveries.update(row.id, { status: "failed" }); continue;
     }
     if (row.eventKey.startsWith("tip:")) {

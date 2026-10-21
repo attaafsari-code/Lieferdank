@@ -95,4 +95,8 @@ export const demoPaymentProvider: PaymentProvider = {
   async payoutInterval() {
     return "automatic";
   },
+  // The demo never moves money to a bank, so it can never confirm a payout.
+  async paidPayouts() {
+    return [];
+  },
 };

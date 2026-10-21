@@ -87,5 +87,7 @@ export interface PaymentProvider {
   isAccountReady(accountId: string, driverId: string): Promise<boolean>;
   /** "manual": Stripe überweist das Guthaben nicht von selbst aufs Bankkonto. */
   payoutInterval(accountId: string): Promise<"manual" | "automatic">;
+  /** EUR payouts the provider itself reports as "paid" to the driver's bank, created at or after sinceIso. */
+  paidPayouts(accountId: string, sinceIso: string): Promise<{ id: string; amountCents: number }[]>;
 
 }

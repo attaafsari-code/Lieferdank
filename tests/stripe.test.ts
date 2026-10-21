@@ -632,3 +632,25 @@ describe("Stripe Direct Charges", () => {
     );
   });
 });
+
+describe("Stripe-bestätigte Auszahlungen für Mitteilungen", () => {
+  it("liest nur von Stripe als paid gemeldete EUR-Auszahlungen im Konto des Zustellers", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
+    const list = vi.spyOn(stripeClient().payouts, "list").mockResolvedValue({ data: [
+      { id: "po_paid", status: "paid", currency: "eur", amount: 1234 },
+      { id: "po_transit", status: "in_transit", currency: "eur", amount: 500 },
+      { id: "po_usd", status: "paid", currency: "usd", amount: 700 },
+      { id: "po_zero", status: "paid", currency: "eur", amount: 0 },
+    ] } as unknown as Stripe.Response<Stripe.ApiList<Stripe.Payout>>);
+    expect(await stripePaymentProvider.paidPayouts("acct_driver", "2026-10-01T00:00:00.000Z")).toEqual([{ id: "po_paid", amountCents: 1234 }]);
+    const [params, options] = list.mock.calls[0] as unknown as [Stripe.PayoutListParams, Stripe.RequestOptions];
+    expect(params).toMatchObject({ status: "paid", created: { gte: 1790812800 } });
+    expect(options).toMatchObject({ stripeAccount: "acct_driver", maxNetworkRetries: 0 });
+  });
+  it("lehnt fremde Kontokennungen ab, bevor Stripe gefragt wird", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "rk_test_dummy");
+    const list = vi.spyOn(stripeClient().payouts, "list");
+    await expect(stripePaymentProvider.paidPayouts("acct_x/../y", "2026-10-01T00:00:00.000Z")).rejects.toThrow(/Auszahlungskontext/);
+    expect(list).not.toHaveBeenCalled();
+  });
+});
