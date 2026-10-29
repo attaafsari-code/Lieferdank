@@ -35,7 +35,7 @@ function layout(preheader: string, heading: string, blocks: Block[]): { html: st
 <span style="display:none;opacity:0;height:0;overflow:hidden">${escapeHtml(preheader)}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fc;padding:32px 16px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #e7ecf4;border-radius:20px;padding:32px">
-<tr><td style="padding-bottom:24px;font-size:22px;font-weight:800;letter-spacing:-0.5px"><span style="color:#0b2545">Liefer</span><span style="color:#ff4d4a">dank</span></td></tr>
+<tr><td style="padding-bottom:24px"><img src="${PRODUCTION_URL}/brand/lieferdank-wordmark.png" alt="Lieferdank" width="160" height="26" style="display:block;border:0;width:160px;height:26px;font-size:22px;font-weight:800;color:#0b2545"></td></tr>
 <tr><td style="padding-bottom:16px;font-size:22px;font-weight:800;color:#0b2545">${escapeHtml(heading)}</td></tr>
 ${body}
 </table>
