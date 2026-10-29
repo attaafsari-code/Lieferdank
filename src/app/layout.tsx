@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { canonicalBase } from "@/server/site";
-import { SPLASH_SIZES } from "@/lib/pwa/mark";
+import { SPLASH_SIZES } from "@/lib/pwa/splash-sizes";
 import { ServiceWorkerRegistration } from "@/components/service-worker";
 import "./globals.css";
 
@@ -22,16 +22,16 @@ export const metadata: Metadata = {
   },
   twitter: { card: "summary_large_image", title: "Lieferdank – Dein Danke kommt an.", description },
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    // Erzeugt von src/app/apple-icon.tsx – die Route heißt /apple-icon (ohne .png).
-    apple: "/apple-icon",
+    // Erzeugt aus dem freigegebenen App-Icon von scripts/brand/generate_brand_assets.py.
+    icon: [{ url: "/icon.png", type: "image/png" }],
+    apple: "/apple-icon.png",
   },
   appleWebApp: {
     capable: true,
     title: "Lieferdank",
     statusBarStyle: "default",
     startupImage: SPLASH_SIZES.map((s) => ({
-      url: `/pwa/splash/${s.w}x${s.h}`,
+      url: `/pwa/splash/${s.w}x${s.h}.png`,
       media: `(device-width: ${s.dw}px) and (device-height: ${s.dh}px) and (-webkit-device-pixel-ratio: ${s.ratio}) and (orientation: portrait)`,
     })),
   },

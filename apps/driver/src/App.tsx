@@ -21,7 +21,7 @@ import { SvgXml } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ApiError, callApi, deepLink, driverThankUrl, euro, legalPages, trustedBrowserUrl, validateApiBase, type Screen } from "./api";
 import type { Earning, Favorite, History, Me, Profile, Qr, Role, Stats, StripeStatus, Thank } from "./types";
-import { Avatar, BrandMark, Button, Card, FilterChip, colors, Field, Loading, Segmented, styles, TextLink } from "./ui";
+import { Avatar, BrandMark, BrandWordmark, Button, Card, FilterChip, colors, Field, Loading, Segmented, styles, TextLink } from "./ui";
 
 const BASE = validateApiBase(process.env.EXPO_PUBLIC_API_URL ?? "https://lieferdank.de", __DEV__);
 const SESSION_KEY = "lieferdank.driver.session";
@@ -446,7 +446,7 @@ function LieferDankApp() {
   return <SafeAreaView style={styles.page} edges={["top", "left", "right"]}><StatusBar style="dark" />
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 56 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }} accessible accessibilityRole="header" accessibilityLabel="LieferDank"><BrandMark size={34} /><Text style={{ fontSize: 22, fontWeight: "800", color: colors.navy, letterSpacing: -0.5 }}>Liefer<Text style={{ color: colors.coral }}>Dank</Text></Text></View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }} accessible accessibilityRole="header" accessibilityLabel="LieferDank"><BrandMark size={34} /><BrandWordmark height={21} /></View>
         {token && role === "driver" && <Pressable accessibilityRole="button" accessibilityLabel="Einstellungen" onPress={() => setScreen("settings")} style={{ padding: 10 }}><Ionicons name="settings-outline" size={24} color={colors.navy} /></Pressable>}
       </View>
       <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body} refreshControl={token ? <RefreshControl refreshing={busy} onRefresh={() => run(refresh)} tintColor={colors.blue} /> : undefined}>

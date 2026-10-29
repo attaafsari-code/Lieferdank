@@ -7,7 +7,7 @@
  *  - statische Dateien (Build, Schrift, Icons) aus dem Cache
  *  - API, Zahlungen und POST-Anfragen werden nie gecacht
  */
-const VERSION = "lieferdank-v1";
+const VERSION = "lieferdank-v2";
 const STATIC_CACHE = `${VERSION}-static`;
 const OFFLINE_URL = "/offline";
 
@@ -15,7 +15,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
-      .then((cache) => cache.addAll([OFFLINE_URL, "/fonts/plus-jakarta-sans-latin.woff2", "/pwa/icon-192.png"]))
+      .then((cache) => cache.addAll([OFFLINE_URL, "/fonts/plus-jakarta-sans-latin.woff2", "/pwa/icon-192.png", "/brand/lieferdank-mark.png"]))
       .then(() => self.skipWaiting()),
   );
 });
@@ -34,7 +34,8 @@ function isStatic(url) {
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/fonts/") ||
     url.pathname.startsWith("/pwa/") ||
-    url.pathname === "/icon.svg"
+    url.pathname.startsWith("/brand/lieferdank-") ||
+    url.pathname === "/icon.png"
   );
 }
 

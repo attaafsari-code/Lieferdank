@@ -76,7 +76,7 @@ function DemoSheet({
         </p>
 
         <div className="mt-4 rounded-3xl bg-white p-7 shadow-lg">
-          <LogoMark className="mx-auto h-9 w-9" />
+          <LogoMark className="mx-auto h-9 w-auto" />
           <p className="mt-5 text-center text-sm text-ink-soft">{title}</p>
           <p className="mt-1 text-center text-[2.75rem] leading-none font-extrabold tracking-tight text-brand-900">
             {amount}

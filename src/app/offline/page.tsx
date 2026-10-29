@@ -7,7 +7,7 @@ export const metadata = { title: "Offline", robots: { index: false, follow: fals
 export default function OfflinePage() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
-      <LogoMark className="h-12 w-12" />
+      <LogoMark className="h-12 w-auto" />
       <h1 className="mt-7 text-2xl font-extrabold tracking-tight text-brand-900">Gerade keine Verbindung</h1>
       <p className="mt-3 max-w-xs leading-relaxed text-ink-soft">
         Danke sagen und bezahlen braucht Internet. Sobald du wieder online bist, geht es weiter.

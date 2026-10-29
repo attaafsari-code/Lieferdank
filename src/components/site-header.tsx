@@ -22,7 +22,8 @@ export async function SiteHeader() {
     <header className="no-print sticky top-0 z-50 border-b border-line/70 bg-white/80 backdrop-blur-xl">
       <div className="container-page flex h-[4.25rem] items-center justify-between">
         <Link href="/" aria-label="Lieferdank – zur Startseite">
-          <Logo />
+          {/* Auf sehr schmalen Handys (unter 360 px) bleibt neben den Knöpfen nur Platz für die Bildmarke. */}
+          <Logo className="max-[359px]:[&>span:last-child]:hidden" />
         </Link>
 
         <nav aria-label="Hauptnavigation" className="hidden items-center gap-1 md:flex">

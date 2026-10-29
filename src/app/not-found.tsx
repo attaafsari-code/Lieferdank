@@ -6,7 +6,7 @@ export const metadata = { title: "Seite nicht gefunden" };
 export default function NotFound() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-5 text-center">
-      <LogoMark className="h-12 w-12" />
+      <LogoMark className="h-12 w-auto" />
       <h1 className="mt-7 text-3xl font-extrabold tracking-tight text-brand-900">
         Seite nicht gefunden
       </h1>

@@ -1,6 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 import approvedBrandMark from "../assets/brand-mark-approved.png";
+import approvedWordmark from "../assets/brand-wordmark.png";
 export const colors = { navy: "#0b2545", blue: "#1a5ce0", blueLight: "#5b97ee", coral: "#ff4d4a", canvas: "#f5f8fb", muted: "#53677d", line: "#dae3ed", danger: "#a42d34", soft: "#edf3f9", success: "#1f7a4d" };
 export const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.canvas }, body: { padding: 20, gap: 16, paddingBottom: 32 },
@@ -45,6 +46,10 @@ export function Avatar({ initials }: { initials: string }) {
 /** Pixel-preserving crop of the approved original logo, including the box's top tape. */
 export function BrandMark({ size = 38 }: { size?: number }) {
   return <Image source={approvedBrandMark} style={{ width: size * 950 / 503, height: size }} resizeMode="contain" accessibilityLabel="LieferDank-Logo" accessible />;
+}
+/** Original lettering, cut from the same approved logo (scripts/brand/generate_brand_assets.py). */
+export function BrandWordmark({ height = 21 }: { height?: number }) {
+  return <Image source={approvedWordmark} style={{ width: height * 1476 / 239, height }} resizeMode="contain" accessibilityLabel="Lieferdank" accessible />;
 }
 export function FilterChip({ title, selected, onPress }: { title: string; selected: boolean; onPress: () => void }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ selected }} onPress={onPress}

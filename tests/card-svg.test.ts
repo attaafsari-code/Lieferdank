@@ -5,6 +5,14 @@ import { escapeXml, renderCardSvg, wrapText } from "@/lib/card/svg";
 import type { CardLayout } from "@/lib/db/types";
 import { CARD_COLORS, CARD_LAYOUTS } from "@/lib/card/design";
 import jsQR from "jsqr";
+import { BRAND_MARK, BRAND_WORDMARK } from "@/lib/brand/logo-images";
+
+/** Kartenkopf zeigt das unveränderte Original-Logo (Bildmarke + Schriftzug), nie eine Nachzeichnung. */
+function expectOriginalLogo(svg: string) {
+  expect(svg).toContain(`href="${BRAND_MARK.href}"`);
+  expect(svg).toContain(`href="${BRAND_WORDMARK.href}"`);
+  expect(svg).not.toContain(">Liefer</tspan>");
+}
 
 async function qr() {
   return QRCode.toString("https://lieferdank.de/danke/LD-TEST1", { type: "svg", margin: 0 });
@@ -19,7 +27,7 @@ describe("Karten-SVG", () => {
       const hidden = renderCardSvg({ ...common, showRankBadge: false });
       expect(visible).toContain(">Bronze</text>");
       expect(hidden).not.toContain(">Bronze</text>");
-      expect(hidden).toContain('fill="#ff4d4a">dank</tspan>');
+      expectOriginalLogo(hidden);
       const { data, info } = await sharp(Buffer.from(hidden)).resize(1027, 648).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
       expect(jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data).toBe("https://lieferdank.de/danke/LD-TEST1");
     }
@@ -29,7 +37,7 @@ describe("Karten-SVG", () => {
       const svg = renderCardSvg({ layout: layout.id, color: color.id, headline: "Danke ❤", publicName: "Max", providerLabel: null, code: "LD-TEST1", qrSvg: await qr(), avatar: null });
       const { data, info } = await sharp(Buffer.from(svg)).resize(1027, 648).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
       expect(jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data).toBe("https://lieferdank.de/danke/LD-TEST1");
-      expect(svg).toContain('fill="#ff4d4a">dank</tspan>');
+      expectOriginalLogo(svg);
       expect(svg).toContain('fill="#ff4d4a">❤</tspan>');
       expect(svg.match(/<svg\b/g)).toHaveLength(1);
     }
@@ -37,7 +45,7 @@ describe("Karten-SVG", () => {
   it("behält die feste Coral-Markenfarbe bei allen Kartenvarianten", async () => {
     for (const layout of ["classic", "brand", "personal"] as const) {
       const svg = renderCardSvg({ layout, headline: "Danke ❤", publicName: "Max", providerLabel: null, code: "LD-TEST1", qrSvg: await qr(), avatar: null });
-      expect(svg).toContain('<tspan fill="#ff4d4a">dank</tspan>');
+      expectOriginalLogo(svg);
       expect(svg).toContain('fill="#ff4d4a">❤</tspan>');
       expect(svg).not.toContain("#ffc2c0");
     }

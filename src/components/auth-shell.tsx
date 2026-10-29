@@ -22,7 +22,7 @@ export function AuthShell({
       <div className="relative container-page max-w-md py-16 sm:py-20">
         <div className="text-center">
           <Link href="/" aria-label="Zur Startseite">
-            <LogoMark className="mx-auto h-10 w-10" />
+            <LogoMark className="mx-auto h-10 w-auto" />
           </Link>
           <h1 className="mt-5 text-3xl font-extrabold text-brand-900">{title}</h1>
           {lead && <p className="mt-3 leading-relaxed text-ink-soft">{lead}</p>}

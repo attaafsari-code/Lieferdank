@@ -56,10 +56,8 @@ function Hero({ card }: { card: string }) {
 
       <div className="container-page relative grid gap-14 pt-14 pb-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:pt-24 lg:pb-28">
         <div>
-          <p className="text-[2.1rem] leading-none font-extrabold tracking-[-0.04em] sm:text-[2.5rem]">
-            <span className="text-brand-900">Liefer</span>
-            <span className="text-coral">dank</span>
-          </p>
+          {/* eslint-disable-next-line @next/next/no-img-element -- Original-Schriftzug, statische Markendatei */}
+          <img src="/brand/lieferdank-wordmark.png" alt="Lieferdank" width={1476} height={239} className="h-9 w-auto sm:h-11" />
           <h1 className="mt-4 text-[2.75rem] leading-[1.05] font-extrabold text-brand-900 sm:text-6xl">
             Dein Danke kommt an.
           </h1>
@@ -179,7 +177,7 @@ function PhoneMock() {
     <div className="mx-auto w-full max-w-[19.5rem]">
       <div className="rounded-[2.75rem] border-[11px] border-brand-900 bg-canvas p-1 shadow-lg">
         <div className="flex flex-col items-center rounded-[2rem] bg-canvas px-5 py-7">
-          <LogoMark className="h-6 w-6" />
+          <LogoMark className="h-6 w-auto" />
           <div className="mt-4">
             <Avatar name="Max" initials="M" photoUrl={null} size="md" />
           </div>
