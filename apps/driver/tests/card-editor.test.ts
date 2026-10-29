@@ -20,9 +20,9 @@ it("detects unsaved design changes but ignores server revision metadata", () => 
   for (const patch of [{ layout: "personal" as const }, { color: "teal" as const }, { headline: "Anders" }, { showPhoto: true }, { showRankBadge: false }]) expect(sameCard(data.design, { ...data.design, ...patch })).toBe(false);
 });
 it("does not show or export a private photo when the card photo toggle is off", () => {
-  expect(editorSvg(data)).not.toContain("data:image");
+  expect(editorSvg(data)).not.toContain(data.context.photoHref!);
   expect(editorSvg(data, { ...data.design, layout: "personal" })).toContain(">AB</text>");
-  expect(editorSvg(data, { ...data.design, layout: "personal" })).not.toContain("data:image");
+  expect(editorSvg(data, { ...data.design, layout: "personal" })).not.toContain(data.context.photoHref!);
 });
 it("decodes text only once in the parsed tree, without turning escaped user input into markup", () => {
   type Node = { children: (Node | string)[] };

@@ -179,7 +179,7 @@ function PhoneMock() {
     <div className="mx-auto w-full max-w-[19.5rem]">
       <div className="rounded-[2.75rem] border-[11px] border-brand-900 bg-canvas p-1 shadow-lg">
         <div className="flex flex-col items-center rounded-[2rem] bg-canvas px-5 py-7">
-          <LogoMark className="h-6 w-6" />
+          <LogoMark className="h-6 w-auto" />
           <div className="mt-4">
             <Avatar name="Max" initials="M" photoUrl={null} size="md" />
           </div>

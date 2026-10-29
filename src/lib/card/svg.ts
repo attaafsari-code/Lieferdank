@@ -1,6 +1,7 @@
 import type { CardColor, CardLayout } from "./design";
 import { cardBackgroundColor, cardPalette, CARD_HEIGHT_MM, CARD_WIDTH_MM } from "./design";
 import { rankBadgeMarkup, rankTier, type RankId } from "../ranks";
+import { BRAND_MARK, BRAND_WORDMARK } from "../brand/logo-images";
 
 /**
  * Rendert die Lieferdank-Karte als eigenständiges SVG.
@@ -45,7 +46,6 @@ const COLORS = {
   inkFaint: "#8798b3",
   line: "#e7ecf4",
   brand: "#1a5ce0",
-  brand400: "#4b8ef0",
   brand50: "#edf4ff",
   brand900: "#0b2545",
   coral: "#ff4d4a",
@@ -124,22 +124,29 @@ function embedQr(qrSvg: string, x: number, y: number, size: number): string {
   return `<g transform="translate(${x} ${y}) scale(${size / width}) translate(${-minX} ${-minY})" shape-rendering="crispEdges">${inner}</g>`;
 }
 
-function logoMark(x: number, y: number, size: number, onDark: boolean): string {
-  // Same mark as web and app: all-blue parcel (white on dark cards), heart without a rim.
-  const lines = onDark ? "rgba(255,255,255,0.6)" : COLORS.brand400;
-  const box = onDark ? COLORS.white : COLORS.brand;
-  return `<g transform="translate(${x} ${y}) scale(${size / 45}) translate(1 2.5)">
-<g stroke="${lines}" stroke-width="2.6" stroke-linecap="round"><line x1="2" y1="13" x2="9" y2="13"/><line x1="1" y1="20" x2="7" y2="20"/><line x1="3" y1="27" x2="9" y2="27"/></g>
-<path d="M13.5 12 23.5 7l10 5v12l-10 5-10-5z" fill="none" stroke="${box}" stroke-width="2.8" stroke-linejoin="round"/>
-<path d="M13.5 12 23.5 17l10-5M23.5 17v12" fill="none" stroke="${box}" stroke-width="2.2" stroke-linejoin="round"/>
-<path d="M28 27.4c0-2.55 2-4.35 4.2-4.35 1.3 0 2.45.6 3.1 1.55.65-.95 1.8-1.55 3.1-1.55 2.2 0 4.2 1.8 4.2 4.35 0 3.9-5.25 7.2-7.3 8.5-2.05-1.3-7.3-4.6-7.3-8.5z" fill="${COLORS.coral}"/>
-</g>`;
+/** Höhe der Bildmarke im Kartenkopf (mm); der Schriftzug folgt dem Verhältnis der Website-Kopfzeile. */
+const LOGO_MARK_HEIGHT = 4.4;
+const LOGO_WORDMARK_HEIGHT = LOGO_MARK_HEIGHT * 0.61;
+const LOGO_GAP = 0.6;
+
+function brandImage(image: { href: string; width: number; height: number }, x: number, y: number, height: number): string {
+  const width = round((image.width / image.height) * height);
+  return `<image href="${image.href}" x="${round(x)}" y="${round(y)}" width="${width}" height="${round(height)}" preserveAspectRatio="xMidYMid meet"/>`;
 }
 
-function wordmark(x: number, baseline: number, size: number, onDark: boolean): string {
-  const liefer = onDark ? COLORS.white : COLORS.brand900;
-  const dank = COLORS.coral;
-  return `<text x="${x}" y="${baseline}" font-family="${SANS}" font-size="${size}" font-weight="800" letter-spacing="-0.08"><tspan fill="${liefer}">Liefer</tspan><tspan fill="${dank}">dank</tspan></text>`;
+/**
+ * Original-Logo als unveränderte Bildausschnitte (src/lib/brand/logo-images.ts).
+ * Auf Farbflächen-Karten steht es auf einer weißen Fläche, weil das Original für
+ * Weiß gestaltet ist – Farben und Form werden nie eingefärbt oder nachgezeichnet.
+ */
+function logo(x: number, y: number, plate: boolean): string {
+  const markWidth = (BRAND_MARK.width / BRAND_MARK.height) * LOGO_MARK_HEIGHT;
+  const wordX = x + markWidth + LOGO_GAP;
+  const wordWidth = (BRAND_WORDMARK.width / BRAND_WORDMARK.height) * LOGO_WORDMARK_HEIGHT;
+  const background = plate
+    ? `<rect x="${round(x - 1.1)}" y="${round(y - 0.8)}" width="${round(markWidth + LOGO_GAP + wordWidth + 2.2)}" height="${round(LOGO_MARK_HEIGHT + 1.6)}" rx="1.6" fill="${COLORS.white}"/>`
+    : "";
+  return `${background}${brandImage(BRAND_MARK, x, y, LOGO_MARK_HEIGHT)}${brandImage(BRAND_WORDMARK, wordX, y + (LOGO_MARK_HEIGHT - LOGO_WORDMARK_HEIGHT) / 2, LOGO_WORDMARK_HEIGHT)}`;
 }
 
 function avatar(
@@ -171,10 +178,9 @@ function footer(code: string, onDark: boolean): string {
 <text x="${W - PAD}" y="49.6" text-anchor="end" font-family="${MONO}" font-size="2" font-weight="600" letter-spacing="0.1" fill="${faint}">${escapeXml(code)}</text>`;
 }
 
-function header(onDark: boolean, rank?: RankId | null): string {
+function header(onDark: boolean, rank?: RankId | null, plate = onDark): string {
   const hint = onDark ? "rgba(255,255,255,0.7)" : COLORS.inkFaint;
-  return `${logoMark(PAD, 3.4, 5, onDark)}
-${wordmark(PAD + 6, 7.3, 3.3, onDark)}
+  return `${logo(PAD, 3.2, plate)}
 ${rank && rankTier(rank) ? `${rankBadgeMarkup(rank, 39, 1, 6)}<text x="46" y="6.9" font-family="${SANS}" font-size="1.85" font-weight="700" fill="${onDark ? COLORS.white : COLORS.ink}">${rankTier(rank)!.label}</text>` : ""}
 <text x="${W - PAD}" y="6.9" text-anchor="end" font-family="${SANS}" font-size="1.85" font-weight="700" letter-spacing="0.16" fill="${hint}">KEINE APP NÖTIG</text>`;
 }
@@ -317,7 +323,7 @@ function brand(input: CardRenderInput, id: string): string {
   });
 
   return `<rect width="${W}" height="${H}" rx="3.2" fill="${cardBackgroundColor(input.layout, input.color)}"/>
-${header(onDark, input.showRankBadge === false ? null : input.rank)}
+${header(onDark, input.showRankBadge === false ? null : input.rank, true)}
 <rect x="${tileX}" y="${tileY}" width="${tile}" height="${tile}" rx="2.2" fill="${COLORS.white}"/>
 ${embedQr(input.qrSvg, tileX + qrPad, tileY + qrPad, tile - qrPad * 2)}
 ${qrCaption(tileX + tile / 2, 41.6, onDark)}

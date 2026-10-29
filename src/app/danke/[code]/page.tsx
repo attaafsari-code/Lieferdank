@@ -60,7 +60,7 @@ export default async function ThankYouPage({ params, searchParams }: Params) {
 function Shell({ title, text }: { title: string; text: string }) {
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center px-5 py-16 text-center">
-      <LogoMark className="h-11 w-11" />
+      <LogoMark className="h-11 w-auto" />
       <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-brand-900">{title}</h1>
       <p className="mt-3 leading-relaxed text-ink-soft">{text}</p>
       <Link href="/" className="btn btn-ghost mt-8">

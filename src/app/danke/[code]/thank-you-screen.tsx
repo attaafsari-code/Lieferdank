@@ -52,7 +52,7 @@ export function ThankYouScreen({ driver, paymentMethods, cancelled, preview = fa
       </div>
 
       <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col px-5 pt-6 pb-8">
-        <LogoMark className="mx-auto h-7 w-7 opacity-90" />
+        <LogoMark className="mx-auto h-7 w-auto" />
 
         {/* Wer bekommt das Danke – steht bewusst vor jeder Aktion. */}
         <header className="mt-5 flex flex-col items-center text-center">
